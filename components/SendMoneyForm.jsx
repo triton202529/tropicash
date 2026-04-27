@@ -1,18 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useUser } from '../lib/userContext';
 
 export default function SendMoneyForm({ onClose }) {
+  const { user, loading: authLoading } = useUser();
   const [recipientId, setRecipientId] = useState('');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
-    });
-  }, []);
 
   const handleSend = async () => {
     setMessage(null);
@@ -92,6 +87,16 @@ export default function SendMoneyForm({ onClose }) {
     setLoading(false);
     setTimeout(onClose, 1500);
   };
+
+  if (authLoading || !user) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-md text-center">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">

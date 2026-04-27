@@ -1,78 +1,81 @@
 // pages/wallet-balance.jsx
 import { useEffect, useState } from 'react';
-import { useUser } from '..@/lib/UserContext';
+import { useUser } from '../lib/userContext';
 import { supabase } from '../lib/supabaseClient';
 
+const pageWrap = {
+  padding: "2rem 1.25rem 3rem",
+  maxWidth: "520px",
+  margin: "0 auto",
+  minHeight: "100vh",
+  boxSizing: "border-box",
+  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+};
+
 export default function WalletBalancePage() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const [balance, setBalance] = useState(0);
-  const [funded, setFunded] = useState(0);
-  const [sent, setSent] = useState(0);
-  const [received, setReceived] = useState(0);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    if (loading) return;
+
+    const fetchWallet = async () => {
       if (!user) {
         setStatus('Please log in to view your balance.');
         return;
       }
 
       const { data, error } = await supabase
-        .from('transactions')
+        .from('wallets')
         .select('*')
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`);
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (error) {
-        console.error('Failed to fetch transactions:', error.message);
-        setStatus('Failed to load transactions.');
+        console.error('Failed to fetch wallet:', error.message);
+        setStatus('Failed to load wallet.');
         return;
       }
 
-      let totalFunded = 0;
-      let totalSent = 0;
-      let totalReceived = 0;
-
-      data.forEach((tx) => {
-        const isFunding =
-          tx.type === 'fund_wallet' &&
-          (tx.sender_id === null || tx.sender_id === undefined) &&
-          tx.recipient_id === user.id;
-
-        const isSent = tx.sender_id === user.id && tx.recipient_id !== user.id;
-        const isReceived = tx.recipient_id === user.id && tx.sender_id !== user.id;
-
-        if (isFunding) {
-          totalFunded += tx.amount;
-        } else if (isSent) {
-          totalSent += tx.amount;
-        } else if (isReceived) {
-          totalReceived += tx.amount;
-        }
-      });
-
-      const currentBalance = totalFunded + totalReceived - totalSent;
-
-      setFunded(totalFunded);
-      setSent(totalSent);
-      setReceived(totalReceived);
-      setBalance(currentBalance);
+      const row = data;
+      const raw = row?.wallet_balance ?? row?.balance ?? 0;
+      const n = Number(raw);
+      setBalance(Number.isFinite(n) ? n : 0);
     };
 
-    fetchTransactions();
-  }, [user]);
+    fetchWallet();
+  }, [user, loading]);
+
+  if (loading) {
+    return (
+      <div style={pageWrap}>
+        <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", letterSpacing: "-0.02em" }}>Wallet Balance</h2>
+        <p style={{ marginTop: "0.75rem", color: "#64748b" }}>Loading...</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <h2>Wallet Balance</h2>
-      {status && <p>{status}</p>}
+    <div style={pageWrap}>
+      <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", letterSpacing: "-0.02em" }}>Wallet Balance</h2>
+      {status ? <p style={{ marginTop: "0.75rem", color: "#64748b" }}>{status}</p> : null}
 
       {!status && (
-        <div style={{ marginTop: '1rem' }}>
-          <p><strong>Current Balance:</strong> ${balance.toFixed(2)}</p>
-          <p><strong>Total Funded:</strong> ${funded.toFixed(2)}</p>
-          <p><strong>Total Received:</strong> ${received.toFixed(2)}</p>
-          <p><strong>Total Sent:</strong> ${sent.toFixed(2)}</p>
+        <div
+          style={{
+            marginTop: "1.25rem",
+            padding: "1.15rem 1.2rem",
+            borderRadius: "14px",
+            border: "1px solid #e2e8f0",
+            background: "#ffffff",
+            boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
+          }}
+        >
+          <p style={{ margin: 0, color: "#0f172a" }}><strong style={{ color: "#94a3b8" }}>Current Balance:</strong> ${balance.toFixed(2)}</p>
+          <p style={{ margin: "0.65rem 0 0", color: "#0f172a" }}><strong style={{ color: "#94a3b8" }}>Total Funded:</strong> —</p>
+          <p style={{ margin: "0.65rem 0 0", color: "#0f172a" }}><strong style={{ color: "#94a3b8" }}>Total Received:</strong> —</p>
+          <p style={{ margin: "0.65rem 0 0", color: "#0f172a" }}><strong style={{ color: "#94a3b8" }}>Total Sent:</strong> —</p>
         </div>
       )}
     </div>
