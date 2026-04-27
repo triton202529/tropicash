@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useRouter } from "next/router";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
-import Navbar from "../components/Navbar";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -13,615 +13,280 @@ const FILTERS = [
   { id: "withdrawn", label: "Withdrawn" },
 ];
 
-function capitalize(s) {
-  if (!s || typeof s !== "string") return "Other";
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+const DATE_FILTERS = [
+  { id: "all_time", label: "All Time" },
+  { id: "today", label: "Today" },
+  { id: "this_week", label: "This Week" },
+  { id: "this_month", label: "This Month" },
+];
+
+function formatMoney(value) {
+  const amount = Number(value);
+  return Number(Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-function formatWhen(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
+function formatWhen(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   });
 }
 
-function formatDetailTimestamp(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+function normalizeStatus(value) {
+  const status = String(value || "completed").toLowerCase();
+  if (status.includes("pending") || status.includes("processing")) return "pending";
+  if (status.includes("fail") || status.includes("cancel") || status.includes("revers")) return "failed";
+  return "completed";
 }
 
-function formatReceiptMoney(value) {
-  const n = Math.abs(Number(value));
-  if (!Number.isFinite(n)) {
-    return Number(0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+function normalizeType(type) {
+  const raw = String(type || "").toLowerCase();
+  if (raw === "send_money") return "send";
+  if (raw === "receive_money") return "receive";
+  if (raw === "fund_wallet") return "fund";
+  if (raw === "withdraw_wallet") return "withdraw";
+  return raw;
+}
+
+function inDateRange(createdAt, filterId) {
+  if (filterId === "all_time") return true;
+  const target = new Date(createdAt);
+  if (Number.isNaN(target.getTime())) return false;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (filterId === "today") return target >= todayStart;
+
+  if (filterId === "this_week") {
+    const weekStart = new Date(todayStart);
+    const day = weekStart.getDay();
+    const distance = day === 0 ? 6 : day - 1;
+    weekStart.setDate(weekStart.getDate() - distance);
+    return target >= weekStart;
   }
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
-function formatRunningBalance(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return Number(0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+  if (filterId === "this_month") {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return target >= monthStart;
   }
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return true;
 }
 
-function partyLabel(userId, partyId, names) {
-  if (!partyId) return "—";
-  if (partyId === userId) return "You";
-  return names[partyId] || partyId;
+function startOfDay(dateValue) {
+  const d = new Date(dateValue);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function statusBadgeClasses(statusLabel) {
-  const s = (statusLabel || "").toLowerCase();
-  if (
-    s === "completed" ||
-    s === "complete" ||
-    s === "success" ||
-    s === "succeeded"
-  ) {
-    return "bg-emerald-50 text-emerald-800 ring-emerald-200/80";
-  }
-  if (s === "pending" || s === "processing") {
-    return "bg-amber-50 text-amber-900 ring-amber-200/80";
-  }
-  if (
-    s === "failed" ||
-    s === "cancelled" ||
-    s === "canceled" ||
-    s === "reversed"
-  ) {
-    return "bg-red-50 text-red-800 ring-red-200/80";
-  }
-  return "bg-slate-50 text-slate-700 ring-slate-200/80";
+function displayName(profileRow, fallbackId) {
+  if (!profileRow) return fallbackId || "—";
+  return profileRow.full_name?.trim() || profileRow.email?.trim() || fallbackId || "—";
 }
 
-function directionEmoji(directionLabel) {
-  if (directionLabel === "Sent") return "💸";
-  if (directionLabel === "Received") return "💰";
-  if (directionLabel === "Wallet funded") return "🏦";
-  if (directionLabel === "Withdrawal") return "🧾";
-  return "";
-}
+function classifyTransaction(txn, currentUserId, namesById) {
+  const normalizedType = normalizeType(txn.type);
+  const amount = Number(txn.amount) || 0;
+  const senderId = txn.sender_id || null;
+  const recipientId = txn.recipient_id || null;
+  const isSender = senderId === currentUserId;
+  const isRecipient = recipientId === currentUserId;
+  const isSelf = senderId && recipientId && senderId === currentUserId && recipientId === currentUserId;
 
-function directionWithIcon(directionLabel) {
-  const icon = directionEmoji(directionLabel);
-  return icon ? `${icon} ${directionLabel}` : directionLabel;
-}
+  let category = "all";
+  let label = "Transaction";
+  let direction = "neutral";
+  let senderName = senderId ? namesById[senderId] || senderId : "—";
+  let recipientName = recipientId ? namesById[recipientId] || recipientId : "—";
 
-function startOfLocalDay(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.getTime();
-}
-
-function dateGroupKey(iso) {
-  if (!iso) return "earlier";
-  const txDay = startOfLocalDay(new Date(iso));
-  const today = startOfLocalDay(new Date());
-  const yesterday = today - 86400000;
-  if (txDay === today) return "today";
-  if (txDay === yesterday) return "yesterday";
-  return "earlier";
-}
-
-function enrichTransaction(txn, userId, names) {
-  const amt = Number(txn.amount);
-  const amountNum = Number.isFinite(amt) ? amt : 0;
-  const typeRaw = (txn.type || "").toLowerCase();
-  const status = txn.status ? capitalize(String(txn.status)) : null;
-
-  let category = "other";
-  let directionLabel = "Activity";
-  let counterparty = null;
-  let sign = "";
-  let outflow = false;
-
-  if (typeRaw === "fund" || typeRaw === "fund_wallet") {
-    category = "funded";
-    directionLabel = "Wallet funded";
-    sign = "+";
-    outflow = false;
-  } else if (typeRaw === "withdraw") {
+  if (normalizedType === "withdraw") {
     category = "withdrawn";
-    directionLabel = "Withdrawal";
-    sign = "−";
-    outflow = true;
-  } else if (typeRaw === "send" || typeRaw === "receive") {
-    const selfSend =
-      txn.sender_id === userId && txn.recipient_id === userId;
-    if (selfSend) {
-      category = "funded";
-      directionLabel = "Wallet funded";
-      sign = "+";
-      outflow = false;
-    } else if (txn.sender_id === userId) {
-      category = "sent";
-      directionLabel = "Sent";
-      counterparty = names[txn.recipient_id] || null;
-      sign = "−";
-      outflow = true;
-    } else if (txn.recipient_id === userId) {
-      category = "received";
-      directionLabel = "Received";
-      counterparty = names[txn.sender_id] || null;
-      sign = "+";
-      outflow = false;
-    }
-  } else {
-    directionLabel = capitalize(typeRaw);
-    if (txn.sender_id === userId && txn.recipient_id !== userId) {
-      sign = "−";
-      outflow = true;
-      counterparty = names[txn.recipient_id] || null;
-    } else if (txn.recipient_id === userId && txn.sender_id !== userId) {
-      sign = "+";
-      outflow = false;
-      counterparty = names[txn.sender_id] || null;
-    } else {
-      sign = "+";
-    }
+    label = "Withdrawn";
+    direction = "outgoing";
+    senderName = "You";
+    recipientName = "Bank / External";
+  } else if (normalizedType === "fund") {
+    category = "funded";
+    label = "Funded";
+    direction = "incoming";
+    senderName = "Bank / Card";
+    recipientName = "You";
+  } else if ((normalizedType === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
+    category = "sent";
+    label = "Sent";
+    direction = "outgoing";
+    senderName = "You";
+    recipientName = namesById[recipientId] || recipientId || "Recipient";
+  } else if (
+    normalizedType === "receive" ||
+    (normalizedType === "send" && isRecipient && !isSender) ||
+    (isRecipient && !isSender)
+  ) {
+    category = "received";
+    label = "Received";
+    direction = "incoming";
+    senderName = namesById[senderId] || senderId || "Sender";
+    recipientName = "You";
+  } else if (isSelf) {
+    category = "funded";
+    label = "Funded";
+    direction = "neutral";
+    senderName = "You";
+    recipientName = "You";
   }
 
-  const amountStr = `${sign}$${amountNum.toFixed(2)}`;
+  const sign = direction === "outgoing" ? "-" : direction === "incoming" ? "+" : "";
+  const amountLine = `${sign}$${formatMoney(amount)}`;
+  const bucketLabel = category === "funded" || category === "withdrawn" ? "Wallet" : "Transfer";
+  const description =
+    category === "sent"
+      ? `To ${recipientName}`
+      : category === "received"
+        ? `From ${senderName}`
+        : category === "withdrawn"
+          ? "To bank / external account"
+          : category === "funded"
+            ? "From bank / card"
+            : "Wallet activity";
 
   return {
     ...txn,
     category,
-    directionLabel,
-    counterparty,
-    amountStr,
-    outflow,
-    typeLabel: capitalize(typeRaw),
-    statusLabel: status,
-    whenLabel: formatWhen(txn.created_at),
+    label,
+    senderName: senderName === currentUserId ? "You" : senderName,
+    recipientName: recipientName === currentUserId ? "You" : recipientName,
+    bucketLabel,
+    direction,
+    amountLine,
+    dateLine: formatWhen(txn.created_at),
+    statusLine: txn.status ? String(txn.status) : "completed",
+    description,
+    amountValue: amount,
   };
 }
 
-function attachRunningBalances(enriched) {
-  const chronological = [...enriched].sort((a, b) => {
-    const ta = new Date(a.created_at).getTime();
-    const tb = new Date(b.created_at).getTime();
-    if (ta !== tb) return ta - tb;
-    return String(a.id).localeCompare(String(b.id));
-  });
-
-  let running = 0;
-  const balanceAfterById = new Map();
-  for (const t of chronological) {
-    const amt = Number(t.amount) || 0;
-    running += t.outflow ? -amt : amt;
-    balanceAfterById.set(t.id, running);
-  }
-
-  return enriched.map((t) => ({
-    ...t,
-    runningBalance: balanceAfterById.get(t.id) ?? 0,
-  }));
-}
-
-function ReceiptRow({ label, children, emphasize }) {
-  return (
-    <div className={emphasize ? "py-3" : "py-2.5"}>
-      <p className="text-[0.65rem] font-semibold text-slate-500 uppercase tracking-[0.12em]">
-        {label}
-      </p>
-      <div
-        className={`mt-1 text-slate-900 ${
-          emphasize ? "text-base font-semibold leading-snug" : "text-sm"
-        }`}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function TransactionDetailModal({ txn, onClose, userId, profileNames }) {
-  const [copyDone, setCopyDone] = useState(false);
-  const copyTimerRef = useRef(null);
-
-  useEffect(() => {
-    setCopyDone(false);
-    if (copyTimerRef.current) {
-      clearTimeout(copyTimerRef.current);
-      copyTimerRef.current = null;
-    }
-  }, [txn?.id]);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
-    };
-  }, []);
-
-  if (!txn) return null;
-
-  const note =
-    txn.note != null && String(txn.note).trim() !== ""
-      ? String(txn.note)
-      : null;
-
-  const senderName = partyLabel(userId, txn.sender_id, profileNames);
-  const recipientName = partyLabel(userId, txn.recipient_id, profileNames);
-  const idStr = String(txn.id);
-  const absAmount = formatReceiptMoney(txn.amount);
-  const statusDisplay = txn.statusLabel || "—";
-
-  const copyTransactionId = async () => {
-    try {
-      await navigator.clipboard.writeText(idStr);
-      setCopyDone(true);
-      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
-      copyTimerRef.current = setTimeout(() => {
-        setCopyDone(false);
-        copyTimerRef.current = null;
-      }, 2000);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      role="presentation"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-slate-100/90 shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="txn-detail-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-white/80 hover:text-slate-800 text-xl leading-none"
-          aria-label="Close"
-        >
-          ×
-        </button>
-
-        <div className="p-5 pt-12 flex justify-center">
-          <div className="w-full max-w-[340px] rounded-xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
-            <p className="text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Receipt
-            </p>
-            <p
-              id="txn-detail-title"
-              className="text-center text-sm font-medium text-slate-600 mt-2"
-            >
-              {directionWithIcon(txn.directionLabel)}
-            </p>
-            <p className="text-center text-xs text-slate-500 mt-1">
-              {txn.typeLabel}
-            </p>
-
-            <div className="mt-6 text-center">
-              <p
-                className={`text-4xl font-bold tabular-nums tracking-tight ${
-                  txn.outflow ? "text-red-600" : "text-emerald-600"
-                }`}
-              >
-                {txn.outflow ? "−" : "+"}${absAmount}
-              </p>
-            </div>
-
-            <div className="mt-5 flex justify-center">
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusBadgeClasses(
-                  statusDisplay
-                )}`}
-              >
-                {statusDisplay}
-              </span>
-            </div>
-
-            <div className="mt-6 border-t border-dashed border-slate-200 pt-5 space-y-0 divide-y divide-slate-100">
-              <ReceiptRow label="Date & time">
-                {formatDetailTimestamp(txn.created_at)}
-              </ReceiptRow>
-              <ReceiptRow label="Sender" emphasize>
-                {senderName}
-              </ReceiptRow>
-              <ReceiptRow label="Recipient" emphasize>
-                {recipientName}
-              </ReceiptRow>
-              <ReceiptRow label="Transaction ID">
-                <span className="font-mono text-xs break-all text-slate-600 leading-relaxed">
-                  {idStr}
-                </span>
-              </ReceiptRow>
-              {note ? (
-                <ReceiptRow label="Note">
-                  <span className="text-slate-700 whitespace-pre-wrap break-words">
-                    {note}
-                  </span>
-                </ReceiptRow>
-              ) : null}
-              <ReceiptRow label="Balance after transaction">
-                <span className="tabular-nums font-medium text-slate-800">
-                  ${formatRunningBalance(txn.runningBalance)}
-                </span>
-              </ReceiptRow>
-            </div>
-
-            <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
-              <button
-                type="button"
-                onClick={copyTransactionId}
-                className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 transition-colors"
-              >
-                {copyDone ? "Copied!" : "Copy Transaction ID"}
-              </button>
-              <Link
-                href={`/transactions/${encodeURIComponent(idStr)}`}
-                onClick={onClose}
-                className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 transition-colors text-center"
-              >
-                Open full details
-              </Link>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full sm:w-auto rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function iconForType(category) {
+  if (category === "sent") return { symbol: "↑", color: "#dc2626", bg: "#fee2e2" };
+  if (category === "received") return { symbol: "↓", color: "#059669", bg: "#d1fae5" };
+  if (category === "withdrawn") return { symbol: "-", color: "#dc2626", bg: "#fee2e2" };
+  return { symbol: "+", color: "#16a34a", bg: "#dcfce7" };
 }
 
 export default function TransactionsPage() {
   const router = useRouter();
-  const { user, profile, loading: authLoading } = useUser();
-  const [transactions, setTransactions] = useState([]);
-  const [profiles, setProfiles] = useState({});
+  const { user, loading: authLoading, profile } = useUser();
+
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
-  const [detailTxn, setDetailTxn] = useState(null);
-  const [pulseTxnId, setPulseTxnId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [rows, setRows] = useState([]);
+  const [profilesMap, setProfilesMap] = useState({});
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeDateFilter, setActiveDateFilter] = useState("all_time");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchData = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!user?.id) return;
-      if (!silent) setLoading(true);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user?.id) {
+      setRows([]);
+      setProfilesMap({});
+      setLoading(false);
+      return;
+    }
 
-      const { data: txns, error: txnError } = await supabase
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setErrorMsg("");
+      const { data: txns, error: txError } = await supabase
         .from("transactions")
         .select("*")
         .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
-      if (txnError) {
-        console.error("Transaction fetch error:", txnError.message);
-        if (!silent) setLoading(false);
+      if (cancelled) return;
+      if (txError) {
+        console.error("[transactions] fetch failed:", txError);
+        setRows([]);
+        setProfilesMap({});
+        setErrorMsg("Could not load your transactions right now.");
+        setLoading(false);
         return;
       }
 
-      setTransactions(txns || []);
+      const txnRows = txns || [];
+      setRows(txnRows);
 
-      const userIds = [
-        ...new Set((txns || []).flatMap((txn) => [txn.sender_id, txn.recipient_id])),
-      ].filter(Boolean);
-
-      if (userIds.length === 0) {
-        setProfiles({});
-        if (!silent) setLoading(false);
+      const idSet = new Set();
+      txnRows.forEach((txn) => {
+        if (txn.sender_id) idSet.add(txn.sender_id);
+        if (txn.recipient_id) idSet.add(txn.recipient_id);
+      });
+      const ids = [...idSet];
+      if (!ids.length) {
+        setProfilesMap({});
+        setLoading(false);
         return;
       }
 
-      const { data: usersData, error: profileError } = await supabase
+      const { data: profileRows, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .in("id", userIds);
+        .in("id", ids);
 
+      if (cancelled) return;
       if (profileError) {
-        console.error("Profile fetch error:", profileError.message);
-        if (!silent) setLoading(false);
-        return;
+        console.error("[transactions] profile lookup failed:", profileError);
+        setProfilesMap({});
+      } else {
+        const nextMap = {};
+        (profileRows || []).forEach((row) => {
+          nextMap[row.id] = displayName(row);
+        });
+        if (user.id && !nextMap[user.id]) {
+          nextMap[user.id] = profile?.full_name?.trim() || profile?.email?.trim() || "You";
+        }
+        setProfilesMap(nextMap);
       }
-
-      const profileMap = {};
-      (usersData || []).forEach((p) => {
-        const label =
-          p.full_name?.trim() || p.email?.trim() || p.id;
-        profileMap[p.id] = label;
-      });
-      setProfiles(profileMap);
-
-      if (!silent) setLoading(false);
-    },
-    [user?.id]
-  );
-
-  useEffect(() => {
-    if (!detailTxn) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") setDetailTxn(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [detailTxn]);
-
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!user?.id) {
       setLoading(false);
-      setTransactions([]);
-      setProfiles({});
-      return;
-    }
+    };
 
-    fetchData({ silent: false });
-  }, [user?.id, authLoading, fetchData]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel(`transactions-live-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "transactions" },
-        (payload) => {
-          const row = payload.new;
-          if (!row) return;
-          if (row.sender_id !== user.id && row.recipient_id !== user.id) return;
-          setPulseTxnId(row.id);
-          fetchData({ silent: true });
-        }
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.error("Realtime subscription:", status);
-        }
-      });
-
+    run();
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
     };
-  }, [user?.id, fetchData]);
+  }, [authLoading, profile?.email, profile?.full_name, user?.id]);
 
-  useEffect(() => {
-    if (pulseTxnId == null) return;
-    const t = setTimeout(() => setPulseTxnId(null), 2600);
-    return () => clearTimeout(t);
-  }, [pulseTxnId]);
-
-  const profileNames = useMemo(() => {
-    const m = { ...profiles };
-    if (user?.id) {
-      m[user.id] =
-        profile?.full_name?.trim() ||
-        profile?.email?.trim() ||
-        "You";
-    }
-    return m;
-  }, [profiles, user?.id, profile?.full_name, profile?.email]);
-
-  const enriched = useMemo(() => {
+  const enrichedRows = useMemo(() => {
     if (!user?.id) return [];
-    return (transactions || []).map((txn) =>
-      enrichTransaction(txn, user.id, profileNames)
-    );
-  }, [transactions, user?.id, profileNames]);
+    return rows.map((txn) => classifyTransaction(txn, user.id, profilesMap));
+  }, [rows, user?.id, profilesMap]);
 
-  const enrichedWithRunning = useMemo(
-    () => attachRunningBalances(enriched),
-    [enriched]
-  );
-
-  const summary = useMemo(() => {
-    let sent = 0;
-    let received = 0;
-    enriched.forEach((t) => {
-      if (t.category === "sent" || t.category === "withdrawn") {
-        sent += Number(t.amount) || 0;
-      }
-      if (t.category === "received" || t.category === "funded") {
-        received += Number(t.amount) || 0;
-      }
+  const filteredRows = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return enrichedRows.filter((row) => {
+      const matchesCategory = activeFilter === "all" ? true : row.category === activeFilter;
+      const matchesDate = inDateRange(row.created_at, activeDateFilter);
+      const haystack = `${row.senderName} ${row.recipientName} ${row.description} ${row.label} ${String(
+        row.id
+      )}`.toLowerCase();
+      const matchesSearch = query ? haystack.includes(query) : true;
+      return matchesCategory && matchesDate && matchesSearch;
     });
-    return {
-      total: enriched.length,
-      sent,
-      received,
-    };
-  }, [enriched]);
-
-  const filtered = useMemo(() => {
-    if (filter === "all") return enrichedWithRunning;
-    return enrichedWithRunning.filter((t) => t.category === filter);
-  }, [enrichedWithRunning, filter]);
-
-  const groupedSections = useMemo(() => {
-    const buckets = { today: [], yesterday: [], earlier: [] };
-    for (const t of filtered) {
-      buckets[dateGroupKey(t.created_at)].push(t);
-    }
-    return [
-      { key: "today", label: "Today", items: buckets.today },
-      { key: "yesterday", label: "Yesterday", items: buckets.yesterday },
-      { key: "earlier", label: "Earlier", items: buckets.earlier },
-    ].filter((s) => s.items.length > 0);
-  }, [filtered]);
-
-  const receiptOpenedRef = useRef(null);
-
-  useEffect(() => {
-    if (!router.isReady) return;
-    const raw = router.query.receipt;
-    const receiptId = Array.isArray(raw) ? raw[0] : raw;
-    if (!receiptId || typeof receiptId !== "string") {
-      receiptOpenedRef.current = null;
-      return;
-    }
-    if (!user?.id || loading || authLoading) return;
-    if (receiptOpenedRef.current === receiptId) return;
-
-    const found = enrichedWithRunning.find((t) => String(t.id) === receiptId);
-    if (found) {
-      receiptOpenedRef.current = receiptId;
-      setDetailTxn(found);
-      setPulseTxnId(found.id);
-      router.replace("/transactions", undefined, { shallow: true });
-    }
-  }, [
-    router,
-    router.isReady,
-    router.query.receipt,
-    enrichedWithRunning,
-    loading,
-    authLoading,
-    user?.id,
-  ]);
+  }, [enrichedRows, activeFilter, activeDateFilter, searchQuery]);
 
   if (!authLoading && !user) {
     return (
       <>
         <Navbar />
-        <div className="p-6 max-w-2xl mx-auto pb-12">
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Transaction history
-          </h2>
-          <p className="text-slate-600 mt-4">Sign in to view your activity.</p>
-          <Link
-            href="/login"
-            className="inline-block mt-4 text-sm font-semibold text-sky-600 hover:text-sky-700"
-          >
+        <div style={pageShell}>
+          <h1 style={pageTitle}>Transaction History</h1>
+          <p style={subtleText}>Sign in to view your wallet activity.</p>
+          <Link href="/login" style={linkBtn}>
             Go to login
           </Link>
         </div>
@@ -629,174 +294,293 @@ export default function TransactionsPage() {
     );
   }
 
-  const showLoading = authLoading || loading;
-
-  const filterBtn = (active) =>
-    `px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-      active
-        ? "bg-slate-800 text-white border-slate-800"
-        : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-    }`;
-
   return (
     <>
       <Navbar />
-      <div className="p-6 max-w-2xl mx-auto pb-12">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Transaction history
-        </h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Your wallet activity, newest first.
-        </p>
-      </div>
-
-      {showLoading ? (
-        <p className="text-slate-600">Loading...</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                Total transactions
-              </p>
-              <p className="text-2xl font-semibold text-slate-900 mt-1">
-                {summary.total}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                Total sent
-              </p>
-              <p className="text-2xl font-semibold text-red-600 mt-1">
-                ${summary.sent.toFixed(2)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                Total received
-              </p>
-              <p className="text-2xl font-semibold text-emerald-600 mt-1">
-                ${summary.received.toFixed(2)}
-              </p>
-            </div>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes txShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+            .tx-row { transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+            .tx-row:hover { transform: scale(1.01); box-shadow: 0 16px 30px rgba(15, 23, 42, 0.14); border-color: #cbd5e1; }
+            .tx-row:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+          `,
+        }}
+      />
+      <div style={pageShell}>
+        <div style={headerRow}>
+          <div>
+            <h1 style={pageTitle}>Transaction History</h1>
+            <p style={subtleText}>All wallet activity, newest first.</p>
           </div>
+          <Link href="/insights" style={insightsLink}>
+            View Insights
+          </Link>
+        </div>
 
-          <div className="flex flex-wrap gap-2 mb-5">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilter(f.id)}
-                className={filterBtn(filter === f.id)}
-              >
-                {f.label}
+        <div style={searchWrap}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name or transaction ID"
+            style={searchInput}
+          />
+        </div>
+
+        <div style={filterWrap}>
+          {FILTERS.map((filter) => {
+            const active = filter.id === activeFilter;
+            return (
+              <button key={filter.id} type="button" onClick={() => setActiveFilter(filter.id)} style={active ? filterBtnActive : filterBtn}>
+                {filter.label}
               </button>
+            );
+          })}
+        </div>
+
+        <div style={{ ...filterWrap, marginTop: "0.55rem" }}>
+          {DATE_FILTERS.map((filter) => {
+            const active = filter.id === activeDateFilter;
+            return (
+              <button key={filter.id} type="button" onClick={() => setActiveDateFilter(filter.id)} style={active ? filterBtnActive : filterBtn}>
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {authLoading || loading ? (
+          <div style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} style={skeletonRow}>
+                <div style={skeletonIcon} />
+                <div style={{ flex: 1 }}>
+                  <div style={skeletonLineWide} />
+                  <div style={skeletonLineMed} />
+                  <div style={skeletonLineSm} />
+                </div>
+                <div style={skeletonAmount} />
+              </div>
             ))}
           </div>
-
-          {transactions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-10 text-center">
-              <p className="text-slate-700 font-medium">No activity yet</p>
-              <p className="text-sm text-slate-500 mt-2">
-                When you fund your wallet, send money, or withdraw, it will
-                show up here.
-              </p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-8 text-center">
-              <p className="text-slate-700 font-medium">
-                No transactions in this category
-              </p>
-              <p className="text-sm text-slate-500 mt-2">
-                Try another filter or view All.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {groupedSections.map((section) => (
-                <div key={section.key}>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-1">
-                    {section.label}
-                  </h3>
-                  <ul className="space-y-3">
-                    {section.items.map((txn) => (
-                      <li
-                        key={txn.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setDetailTxn(txn)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setDetailTxn(txn);
-                          }
+        ) : errorMsg ? (
+          <div style={stateCard}>
+            <p style={stateTitle}>{errorMsg}</p>
+          </div>
+        ) : rows.length === 0 ? (
+          <div style={stateCard}>
+            <div style={emptyIcon}>◌</div>
+            <p style={stateTitle}>No transactions yet</p>
+            <p style={stateDescription}>Your activity will appear here once you start using Tropicash</p>
+          </div>
+        ) : filteredRows.length === 0 ? (
+          <div style={stateCard}>
+            <p style={stateTitle}>No matching transactions</p>
+            <p style={stateDescription}>Try switching filters or search terms.</p>
+          </div>
+        ) : (
+          <div style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
+            {filteredRows.map((row) => {
+              const amountStyle = row.direction === "outgoing" ? amountOut : row.direction === "incoming" ? amountIn : amountNeutral;
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => router.push(`/transactions/${encodeURIComponent(String(row.id))}`)}
+                  style={rowBtn}
+                  className="tx-row"
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                      <span
+                        style={{
+                          ...iconBubble,
+                          color: iconForType(row.category).color,
+                          background: iconForType(row.category).bg,
                         }}
-                        className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm cursor-pointer transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 ${
-                          String(pulseTxnId) === String(txn.id)
-                            ? "ring-2 ring-amber-400/70 ring-inset bg-amber-50/60"
-                            : ""
-                        }`}
                       >
-                        <div className="flex justify-between gap-3 items-start">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-slate-900">
-                                {directionWithIcon(txn.directionLabel)}
-                              </span>
-                              <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
-                                {txn.typeLabel}
-                              </span>
-                              {txn.statusLabel && (
-                                <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-medium">
-                                  {txn.statusLabel}
-                                </span>
-                              )}
-                            </div>
-                            {txn.counterparty && (
-                              <p className="text-sm text-slate-600 mt-1 truncate">
-                                {txn.directionLabel === "Sent"
-                                  ? `To ${txn.counterparty}`
-                                  : txn.directionLabel === "Received"
-                                    ? `From ${txn.counterparty}`
-                                    : txn.counterparty}
-                              </p>
-                            )}
-                            <p className="text-xs text-slate-400 mt-2">
-                              {txn.whenLabel}
-                            </p>
-                            <p className="text-xs text-slate-400 mt-1 tabular-nums">
-                              Balance after: $
-                              {Number(txn.runningBalance).toFixed(2)}
-                            </p>
-                          </div>
-                          <div
-                            className={`text-lg font-bold tabular-nums shrink-0 ${
-                              txn.outflow ? "text-red-600" : "text-emerald-600"
-                            }`}
-                          >
-                            {txn.amountStr}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {detailTxn && user?.id && (
-        <TransactionDetailModal
-          txn={detailTxn}
-          onClose={() => setDetailTxn(null)}
-          userId={user.id}
-          profileNames={profileNames}
-        />
-      )}
-    </div>
+                        {iconForType(row.category).symbol}
+                      </span>
+                      <span style={rowLabel}>{row.label}</span>
+                      <span style={friendlyPill}>{row.bucketLabel}</span>
+                      <span
+                        style={{
+                          ...statusPill,
+                          ...(normalizeStatus(row.statusLine) === "completed"
+                            ? statusComplete
+                            : normalizeStatus(row.statusLine) === "pending"
+                              ? statusPending
+                              : statusFailed),
+                        }}
+                      >
+                        {normalizeStatus(row.statusLine)}
+                      </span>
+                    </div>
+                    <p style={rowDescription}>{row.description}</p>
+                    <p style={rowDate}>{row.dateLine}</p>
+                  </div>
+                  <div style={amountStyle}>{row.amountLine}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </>
   );
 }
+
+const pageShell = {
+  padding: "2rem 1.25rem 3rem",
+  maxWidth: "640px",
+  margin: "0 auto",
+  minHeight: "calc(100vh - 3.5rem)",
+  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  boxSizing: "border-box",
+};
+
+const pageTitle = { margin: 0, color: "#f8fafc", fontSize: "1.55rem", fontWeight: 700, letterSpacing: "-0.02em" };
+const subtleText = { margin: "0.45rem 0 0", color: "#94a3b8", fontSize: "0.92rem" };
+const filterWrap = { marginTop: "1.2rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" };
+const filterBtn = {
+  border: "1px solid rgba(148, 163, 184, 0.4)",
+  background: "#ffffff",
+  color: "#0f172a",
+  borderRadius: "999px",
+  padding: "0.45rem 0.8rem",
+  fontWeight: 600,
+  fontSize: "0.88rem",
+  cursor: "pointer",
+};
+const filterBtnActive = {
+  ...filterBtn,
+  border: "1px solid rgba(59, 130, 246, 0.7)",
+  background: "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)",
+  color: "#ffffff",
+};
+const rowBtn = {
+  width: "100%",
+  textAlign: "left",
+  border: "1px solid #e2e8f0",
+  borderRadius: "14px",
+  background: "#ffffff",
+  padding: "0.95rem 1rem",
+  cursor: "pointer",
+  boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.8rem",
+};
+const iconBubble = {
+  width: "22px",
+  height: "22px",
+  borderRadius: "999px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 800,
+  fontSize: "0.82rem",
+};
+const rowLabel = { color: "#0f172a", fontWeight: 700, fontSize: "0.96rem" };
+const friendlyPill = {
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#64748b",
+  background: "#f1f5f9",
+  padding: "0.18rem 0.45rem",
+  borderRadius: "999px",
+};
+const rowDescription = {
+  margin: "0.3rem 0 0",
+  fontSize: "0.85rem",
+  color: "#64748b",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+const rowDate = { margin: "0.25rem 0 0", fontSize: "0.77rem", color: "#94a3b8" };
+const amountBase = { fontWeight: 700, fontVariantNumeric: "tabular-nums", fontSize: "1rem", whiteSpace: "nowrap" };
+const amountIn = { ...amountBase, color: "#059669" };
+const amountOut = { ...amountBase, color: "#dc2626" };
+const amountNeutral = { ...amountBase, color: "#334155" };
+const stateCard = {
+  marginTop: "1rem",
+  border: "1px dashed rgba(148, 163, 184, 0.45)",
+  background: "rgba(255, 255, 255, 0.92)",
+  borderRadius: "14px",
+  padding: "1.6rem 1.1rem",
+  textAlign: "center",
+};
+const stateTitle = { margin: 0, color: "#0f172a", fontWeight: 700 };
+const stateDescription = { margin: "0.45rem 0 0", color: "#64748b", fontSize: "0.88rem" };
+const emptyIcon = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "999px",
+  background: "#e2e8f0",
+  color: "#334155",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  margin: "0 auto 0.6rem",
+  fontWeight: 700,
+};
+const statusPill = {
+  fontSize: "0.69rem",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  borderRadius: "999px",
+  padding: "0.16rem 0.42rem",
+  border: "1px solid transparent",
+};
+const statusComplete = { color: "#065f46", background: "#d1fae5", borderColor: "#a7f3d0" };
+const statusPending = { color: "#92400e", background: "#fef3c7", borderColor: "#fde68a" };
+const statusFailed = { color: "#991b1b", background: "#fee2e2", borderColor: "#fecaca" };
+const searchWrap = { marginTop: "1rem" };
+const searchInput = {
+  width: "100%",
+  border: "1px solid #cbd5e1",
+  background: "#f8fafc",
+  color: "#0f172a",
+  borderRadius: "12px",
+  padding: "0.7rem 0.82rem",
+  fontSize: "0.92rem",
+  outline: "none",
+};
+const skeletonBase = {
+  borderRadius: "8px",
+  background: "linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%)",
+  backgroundSize: "800px 100%",
+  animation: "txShimmer 1.2s ease-in-out infinite",
+};
+const skeletonRow = { ...rowBtn, pointerEvents: "none", padding: "1rem" };
+const skeletonIcon = { ...skeletonBase, width: "24px", height: "24px", borderRadius: "999px" };
+const skeletonLineWide = { ...skeletonBase, height: "12px", width: "72%" };
+const skeletonLineMed = { ...skeletonBase, height: "10px", width: "56%", marginTop: "0.5rem" };
+const skeletonLineSm = { ...skeletonBase, height: "9px", width: "36%", marginTop: "0.5rem" };
+const skeletonAmount = { ...skeletonBase, width: "74px", height: "16px" };
+const linkBtn = { display: "inline-block", marginTop: "0.9rem", color: "#0ea5e9", fontWeight: 600, textDecoration: "none" };
+const headerRow = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "0.8rem",
+  flexWrap: "wrap",
+};
+const insightsLink = {
+  marginTop: "0.15rem",
+  textDecoration: "none",
+  color: "#0ea5e9",
+  border: "1px solid rgba(14, 165, 233, 0.35)",
+  background: "rgba(255,255,255,0.95)",
+  borderRadius: "999px",
+  padding: "0.38rem 0.72rem",
+  fontSize: "0.82rem",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
