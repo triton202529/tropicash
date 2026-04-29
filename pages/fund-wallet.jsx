@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
@@ -63,6 +63,35 @@ const receiptRowValue = {
   wordBreak: "break-word",
 };
 
+const PAYPAL_SDK_SCRIPT_BASE = "https://www.paypal.com/sdk/js";
+
+const sandboxModeBadge = {
+  display: "inline-block",
+  padding: "0.2rem 0.55rem",
+  borderRadius: "999px",
+  fontSize: "0.68rem",
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  background: "#f1f5f9",
+  color: "#475569",
+  border: "1px solid #e2e8f0",
+};
+
+const liveModeBadge = {
+  display: "inline-block",
+  padding: "0.22rem 0.6rem",
+  borderRadius: "999px",
+  fontSize: "0.7rem",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  background: "#fef2f2",
+  color: "#991b1b",
+  border: "1px solid #f87171",
+  boxShadow: "0 0 0 1px rgba(185, 28, 28, 0.12)",
+};
+
 export default function FundWalletPage() {
   const { user, profile, loading: authLoading } = useUser();
 
@@ -77,6 +106,25 @@ export default function FundWalletPage() {
 
   const paypalButtonContainerRef = useRef(null);
   const latestAmountRef = useRef("");
+
+  const paypalUiMode = useMemo(() => {
+    const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
+    if (raw === "live") return "live";
+    if (raw === "sandbox") return "sandbox";
+    return "sandbox";
+  }, []);
+
+  const paypalReceiptMethodLabel =
+    paypalUiMode === "live" ? "PayPal Live" : "PayPal Sandbox";
+
+  useEffect(() => {
+    const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
+    if (raw !== "sandbox" && raw !== "live" && process.env.NEXT_PUBLIC_PAYPAL_MODE) {
+      console.warn(
+        `[fund-wallet] Invalid NEXT_PUBLIC_PAYPAL_MODE "${process.env.NEXT_PUBLIC_PAYPAL_MODE}", using sandbox.`,
+      );
+    }
+  }, []);
 
   useEffect(() => {
     latestAmountRef.current = amount;
@@ -134,7 +182,7 @@ export default function FundWalletPage() {
     }
 
     const script = document.createElement("script");
-    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD`;
+    script.src = `${PAYPAL_SDK_SCRIPT_BASE}?client-id=${encodeURIComponent(clientId)}&currency=USD`;
     script.async = true;
     script.onload = () => {
       if (!cancelled) setPaypalReady(true);
@@ -147,7 +195,7 @@ export default function FundWalletPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [paypalUiMode]);
 
   const parsedAmount = Number(amount);
   const amountLooksValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
@@ -259,7 +307,7 @@ export default function FundWalletPage() {
           setAmount("");
           setSuccessReceipt({
             amountFormatted: formatMoney(fundedAmount),
-            method: "PayPal Sandbox",
+            method: paypalReceiptMethodLabel,
             status: "Completed",
             orderId: receiptOrderId,
           });
@@ -296,7 +344,14 @@ export default function FundWalletPage() {
       }
       container.innerHTML = "";
     };
-  }, [paypalReady, amountLooksValid, successReceipt, user?.id, fetchWalletBalance]);
+  }, [
+    paypalReady,
+    amountLooksValid,
+    successReceipt,
+    user?.id,
+    fetchWalletBalance,
+    paypalReceiptMethodLabel,
+  ]);
 
   const pageStyle = {
     padding: "2rem 1.25rem 3rem",
@@ -612,9 +667,11 @@ export default function FundWalletPage() {
                 disabled={formDisabled}
                 style={{ ...inputBase, marginTop: "0.3rem" }}
               />
-              <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", color: "#64748b" }}>
-                Sandbox only — use PayPal test accounts. Per transaction: minimum $1, maximum
-                $1,000.
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", color: "#64748b", lineHeight: 1.45 }}>
+                {paypalUiMode === "live"
+                  ? "Live payments enabled — real charges may occur."
+                  : "Sandbox only — use PayPal test accounts."}{" "}
+                Per transaction: minimum $1, maximum $1,000.
               </p>
             </div>
 
@@ -642,16 +699,30 @@ export default function FundWalletPage() {
                 boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
               }}
             >
-              <p
+              <div
                 style={{
-                  fontSize: "0.95rem",
-                  fontWeight: 600,
-                  color: "#0f172a",
-                  margin: "0 0 0.35rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                  marginBottom: "0.35rem",
                 }}
               >
-                Pay with PayPal
-              </p>
+                <p
+                  style={{
+                    fontSize: "0.95rem",
+                    fontWeight: 600,
+                    color: "#0f172a",
+                    margin: 0,
+                  }}
+                >
+                  Pay with PayPal
+                </p>
+                <span style={paypalUiMode === "live" ? liveModeBadge : sandboxModeBadge}>
+                  {paypalUiMode === "live" ? "Live Mode" : "Sandbox Mode"}
+                </span>
+              </div>
               <p
                 style={{
                   margin: "0 0 0.75rem",
