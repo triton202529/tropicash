@@ -37,6 +37,24 @@ function userLabel(profile, userId) {
   return userId || "—";
 }
 
+/** Human-readable Supabase / PostgREST error for admin debugging. */
+function formatSupabaseError(err) {
+  if (!err) return "Unknown error";
+  if (typeof err === "string") return err;
+  const parts = [];
+  if (err.message) parts.push(String(err.message));
+  if (err.code) parts.push(`code ${err.code}`);
+  if (err.details) parts.push(String(err.details));
+  if (err.hint) parts.push(`hint: ${err.hint}`);
+  return parts.length ? parts.join(" — ") : String(err);
+}
+
+function chunkIds(ids, size) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
+
 /** Normalize fraud log status for UI + filters (legacy rows without column → open). */
 function normalizeStatus(raw) {
   const v = String(raw || "").toLowerCase();
@@ -217,6 +235,7 @@ export default function AdminFraudDashboardPage() {
   const [profilesMap, setProfilesMap] = useState({});
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const [profileFetchWarning, setProfileFetchWarning] = useState(null);
 
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("all");
@@ -231,25 +250,40 @@ export default function AdminFraudDashboardPage() {
     if (!user?.id) return;
     setDataLoading(true);
     setFetchError(null);
+    setProfileFetchWarning(null);
 
-    const { data, error } = await supabase
-      .from("fraud_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
+    let rows = [];
+    try {
+      const { data, error } = await supabase
+        .from("fraud_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
 
-    if (error) {
-      console.error(error);
-      setFetchError(error.message || "Failed to load fraud logs.");
+      if (error) {
+        console.error("[admin/fraud] fraud_logs:", error);
+        setFetchError(formatSupabaseError(error));
+        setLogs([]);
+        setProfilesMap({});
+        setDataLoading(false);
+        return;
+      }
+
+      rows = data || [];
+      setLogs(rows);
+      setNoteDraftById({});
+    } catch (e) {
+      console.error("[admin/fraud] fraud_logs fetch threw:", e);
+      setFetchError(
+        e?.name === "TypeError" && String(e?.message || "").includes("fetch")
+          ? "Network error loading fraud_logs (request may have been blocked or failed). Check browser network tab and Supabase URL."
+          : formatSupabaseError(e),
+      );
       setLogs([]);
       setProfilesMap({});
       setDataLoading(false);
       return;
     }
-
-    const rows = data || [];
-    setLogs(rows);
-    setNoteDraftById({});
 
     const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
     if (ids.length === 0) {
@@ -258,18 +292,37 @@ export default function AdminFraudDashboardPage() {
       return;
     }
 
-    const { data: profs, error: pErr } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, phone, risk_level, risk_flags, risk_score_snapshot, risk_last_evaluated_at, account_status, account_flags, account_last_reviewed_at"
-      )
-      .in("id", ids);
+    const PROFILE_SELECT = "id, full_name, email, phone";
+    const merged = {};
+    const chunkSize = 30;
+    const warnings = [];
 
-    if (pErr) {
-      console.error(pErr);
-      setProfilesMap({});
-    } else {
-      setProfilesMap(Object.fromEntries((profs || []).map((p) => [p.id, p])));
+    for (const chunk of chunkIds(ids, chunkSize)) {
+      try {
+        const { data: profs, error: pErr } = await supabase
+          .from("profiles")
+          .select(PROFILE_SELECT)
+          .in("id", chunk);
+
+        if (pErr) {
+          console.error("[admin/fraud] profiles chunk:", pErr);
+          warnings.push(formatSupabaseError(pErr));
+        } else {
+          for (const p of profs || []) {
+            merged[p.id] = p;
+          }
+        }
+      } catch (e) {
+        console.error("[admin/fraud] profiles chunk threw:", e);
+        warnings.push(formatSupabaseError(e));
+      }
+    }
+
+    setProfilesMap(merged);
+    if (warnings.length) {
+      setProfileFetchWarning(
+        `Some profile rows could not be loaded (${warnings.length} batch(es)). ${warnings[0]}`,
+      );
     }
 
     setDataLoading(false);
@@ -642,6 +695,22 @@ export default function AdminFraudDashboardPage() {
             }}
           >
             {fetchError}
+          </div>
+        ) : null}
+
+        {profileFetchWarning ? (
+          <div
+            style={{
+              ...cardBase,
+              padding: "1rem 1.15rem",
+              marginBottom: "1.25rem",
+              background: "#fffbeb",
+              borderColor: "#fcd34d",
+              color: "#9a3412",
+              fontSize: "0.88rem",
+            }}
+          >
+            {profileFetchWarning} User IDs still appear on each row.
           </div>
         ) : null}
 

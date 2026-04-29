@@ -7,11 +7,6 @@ import { isAdminUser } from "../../../../lib/adminAccess";
 import Navbar from "../../../../components/Navbar";
 import { normalizeRiskFlagsArray } from "../../../../lib/riskFlags";
 import { normalizeAccountFlags } from "../../../../lib/accountControls";
-import {
-  formatFraudEventTypeLabel,
-  summarizeFraudEventData,
-} from "../../../../lib/fraudEvents";
-
 const pageWrap = {
   padding: "2rem 1.25rem 3rem",
   maxWidth: "1200px",
@@ -72,6 +67,17 @@ function userLabel(profile, userId) {
   if (profile?.full_name?.trim()) return profile.full_name.trim();
   if (profile?.email?.trim()) return profile.email.trim();
   return userId || "—";
+}
+
+function formatSupabaseError(err) {
+  if (!err) return "Unknown error";
+  if (typeof err === "string") return err;
+  const parts = [];
+  if (err.message) parts.push(String(err.message));
+  if (err.code) parts.push(`code ${err.code}`);
+  if (err.details) parts.push(String(err.details));
+  if (err.hint) parts.push(`hint: ${err.hint}`);
+  return parts.length ? parts.join(" — ") : String(err);
 }
 
 function formatTxnType(t) {
@@ -227,25 +233,6 @@ function toneForFraudLog(row) {
   return "neutral";
 }
 
-function toneForFraudEvent(eventType, eventData) {
-  const t = String(eventType || "");
-  const d =
-    eventData && typeof eventData === "object" && !Array.isArray(eventData) ? eventData : {};
-  if (t === "case_escalated") return "danger";
-  if (t === "account_control_updated") {
-    const next = String(d.next_account_status || "").toLowerCase();
-    if (next === "restricted") return "danger";
-    if (next === "under_review") return "warning";
-  }
-  if (t === "case_reviewed" || t === "risk_state_recomputed" || t === "fraud_note_saved")
-    return "info";
-  if (t === "smart_alert_status_updated") {
-    const st = String(d.status || "").toLowerCase();
-    if (st === "acknowledged") return "info";
-  }
-  return "neutral";
-}
-
 function toneForSmartAlert(row) {
   const sev = String(row.severity || "").toLowerCase();
   if (sev === "high") return "danger";
@@ -264,10 +251,9 @@ function truncateMessage(msg, max = 220) {
 /**
  * @param {string} userId
  * @param {unknown[]} logs
- * @param {unknown[]} events
  * @param {unknown[]} alerts
  */
-function buildTimelineItems(userId, logs, events, alerts) {
+function buildTimelineItems(userId, logs, alerts) {
   const out = [];
 
   for (const row of logs) {
@@ -284,46 +270,6 @@ function buildTimelineItems(userId, logs, events, alerts) {
       badgeStyle: riskBadgeStyle(row.risk_level),
       linkHref: `/admin/fraud/${encodeURIComponent(row.id)}`,
       linkLabel: "View fraud log",
-    });
-  }
-
-  for (const row of events) {
-    if (!row?.id || !row?.created_at) continue;
-    const et = String(row.event_type || "");
-    const summary = summarizeFraudEventData(et, row.event_data);
-    const label = formatFraudEventTypeLabel(et);
-    let linkHref = null;
-    let linkLabel = "";
-    if (row.fraud_log_id) {
-      linkHref = `/admin/fraud/${encodeURIComponent(row.fraud_log_id)}`;
-      linkLabel = "View fraud log";
-    } else {
-      linkHref = `/admin/risk-users/${encodeURIComponent(userId)}`;
-      linkLabel = "View user risk";
-    }
-    out.push({
-      sortKey: new Date(row.created_at).getTime(),
-      id: `fraud_event:${row.id}`,
-      created_at: row.created_at,
-      sourceType: "fraud_event",
-      title: label,
-      description: summary || "—",
-      tone: toneForFraudEvent(et, row.event_data),
-      badgeLabel: et.replace(/_/g, " ").slice(0, 32) || "event",
-      badgeStyle: {
-        display: "inline-block",
-        padding: "0.15rem 0.45rem",
-        borderRadius: "6px",
-        fontSize: "0.65rem",
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        background: "#f1f5f9",
-        color: "#475569",
-        border: "1px solid #e2e8f0",
-      },
-      linkHref,
-      linkLabel,
     });
   }
 
@@ -356,7 +302,6 @@ function buildTimelineItems(userId, logs, events, alerts) {
 
 function sourceTypeLabel(st) {
   if (st === "fraud_log") return "Fraud log";
-  if (st === "fraud_event") return "Audit event";
   if (st === "smart_alert") return "Smart alert";
   return st;
 }
@@ -372,8 +317,8 @@ export default function UserInvestigationTimelinePage() {
   const [loading, setLoading] = useState(true);
   const [fetchWarnings, setFetchWarnings] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [profileQueryError, setProfileQueryError] = useState(null);
   const [fraudLogs, setFraudLogs] = useState([]);
-  const [fraudEvents, setFraudEvents] = useState([]);
   const [smartAlerts, setSmartAlerts] = useState([]);
 
   const loadTimelineData = useCallback(async () => {
@@ -381,92 +326,95 @@ export default function UserInvestigationTimelinePage() {
 
     setLoading(true);
     setFetchWarnings([]);
+    setProfileQueryError(null);
+
     const warnings = [];
 
-    let prof = null;
+    const profileSelectFull =
+      "id, full_name, email, phone, risk_level, risk_flags, account_status, account_flags";
+    const profileSelectMin = "id, full_name, email, phone";
+
+    const logsQuery = supabase
+      .from("fraud_logs")
+      .select(
+        "id, created_at, transaction_type, amount, risk_score, risk_level, status, flags, related_transaction_id"
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const alertsQuery = supabase
+      .from("smart_alerts")
+      .select("id, created_at, fraud_log_id, alert_type, severity, status, title, message")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    let profRes;
     try {
-      const { data, error } = await supabase
+      profRes = await supabase
         .from("profiles")
-        .select(
-          "id, full_name, email, phone, risk_level, risk_flags, account_status, account_flags"
-        )
+        .select(profileSelectFull)
         .eq("id", userId)
         .maybeSingle();
-      if (error) {
-        console.error(error);
-        warnings.push("Profile could not be loaded.");
-      } else {
-        prof = data || null;
-      }
     } catch (e) {
-      console.error(e);
-      warnings.push("Profile could not be loaded.");
+      console.error("[timeline] profile fetch threw:", e);
+      profRes = { data: null, error: e };
     }
-    setProfile(prof);
 
-    let logs = [];
-    try {
-      const { data, error } = await supabase
-        .from("fraud_logs")
-        .select(
-          "id, created_at, transaction_type, amount, risk_score, risk_level, status, flags, related_transaction_id"
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) {
-        console.error(error);
-        warnings.push("Fraud logs could not be loaded.");
-      } else {
-        logs = data || [];
+    if (profRes.error) {
+      try {
+        profRes = await supabase
+          .from("profiles")
+          .select(profileSelectMin)
+          .eq("id", userId)
+          .maybeSingle();
+      } catch (e2) {
+        console.error("[timeline] profile fallback threw:", e2);
+        profRes = { data: null, error: e2 };
       }
-    } catch (e) {
-      console.error(e);
-      warnings.push("Fraud logs could not be loaded.");
     }
-    setFraudLogs(logs);
 
-    let events = [];
+    let logsRes;
+    let alertsRes;
     try {
-      const { data, error } = await supabase
-        .from("fraud_events")
-        .select("id, created_at, fraud_log_id, actor_user_id, event_type, event_data")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) {
-        console.error(error);
-        warnings.push("Fraud events could not be loaded.");
-      } else {
-        events = data || [];
-      }
+      [logsRes, alertsRes] = await Promise.all([logsQuery, alertsQuery]);
     } catch (e) {
-      console.error(e);
-      warnings.push("Fraud events could not be loaded.");
+      console.error("[timeline] parallel fetch threw:", e);
+      warnings.push(`Data load: ${formatSupabaseError(e)}`);
+      setProfile(null);
+      setProfileQueryError(profRes.error ? formatSupabaseError(profRes.error) : null);
+      setFraudLogs([]);
+      setSmartAlerts([]);
+      setFetchWarnings(warnings);
+      setLoading(false);
+      return;
     }
-    setFraudEvents(events);
 
-    let alerts = [];
-    try {
-      const { data, error } = await supabase
-        .from("smart_alerts")
-        .select(
-          "id, created_at, fraud_log_id, alert_type, severity, status, title, message"
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) {
-        console.error(error);
-        warnings.push("Smart alerts could not be loaded.");
-      } else {
-        alerts = data || [];
-      }
-    } catch (e) {
-      console.error(e);
-      warnings.push("Smart alerts could not be loaded.");
+    if (profRes.error) {
+      const msg = formatSupabaseError(profRes.error);
+      setProfileQueryError(msg);
+      setProfile(null);
+    } else {
+      setProfileQueryError(null);
+      setProfile(profRes.data || null);
     }
-    setSmartAlerts(alerts);
+
+    if (logsRes.error) {
+      console.error("[timeline] fraud_logs:", logsRes.error);
+      warnings.push(`Fraud logs: ${formatSupabaseError(logsRes.error)}`);
+      setFraudLogs([]);
+    } else {
+      setFraudLogs(logsRes.data || []);
+    }
+
+    if (alertsRes.error) {
+      console.error("[timeline] smart_alerts:", alertsRes.error);
+      warnings.push(`Smart alerts: ${formatSupabaseError(alertsRes.error)}`);
+      setSmartAlerts([]);
+    } else {
+      setSmartAlerts(alertsRes.data || []);
+    }
 
     setFetchWarnings(warnings);
     setLoading(false);
@@ -498,20 +446,18 @@ export default function UserInvestigationTimelinePage() {
           if (status === "CHANNEL_ERROR") console.error("timeline realtime:", table, err);
         });
 
-    const c1 = sub("fraud_events", "fe");
-    const c2 = sub("smart_alerts", "sa");
-    const c3 = sub("fraud_logs", "fl");
+    const c1 = sub("smart_alerts", "sa");
+    const c2 = sub("fraud_logs", "fl");
 
     return () => {
       void supabase.removeChannel(c1);
       void supabase.removeChannel(c2);
-      void supabase.removeChannel(c3);
     };
   }, [authLoading, user?.id, user, sessionProfile, router.isReady, userId, loadTimelineData]);
 
   const items = useMemo(
-    () => (userId ? buildTimelineItems(userId, fraudLogs, fraudEvents, smartAlerts) : []),
-    [userId, fraudLogs, fraudEvents, smartAlerts]
+    () => (userId ? buildTimelineItems(userId, fraudLogs, smartAlerts) : []),
+    [userId, fraudLogs, smartAlerts]
   );
 
   const displayName = userId ? userLabel(profile, userId) : "—";
@@ -643,7 +589,14 @@ export default function UserInvestigationTimelinePage() {
               fontSize: "0.85rem",
             }}
           >
-            {fetchWarnings.join(" ")}
+            <p style={{ margin: "0 0 0.35rem", fontWeight: 700 }}>Partial load notice</p>
+            <ul style={{ margin: 0, paddingLeft: "1.15rem" }}>
+              {fetchWarnings.map((w, i) => (
+                <li key={`tw-${i}`} style={{ marginBottom: "0.25rem" }}>
+                  {w}
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
 
@@ -660,9 +613,13 @@ export default function UserInvestigationTimelinePage() {
           >
             User summary
           </h2>
-          {!profile ? (
+          {profileQueryError ? (
+            <p style={{ margin: 0, fontSize: "0.875rem", color: "#b45309", lineHeight: 1.45 }}>
+              Profile query failed: {profileQueryError}
+            </p>
+          ) : !profile ? (
             <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
-              No profile row for this user id. Timeline rows may still appear from logs and alerts.
+              No profile row for this user id.
             </p>
           ) : (
             <div
@@ -741,7 +698,7 @@ export default function UserInvestigationTimelinePage() {
             <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>Loading timeline…</p>
           ) : items.length === 0 ? (
             <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
-              No fraud logs, audit events, or smart alerts found for this user yet.
+              No fraud logs or smart alerts found for this user yet.
             </p>
           ) : (
             <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>

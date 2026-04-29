@@ -61,15 +61,21 @@ export default function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white text-slate-900 shadow-xl overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+        <div
+          className={[
+            "z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-xl",
+            "fixed left-4 right-4 top-[4.5rem] mx-auto w-auto max-w-[calc(100vw-2rem)]",
+            "sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mx-0 sm:mt-2 sm:w-80 sm:max-w-none",
+          ].join(" ")}
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-3 py-2">
             <p className="text-sm font-semibold">Notifications</p>
             {unreadCount > 0 ? (
-              <span className="text-[0.7rem] text-sky-700 font-semibold">{unreadCount} unread</span>
+              <span className="text-[0.7rem] font-semibold text-sky-700">{unreadCount} unread</span>
             ) : null}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {loading ? (
               <p className="px-3 py-4 text-sm text-slate-500">Loading...</p>
             ) : notifications.length === 0 ? (
@@ -79,7 +85,7 @@ export default function NotificationBell() {
                 <button
                   key={item.id}
                   type="button"
-                  className={`w-full text-left px-3 py-2 border-b border-slate-100 hover:bg-slate-50 ${
+                  className={`w-full border-b border-slate-100 px-3 py-2 text-left hover:bg-slate-50 ${
                     item.is_read ? "bg-white" : "bg-sky-100"
                   }`}
                   onClick={async () => {
@@ -90,13 +96,13 @@ export default function NotificationBell() {
                 >
                   <div className="flex items-start gap-2">
                     <span
-                      className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                         item.is_read ? "bg-slate-300" : "bg-sky-500"
                       }`}
                     />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900">{item.message}</p>
-                      <p className="text-[0.7rem] text-slate-500 mt-1">{formatWhen(item.created_at)}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-medium text-slate-900">{item.message}</p>
+                      <p className="mt-1 shrink-0 text-[0.7rem] text-slate-500">{formatWhen(item.created_at)}</p>
                     </div>
                   </div>
                 </button>
