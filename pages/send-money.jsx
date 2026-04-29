@@ -3,7 +3,6 @@ import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
-import { createTransferNotifications } from "../lib/notificationService";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 
@@ -308,7 +307,6 @@ export default function SendMoneyPage() {
       await fetchRecentContacts();
 
       const sentName = recipientDisplayName(selectedRecipient);
-      const senderName = profile?.full_name?.trim() || profile?.email?.trim() || "Someone";
 
       const { data: lastTxn, error: lastTxnError } = await supabase
         .from("transactions")
@@ -340,19 +338,43 @@ export default function SendMoneyPage() {
         }
       }
 
-      if (lastTxn?.id) {
-        try {
-          await createTransferNotifications({
-            transactionId: lastTxn.id,
-            senderId: user.id,
-            recipientId,
-            amountFormatted: formatMoney(amt),
-            senderDisplayName: senderName,
-            recipientDisplayName: sentName,
+      try {
+        const amountText = formatMoney(amt);
+        const senderNotif = await supabase.rpc("create_notification", {
+          p_user_id: user.id,
+          p_type: "send_money",
+          p_message: `You sent $${amountText}`,
+          p_title: "Money sent",
+          p_related_transaction_id: lastTxn?.id || null,
+        });
+        if (senderNotif.error) {
+          console.error("[NOTIF_RPC_ERROR][send_money][sender]", {
+            message: senderNotif.error?.message,
+            details: senderNotif.error?.details,
+            hint: senderNotif.error?.hint,
+            code: senderNotif.error?.code,
+            raw: senderNotif.error,
           });
-        } catch (notificationErr) {
-          console.error("[send-money] notification failed:", notificationErr);
         }
+
+        const recipientNotif = await supabase.rpc("create_notification", {
+          p_user_id: recipientId,
+          p_type: "receive_money",
+          p_message: `You received $${amountText}`,
+          p_title: "Money received",
+          p_related_transaction_id: lastTxn?.id || null,
+        });
+        if (recipientNotif.error) {
+          console.error("[NOTIF_RPC_ERROR][send_money][recipient]", {
+            message: recipientNotif.error?.message,
+            details: recipientNotif.error?.details,
+            hint: recipientNotif.error?.hint,
+            code: recipientNotif.error?.code,
+            raw: recipientNotif.error,
+          });
+        }
+      } catch (notificationErr) {
+        console.error("[send-money] notification failed:", notificationErr);
       }
 
       setSuccessBanner({

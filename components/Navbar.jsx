@@ -6,7 +6,7 @@ import { isAdminUser } from '../lib/adminAccess';
 import { getSoftEnforcementState } from '../lib/softEnforcement';
 import Image from 'next/image';
 import logo from '../assets/logo.png'; // Ensure you have a logo.png in assets
-import NotificationsBell from './NotificationsBell';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, profile, loading } = useUser();
@@ -42,7 +42,7 @@ export default function Navbar() {
         <span className="text-sm">Loading...</span>
       ) : user ? (
         <div className="flex items-center gap-2">
-          <NotificationsBell />
+          <NotificationBell />
           <div className="relative z-10">
             <button
               onClick={() => setShowDropdown((prev) => !prev)}

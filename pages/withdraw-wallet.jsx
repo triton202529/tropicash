@@ -21,6 +21,28 @@ function formatMoney(value) {
   });
 }
 
+async function insertWithdrawNotification(userId, amount) {
+  const amountText = formatMoney(amount);
+  const { error } = await supabase.rpc("create_notification", {
+    p_user_id: userId,
+    p_type: "withdraw_wallet",
+    p_message: `Withdrawal $${amountText}`,
+    p_title: "Withdrawal",
+    p_related_transaction_id: null,
+  });
+  if (error) {
+    console.error("[NOTIF_RPC_ERROR][withdraw_wallet]", {
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code,
+      raw: error,
+    });
+    return false;
+  }
+  return true;
+}
+
 const withdrawFocusCss = `
   .tc-withdraw-in:focus { outline: none; border-color: #3b82f6 !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
   .tc-withdraw-in::placeholder { color: #94a3b8; }
@@ -138,6 +160,12 @@ export default function WithdrawWalletPage() {
       });
     } catch (fraudErr) {
       console.error("[withdraw-wallet] fraud logging failed:", fraudErr);
+    }
+
+    try {
+      await insertWithdrawNotification(user.id, amt);
+    } catch (notificationErr) {
+      console.error("[withdraw-wallet] notification failed:", notificationErr);
     }
 
     setAmount("");
