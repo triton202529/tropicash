@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
@@ -20,42 +19,6 @@ function friendlyFundingError(err) {
   if (!raw) return "Could not complete funding. Try again.";
   if (raw.length > 160) return `${raw.slice(0, 157)}…`;
   return raw;
-}
-
-function isPayPalFundingCompleted(captureJson) {
-  if (!captureJson || typeof captureJson !== "object") return false;
-  if (captureJson.status === "COMPLETED") return true;
-  const cap = captureJson.purchase_units?.[0]?.payments?.captures?.[0];
-  return cap?.status === "COMPLETED";
-}
-
-function fundedAmountFromCapture(captureJson) {
-  const v = captureJson?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
-  if (v == null) return NaN;
-  return parseFloat(String(v));
-}
-
-async function insertFundNotification(userId, amount) {
-  const amountText = formatMoney(amount);
-  const { error } = await supabase.rpc("create_notification", {
-    p_user_id: userId,
-    p_type: "fund_wallet",
-    p_message: `Wallet funded $${amountText}`,
-    p_title: "Wallet funded",
-    p_related_transaction_id: null,
-  });
-
-  if (error) {
-    console.error("[NOTIF_RPC_ERROR][fund_wallet]", {
-      message: error?.message,
-      details: error?.details,
-      hint: error?.hint,
-      code: error?.code,
-      raw: error,
-    });
-    return false;
-  }
-  return true;
 }
 
 const inputBase = {
@@ -84,15 +47,30 @@ const simpleLabel = {
   marginBottom: "0.25rem",
 };
 
+const receiptRowLabel = {
+  fontSize: "0.72rem",
+  fontWeight: 600,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#64748b",
+  marginBottom: "0.2rem",
+};
+
+const receiptRowValue = {
+  fontSize: "0.95rem",
+  fontWeight: 600,
+  color: "#0f172a",
+  wordBreak: "break-word",
+};
+
 export default function FundWalletPage() {
   const { user, profile, loading: authLoading } = useUser();
-  const router = useRouter();
 
   const [amount, setAmount] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
-  const [successBanner, setSuccessBanner] = useState(null);
+  const [successReceipt, setSuccessReceipt] = useState(null);
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalConfigMissing, setPaypalConfigMissing] = useState(false);
   const [paypalScriptError, setPaypalScriptError] = useState(false);
@@ -126,17 +104,6 @@ export default function FundWalletPage() {
   useEffect(() => {
     if (!authLoading && user?.id) fetchWalletBalance();
   }, [authLoading, user?.id, fetchWalletBalance]);
-
-  useEffect(() => {
-    if (!successBanner) return undefined;
-
-    const t = window.setTimeout(() => {
-      setSuccessBanner(null);
-      router.push("/wallet");
-    }, 2000);
-
-    return () => clearTimeout(t);
-  }, [successBanner, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -184,11 +151,11 @@ export default function FundWalletPage() {
 
   const parsedAmount = Number(amount);
   const amountLooksValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
-  const formDisabled = loading || !!successBanner;
+  const formDisabled = loading || !!successReceipt;
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.paypal) return undefined;
-    if (!paypalReady || !user?.id || successBanner) return undefined;
+    if (!paypalReady || !user?.id || successReceipt) return undefined;
 
     const container = paypalButtonContainerRef.current;
     if (!container) return undefined;
@@ -235,36 +202,44 @@ export default function FundWalletPage() {
         setErrorMsg("");
         setLoading(true);
         try {
-          const res = await fetch("/api/paypal/capture-order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderID: data.orderID }),
-          });
-          const capture = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            throw new Error(capture.error || "PayPal could not complete the payment.");
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const accessToken = session?.access_token;
+          if (!accessToken) {
+            setErrorMsg("Your session expired. Sign in again and retry.");
+            return;
           }
 
-          if (!isPayPalFundingCompleted(capture)) {
+          const res = await fetch("/api/paypal/capture-order", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ orderID: data.orderID }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const apiErr = String(payload.error || "").trim();
+            setErrorMsg(
+              apiErr || "PayPal could not complete the payment.",
+            );
+            return;
+          }
+
+          if (!payload.success || payload.amount == null) {
             setErrorMsg("Payment was not completed. Your wallet was not funded.");
             return;
           }
 
-          const fundedAmount = fundedAmountFromCapture(capture);
+          const fundedAmount = Number(payload.amount);
           if (!Number.isFinite(fundedAmount) || fundedAmount <= 0) {
             setErrorMsg("Could not verify the paid amount. Please contact support.");
             return;
           }
 
-          const { error } = await supabase.rpc("fund_wallet", {
-            p_user_id: user.id,
-            p_amount: fundedAmount,
-          });
-          if (error) {
-            console.error("[fund-wallet] fund_wallet RPC failed:", error);
-            setErrorMsg(friendlyFundingError(error));
-            return;
-          }
+          const receiptOrderId = payload.orderID || data.orderID || null;
 
           await fetchWalletBalance();
 
@@ -281,14 +256,13 @@ export default function FundWalletPage() {
             console.error("[fund-wallet] fraud logging failed:", fraudError);
           }
 
-          try {
-            await insertFundNotification(user.id, fundedAmount);
-          } catch (notifErr) {
-            console.error("[fund-wallet] notification failed:", notifErr);
-          }
-
           setAmount("");
-          setSuccessBanner({ amountFormatted: formatMoney(fundedAmount) });
+          setSuccessReceipt({
+            amountFormatted: formatMoney(fundedAmount),
+            method: "PayPal Sandbox",
+            status: "Completed",
+            orderId: receiptOrderId,
+          });
         } catch (unexpected) {
           console.error("[fund-wallet] onApprove error:", unexpected);
           setErrorMsg(friendlyFundingError(unexpected));
@@ -322,14 +296,70 @@ export default function FundWalletPage() {
       }
       container.innerHTML = "";
     };
-  }, [paypalReady, amountLooksValid, successBanner, user?.id, fetchWalletBalance]);
+  }, [paypalReady, amountLooksValid, successReceipt, user?.id, fetchWalletBalance]);
 
   const pageStyle = {
     padding: "2rem 1.25rem 3rem",
-    maxWidth: "500px",
+    maxWidth: "520px",
     margin: "0 auto",
     minHeight: "calc(100vh - 3.5rem)",
     background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+    boxSizing: "border-box",
+  };
+
+  const receiptCardStyle = {
+    background: "#ffffff",
+    borderRadius: "16px",
+    padding: "clamp(1.25rem, 4vw, 1.75rem)",
+    marginBottom: "1.5rem",
+    boxShadow: "0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.06)",
+    border: "1px solid #e2e8f0",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+  };
+
+  const receiptActionsWrap = {
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: "0.65rem",
+    marginTop: "1.35rem",
+  };
+
+  const btnPrimary = {
+    flex: "1 1 140px",
+    minHeight: "44px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0.65rem 1rem",
+    borderRadius: "10px",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    textDecoration: "none",
+    background: "#2563eb",
+    color: "#ffffff",
+    border: "none",
+    cursor: "pointer",
+    boxSizing: "border-box",
+  };
+
+  const btnSecondary = {
+    flex: "1 1 140px",
+    minHeight: "44px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0.65rem 1rem",
+    borderRadius: "10px",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    textDecoration: "none",
+    background: "transparent",
+    color: "#0f172a",
+    border: "1px solid #cbd5e1",
+    cursor: "pointer",
     boxSizing: "border-box",
   };
 
@@ -407,28 +437,6 @@ export default function FundWalletPage() {
 
         <SoftEnforcementNotice profile={profile} />
 
-        {successBanner ? (
-          <div
-            role="status"
-            aria-live="polite"
-            style={{
-              marginBottom: "1rem",
-              padding: "1rem",
-              borderRadius: "8px",
-              border: "1px solid #38b2ac",
-              background: "#e6fffa",
-            }}
-          >
-            <strong style={{ color: "#234e52" }}>Success:</strong>{" "}
-            <span style={{ color: "#234e52" }}>
-              Added ${successBanner.amountFormatted} to your wallet
-            </span>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "0.8rem", color: "#2c7a7b" }}>
-              Redirecting to your wallet…
-            </p>
-          </div>
-        ) : null}
-
         <div
           style={{
             background:
@@ -468,111 +476,234 @@ export default function FundWalletPage() {
           </p>
         </div>
 
-        <div style={{ marginBottom: "1.25rem" }}>
-          <label htmlFor="fund-amount" style={simpleLabel}>
-            Amount (USD)
-          </label>
-          <input
-            id="fund-amount"
-            className="tc-fund-in"
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            min="0"
-            step="0.01"
-            disabled={formDisabled}
-            style={{ ...inputBase, marginTop: "0.3rem" }}
-          />
-          <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", color: "#64748b" }}>
-            Sandbox only — use PayPal test accounts. Minimum $0.01.
-          </p>
-        </div>
-
-        {amountLooksValid && !successBanner ? (
-          <p
-            style={{
-              margin: "0 0 1.25rem",
-              fontSize: "0.95rem",
-              fontWeight: 600,
-              color: "#64748b",
-              lineHeight: 1.45,
-            }}
+        {successReceipt ? (
+          <div
+            role="status"
+            aria-live="polite"
+            style={receiptCardStyle}
           >
-            You are adding ${formatMoney(parsedAmount)} to your wallet
-          </p>
-        ) : null}
-
-        <div
-          style={{
-            marginBottom: "1.25rem",
-            padding: "1.2rem 1.2rem",
-            borderRadius: "14px",
-            border: "1px solid #e2e8f0",
-            background: "#ffffff",
-            boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "0.95rem",
-              fontWeight: 600,
-              color: "#0f172a",
-              margin: "0 0 0.35rem",
-            }}
-          >
-            Pay with PayPal
-          </p>
-          <p
-            style={{
-              margin: "0 0 0.75rem",
-              fontSize: "0.75rem",
-              color: "#64748b",
-              lineHeight: 1.45,
-            }}
-          >
-            Your wallet is funded only after PayPal confirms payment (capture COMPLETED).
-          </p>
-
-          {paypalConfigMissing ? (
-            <p
+            <div
               style={{
-                margin: 0,
-                fontSize: "0.875rem",
-                color: "#b45309",
-                lineHeight: 1.5,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                flexWrap: "wrap",
+                marginBottom: "1.25rem",
               }}
             >
-              PayPal is not set up yet. Add{" "}
-              <code style={{ fontSize: "0.8em" }}>NEXT_PUBLIC_PAYPAL_CLIENT_ID</code> and
-              server keys to <code style={{ fontSize: "0.8em" }}>.env.local</code>, then
-              restart the dev server.
-            </p>
-          ) : null}
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "1.15rem",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  Funding Successful
+                </h3>
+                <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "#64748b" }}>
+                  Your wallet has been credited.
+                </p>
+              </div>
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "0.25rem 0.55rem",
+                  borderRadius: "999px",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  background: "#ecfdf5",
+                  color: "#047857",
+                  border: "1px solid #a7f3d0",
+                }}
+              >
+                {successReceipt.status}
+              </span>
+            </div>
 
-          {paypalScriptError ? (
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.875rem", color: "#b91c1c" }}>
-              Could not load PayPal. Check your network and client ID, then refresh the page.
+            <p
+              style={{
+                margin: "0 0 0.35rem",
+                fontSize: "clamp(2rem, 8vw, 2.65rem)",
+                fontWeight: 800,
+                color: "#0f172a",
+                letterSpacing: "-0.04em",
+                fontVariantNumeric: "tabular-nums",
+                lineHeight: 1.1,
+              }}
+            >
+              ${successReceipt.amountFormatted}
             </p>
-          ) : null}
-
-          {!paypalConfigMissing && !paypalScriptError && !paypalReady ? (
-            <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
-              Loading PayPal…
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.8rem", color: "#64748b" }}>
+              Amount funded
             </p>
-          ) : null}
 
-          {!paypalConfigMissing && !paypalScriptError && paypalReady && !amountLooksValid ? (
-            <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
-              Enter a valid amount above to enable the PayPal button.
-            </p>
-          ) : null}
+            <div
+              style={{
+                display: "grid",
+                gap: "1rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid #e2e8f0",
+              }}
+            >
+              <div>
+                <p style={{ ...receiptRowLabel, margin: 0 }}>Method</p>
+                <p style={{ ...receiptRowValue, margin: 0 }}>{successReceipt.method}</p>
+              </div>
+              <div>
+                <p style={{ ...receiptRowLabel, margin: 0 }}>Status</p>
+                <p style={{ ...receiptRowValue, margin: 0 }}>{successReceipt.status}</p>
+              </div>
+              {successReceipt.orderId ? (
+                <div>
+                  <p style={{ ...receiptRowLabel, margin: 0 }}>Reference (PayPal order ID)</p>
+                  <p
+                    style={{
+                      ...receiptRowValue,
+                      margin: 0,
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      fontSize: "0.8rem",
+                      fontWeight: 500,
+                      color: "#334155",
+                    }}
+                  >
+                    {successReceipt.orderId}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ ...receiptRowLabel, margin: 0 }}>Reference (PayPal order ID)</p>
+                  <p style={{ ...receiptRowValue, margin: 0, color: "#64748b" }}>—</p>
+                </div>
+              )}
+            </div>
 
-          <div
-            ref={paypalButtonContainerRef}
-            style={{ marginTop: amountLooksValid && paypalReady ? "0.5rem" : 0 }}
-          />
-        </div>
+            <div style={receiptActionsWrap}>
+              <Link href="/wallet" style={btnPrimary}>
+                Back to Wallet
+              </Link>
+              <Link href="/transactions" style={btnSecondary}>
+                View Transactions
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        {!successReceipt ? (
+          <>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <label htmlFor="fund-amount" style={simpleLabel}>
+                Amount (USD)
+              </label>
+              <input
+                id="fund-amount"
+                className="tc-fund-in"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                disabled={formDisabled}
+                style={{ ...inputBase, marginTop: "0.3rem" }}
+              />
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", color: "#64748b" }}>
+                Sandbox only — use PayPal test accounts. Per transaction: minimum $1, maximum
+                $1,000.
+              </p>
+            </div>
+
+            {amountLooksValid ? (
+              <p
+                style={{
+                  margin: "0 0 1.25rem",
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                You are adding ${formatMoney(parsedAmount)} to your wallet
+              </p>
+            ) : null}
+
+            <div
+              style={{
+                marginBottom: "1.25rem",
+                padding: "1.2rem 1.2rem",
+                borderRadius: "14px",
+                border: "1px solid #e2e8f0",
+                background: "#ffffff",
+                boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  margin: "0 0 0.35rem",
+                }}
+              >
+                Pay with PayPal
+              </p>
+              <p
+                style={{
+                  margin: "0 0 0.75rem",
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                Your wallet is funded only after PayPal confirms payment (capture COMPLETED).
+              </p>
+
+              {paypalConfigMissing ? (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.875rem",
+                    color: "#b45309",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  PayPal is not set up yet. Add{" "}
+                  <code style={{ fontSize: "0.8em" }}>NEXT_PUBLIC_PAYPAL_CLIENT_ID</code> and
+                  server keys to <code style={{ fontSize: "0.8em" }}>.env.local</code>, then
+                  restart the dev server.
+                </p>
+              ) : null}
+
+              {paypalScriptError ? (
+                <p style={{ margin: "0.75rem 0 0", fontSize: "0.875rem", color: "#b91c1c" }}>
+                  Could not load PayPal. Check your network and client ID, then refresh the page.
+                </p>
+              ) : null}
+
+              {!paypalConfigMissing && !paypalScriptError && !paypalReady ? (
+                <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
+                  Loading PayPal…
+                </p>
+              ) : null}
+
+              {!paypalConfigMissing && !paypalScriptError && paypalReady && !amountLooksValid ? (
+                <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
+                  Enter a valid amount above to enable the PayPal button.
+                </p>
+              ) : null}
+
+              <div
+                ref={paypalButtonContainerRef}
+                style={{ marginTop: amountLooksValid && paypalReady ? "0.5rem" : 0 }}
+              />
+            </div>
+          </>
+        ) : null}
 
         {errorMsg ? (
           <p

@@ -54,6 +54,23 @@ function normalizeType(type) {
   return raw;
 }
 
+/** PayPal funding context without schema changes (type and optional text fields). */
+function isPayPalFundContext(txn) {
+  const rawType = String(txn.type || "").toLowerCase();
+  if (rawType === "fund_wallet" || rawType === "fund") return true;
+  if (normalizeType(txn.type) === "fund") return true;
+  const blob = [txn.description, txn.message, txn.notes, txn.memo, txn.reference]
+    .filter((v) => v != null && v !== "")
+    .map((v) => (typeof v === "string" ? v : String(v)))
+    .join(" ")
+    .toLowerCase();
+  return blob.includes("paypal");
+}
+
+function fundingRowLabel(txn) {
+  return isPayPalFundContext(txn) ? "Funded (PayPal)" : "Funded";
+}
+
 function inDateRange(createdAt, filterId) {
   if (filterId === "all_time") return true;
   const target = new Date(createdAt);
@@ -112,9 +129,9 @@ function classifyTransaction(txn, currentUserId, namesById) {
     recipientName = "Bank / External";
   } else if (normalizedType === "fund") {
     category = "funded";
-    label = "Funded";
+    label = fundingRowLabel(txn);
     direction = "incoming";
-    senderName = "Bank / Card";
+    senderName = "PayPal Sandbox";
     recipientName = "You";
   } else if ((normalizedType === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
     category = "sent";
@@ -134,7 +151,7 @@ function classifyTransaction(txn, currentUserId, namesById) {
     recipientName = "You";
   } else if (isSelf) {
     category = "funded";
-    label = "Funded";
+    label = fundingRowLabel(txn);
     direction = "neutral";
     senderName = "You";
     recipientName = "You";
@@ -151,7 +168,9 @@ function classifyTransaction(txn, currentUserId, namesById) {
         : category === "withdrawn"
           ? "To bank / external account"
           : category === "funded"
-            ? "From bank / card"
+            ? isPayPalFundContext(txn)
+              ? "From PayPal Sandbox"
+              : "From bank / card"
             : "Wallet activity";
 
   return {
@@ -271,9 +290,13 @@ export default function TransactionsPage() {
     return enrichedRows.filter((row) => {
       const matchesCategory = activeFilter === "all" ? true : row.category === activeFilter;
       const matchesDate = inDateRange(row.created_at, activeDateFilter);
+      const payPalHaystack =
+        row.category === "funded" || isPayPalFundContext(row)
+          ? "paypal pay pal sandbox fund_wallet funded funded (paypal)"
+          : "";
       const haystack = `${row.senderName} ${row.recipientName} ${row.description} ${row.label} ${String(
         row.id
-      )}`.toLowerCase();
+      )} ${payPalHaystack}`.toLowerCase();
       const matchesSearch = query ? haystack.includes(query) : true;
       return matchesCategory && matchesDate && matchesSearch;
     });
@@ -323,7 +346,7 @@ export default function TransactionsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name or transaction ID"
+            placeholder="Search by name, PayPal, or transaction ID"
             style={searchInput}
           />
         </div>

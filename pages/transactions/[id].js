@@ -32,6 +32,31 @@ function normalizeType(type) {
   return raw;
 }
 
+function isPayPalFundContext(txn) {
+  const rawType = String(txn.type || "").toLowerCase();
+  if (rawType === "fund_wallet" || rawType === "fund") return true;
+  if (normalizeType(txn.type) === "fund") return true;
+  const blob = [txn.description, txn.message, txn.notes, txn.memo, txn.reference]
+    .filter((v) => v != null && v !== "")
+    .map((v) => (typeof v === "string" ? v : String(v)))
+    .join(" ")
+    .toLowerCase();
+  return blob.includes("paypal");
+}
+
+function fundingRowLabel(txn) {
+  return isPayPalFundContext(txn) ? "Funded (PayPal)" : "Funded";
+}
+
+function transactionMethod(txn) {
+  const norm = normalizeType(txn.type);
+  if (norm === "fund" && isPayPalFundContext(txn)) return "PayPal Sandbox";
+  if (norm === "fund") return "Wallet";
+  if (norm === "send" || norm === "receive") return "Wallet Transfer";
+  if (norm === "withdraw") return "Wallet Withdrawal";
+  return "Wallet";
+}
+
 function displayName(profileRow, fallbackId) {
   if (!profileRow) return fallbackId || "—";
   return profileRow.full_name?.trim() || profileRow.email?.trim() || fallbackId || "—";
@@ -56,9 +81,9 @@ function classifyDetail(txn, userId, namesById) {
     senderName = "You";
     recipientName = "Bank / External";
   } else if (normalized === "fund") {
-    label = "Funded";
+    label = fundingRowLabel(txn);
     direction = "incoming";
-    senderName = "Bank / Card";
+    senderName = "PayPal Sandbox";
     recipientName = "You";
   } else if ((normalized === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
     label = "Sent";
@@ -75,7 +100,7 @@ function classifyDetail(txn, userId, namesById) {
     senderName = namesById[senderId] || senderId || "Sender";
     recipientName = "You";
   } else if (isSelf) {
-    label = "Funded";
+    label = fundingRowLabel(txn);
     direction = "neutral";
     senderName = "You";
     recipientName = "You";
@@ -87,6 +112,7 @@ function classifyDetail(txn, userId, namesById) {
 
   return {
     label,
+    method: transactionMethod(txn),
     senderName: senderName === userId ? "You" : senderName,
     recipientName: recipientName === userId ? "You" : recipientName,
     amountLine: `${sign}$${formatMoney(amount)}`,
@@ -196,6 +222,7 @@ export default function TransactionDetailPage() {
     if (!transaction || !user?.id) {
       return {
         label: "Transaction",
+        method: "Wallet",
         senderName: "—",
         recipientName: "—",
         amountLine: "$0.00",
@@ -258,6 +285,7 @@ export default function TransactionDetailPage() {
             <p style={sectionHeading}>Overview</p>
             <div style={metaGrid}>
               <DetailRow label="Type" value={detail.label} />
+              <DetailRow label="Method" value={detail.method} />
               <DetailRow label="Date & time" value={formatDateTime(transaction.created_at)} />
               <DetailRow label="Status" value={transaction.status || "completed"} />
             </div>
