@@ -6,6 +6,7 @@ import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
+import { evaluateTrustCheck } from "../lib/trustLayer";
 
 function messageForRpcError(err) {
   const msg = String(err?.message || "");
@@ -134,6 +135,25 @@ export default function WithdrawWalletPage() {
       setErrorMsg("Insufficient funds.");
       setLoadingAction(false);
       return;
+    }
+
+    const trust = await evaluateTrustCheck({
+      userId: user.id,
+      transactionType: "withdraw",
+      amount: amt,
+      profile,
+    });
+    if (!trust.allowed) {
+      setErrorMsg(trust.message);
+      setLoadingAction(false);
+      return;
+    }
+    if (trust.severity === "warning") {
+      const ok = window.confirm(`${trust.message}\n\nContinue with this withdrawal?`);
+      if (!ok) {
+        setLoadingAction(false);
+        return;
+      }
     }
 
     const { error } = await supabase.rpc("withdraw_wallet", {

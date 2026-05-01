@@ -5,6 +5,7 @@ import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
+import { evaluateTrustCheck } from "../lib/trustLayer";
 
 function walletAmount(row) {
   const raw = row?.wallet_balance ?? row?.balance ?? 0;
@@ -288,6 +289,21 @@ export default function SendMoneyPage() {
         setBalance(liveBalance);
         alert("Insufficient funds.");
         return;
+      }
+
+      const trust = await evaluateTrustCheck({
+        userId: user.id,
+        transactionType: "send",
+        amount: amt,
+        profile,
+      });
+      if (!trust.allowed) {
+        alert(trust.message);
+        return;
+      }
+      if (trust.severity === "warning") {
+        const ok = window.confirm(`${trust.message}\n\nContinue with this transfer?`);
+        if (!ok) return;
       }
 
       const { error } = await supabase.rpc("transfer_funds", {

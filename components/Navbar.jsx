@@ -29,7 +29,8 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
+    <>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
       <div
         className="flex items-center cursor-pointer"
         onClick={() => router.push('/wallet')}
@@ -110,6 +111,8 @@ export default function Navbar() {
           </div>
         </div>
       ) : null}
-    </nav>
+      </nav>
+      <div className="h-16" aria-hidden="true" />
+    </>
   );
 }

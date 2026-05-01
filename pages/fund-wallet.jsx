@@ -5,6 +5,7 @@ import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
+import { evaluateTrustCheck } from "../lib/trustLayer";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -103,6 +104,7 @@ export default function FundWalletPage() {
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalConfigMissing, setPaypalConfigMissing] = useState(false);
   const [paypalScriptError, setPaypalScriptError] = useState(false);
+  const [fundTrust, setFundTrust] = useState({ status: "idle", result: null });
 
   const paypalButtonContainerRef = useRef(null);
   const latestAmountRef = useRef("");
@@ -130,6 +132,9 @@ export default function FundWalletPage() {
     latestAmountRef.current = amount;
   }, [amount]);
 
+  const parsedAmount = Number(amount);
+  const amountLooksValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
+
   const fetchWalletBalance = useCallback(async () => {
     if (!user?.id) return;
 
@@ -152,6 +157,34 @@ export default function FundWalletPage() {
   useEffect(() => {
     if (!authLoading && user?.id) fetchWalletBalance();
   }, [authLoading, user?.id, fetchWalletBalance]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setFundTrust({ status: "idle", result: null });
+      return undefined;
+    }
+    if (!amountLooksValid) {
+      setFundTrust({ status: "idle", result: null });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setFundTrust({ status: "loading", result: null });
+
+    (async () => {
+      const r = await evaluateTrustCheck({
+        userId: user.id,
+        transactionType: "fund",
+        amount: parsedAmount,
+        profile,
+      });
+      if (!cancelled) setFundTrust({ status: "ready", result: r });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, profile, parsedAmount, amountLooksValid]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -197,8 +230,6 @@ export default function FundWalletPage() {
     };
   }, [paypalUiMode]);
 
-  const parsedAmount = Number(amount);
-  const amountLooksValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const formDisabled = loading || !!successReceipt;
 
   useEffect(() => {
@@ -209,6 +240,21 @@ export default function FundWalletPage() {
     if (!container) return undefined;
 
     if (!amountLooksValid) {
+      container.innerHTML = "";
+      return undefined;
+    }
+
+    if (fundTrust.status === "loading") {
+      container.innerHTML = `<p style="margin:0;font-size:0.875rem;color:#64748b;">Checking limits…</p>`;
+      return undefined;
+    }
+
+    if (fundTrust.status !== "ready" || !fundTrust.result) {
+      container.innerHTML = "";
+      return undefined;
+    }
+
+    if (!fundTrust.result.allowed) {
       container.innerHTML = "";
       return undefined;
     }
@@ -351,6 +397,8 @@ export default function FundWalletPage() {
     user?.id,
     fetchWalletBalance,
     paypalReceiptMethodLabel,
+    fundTrust.status,
+    fundTrust.result,
   ]);
 
   const pageStyle = {
@@ -699,6 +747,44 @@ export default function FundWalletPage() {
                 boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
               }}
             >
+              {fundTrust.status === "ready" &&
+              fundTrust.result &&
+              !fundTrust.result.allowed &&
+              fundTrust.result.message ? (
+                <p
+                  style={{
+                    margin: "0 0 0.75rem",
+                    padding: "0.65rem 0.75rem",
+                    borderRadius: "10px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    color: "#b91c1c",
+                    fontSize: "0.875rem",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {fundTrust.result.message}
+                </p>
+              ) : null}
+              {fundTrust.status === "ready" &&
+              fundTrust.result?.allowed &&
+              fundTrust.result.severity === "warning" &&
+              fundTrust.result.message ? (
+                <p
+                  style={{
+                    margin: "0 0 0.75rem",
+                    padding: "0.65rem 0.75rem",
+                    borderRadius: "10px",
+                    background: "#fffbeb",
+                    border: "1px solid #fcd34d",
+                    color: "#9a3412",
+                    fontSize: "0.875rem",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {fundTrust.result.message}
+                </p>
+              ) : null}
               <div
                 style={{
                   display: "flex",
