@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../lib/userContext';
 import { getUserProfile } from '../lib/profileService';
@@ -11,6 +11,13 @@ import {
   getRiskTierUserLabel,
   getAccountFlagsUserLabels,
 } from '../lib/softEnforcement';
+import {
+  fetchPayoutMethodsForUser,
+  savePayoutMethodForUser,
+  formatPayoutDestinationDisplay,
+} from '../lib/payoutMethods';
+
+const PAYOUT_BRAND_PRESETS = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Other'];
 
 export default function ProfilePage() {
   const { user, profile, loading } = useUser();
@@ -24,7 +31,64 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState({ type: null, message: '' });
 
+  const [payoutMethods, setPayoutMethods] = useState([]);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutFeedback, setPayoutFeedback] = useState({ type: null, message: '' });
+  const [payoutEditOpen, setPayoutEditOpen] = useState(false);
+  const [pmCardholder, setPmCardholder] = useState('');
+  const [pmBrandPreset, setPmBrandPreset] = useState('Visa');
+  const [pmBrandOther, setPmBrandOther] = useState('');
+  const [pmLast4, setPmLast4] = useState('');
+  const [pmLabel, setPmLabel] = useState('');
+
   const displayProfile = localProfile ?? profile;
+
+  const defaultPayoutMethod =
+    payoutMethods.find((m) => m.is_default) || (payoutMethods.length ? payoutMethods[0] : null);
+
+  const hydratePayoutFormFromMethod = useCallback((m) => {
+    if (!m) {
+      setPmCardholder('');
+      setPmBrandPreset('Visa');
+      setPmBrandOther('');
+      setPmLast4('');
+      setPmLabel('');
+      return;
+    }
+    setPmCardholder(m.cardholder_name || '');
+    const b = String(m.brand || '').trim();
+    if (PAYOUT_BRAND_PRESETS.slice(0, -1).includes(b)) {
+      setPmBrandPreset(b);
+      setPmBrandOther('');
+    } else {
+      setPmBrandPreset('Other');
+      setPmBrandOther(b);
+    }
+    setPmLast4(m.last4 || '');
+    setPmLabel(m.payout_label || '');
+  }, []);
+
+  const loadPayoutMethods = useCallback(async () => {
+    if (!user?.id) return;
+    setPayoutLoading(true);
+    setPayoutFeedback({ type: null, message: '' });
+    const { rows, error } = await fetchPayoutMethodsForUser(user.id);
+    setPayoutMethods(rows);
+    if (error) {
+      setPayoutFeedback({
+        type: 'error',
+        message:
+          'Could not load payout methods. If this persists, confirm the payout_methods table exists in your database.',
+      });
+      setPayoutLoading(false);
+      return;
+    }
+    const dm = rows.find((m) => m.is_default) || rows[0];
+    hydratePayoutFormFromMethod(dm || null);
+    setPayoutEditOpen(rows.length === 0);
+    setPayoutLoading(false);
+  }, [user?.id, hydratePayoutFormFromMethod]);
 
   useEffect(() => {
     setLocalProfile(null);
@@ -34,6 +98,11 @@ export default function ProfilePage() {
     if (!user?.id || loading) return;
     getTransactionHistory(user.id).then(setTransactions);
   }, [user?.id, loading]);
+
+  useEffect(() => {
+    if (!user?.id || loading) return;
+    loadPayoutMethods();
+  }, [user?.id, loading, loadPayoutMethods]);
 
   useEffect(() => {
     if (profile) {
@@ -163,6 +232,51 @@ export default function ProfilePage() {
 
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
+  };
+
+  const brandForSave = () => {
+    if (pmBrandPreset === 'Other') return pmBrandOther.trim();
+    return pmBrandPreset;
+  };
+
+  const handleSavePayoutMethod = async () => {
+    if (!user?.id) return;
+    setPayoutFeedback({ type: null, message: '' });
+    setPayoutSaving(true);
+    try {
+      const { data, error } = await savePayoutMethodForUser(
+        user.id,
+        {
+          cardholder_name: pmCardholder,
+          brand: brandForSave(),
+          last4: pmLast4,
+          payout_label: pmLabel,
+        },
+        defaultPayoutMethod?.id,
+      );
+
+      if (error) {
+        const msg = error?.message || 'Could not save payout method.';
+        setPayoutFeedback({ type: 'error', message: msg });
+        setPayoutSaving(false);
+        return;
+      }
+
+      const { rows } = await fetchPayoutMethodsForUser(user.id);
+      setPayoutMethods(rows);
+      const dm = rows.find((m) => m.id === data?.id) || rows.find((m) => m.is_default) || rows[0];
+      hydratePayoutFormFromMethod(dm || null);
+      setPayoutEditOpen(false);
+      setPayoutFeedback({ type: 'success', message: 'Payout method saved.' });
+    } catch (err) {
+      console.error('[profile] payout save', err);
+      setPayoutFeedback({
+        type: 'error',
+        message: err?.message || 'Something went wrong while saving the payout method.',
+      });
+    } finally {
+      setPayoutSaving(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -354,6 +468,171 @@ export default function ProfilePage() {
               )}
             </div>
           ) : null}
+
+          <div className="mt-5 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] p-4 text-left">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+              Payout method
+            </h2>
+
+            {payoutLoading ? (
+              <p className="text-sm text-[#64748b]">Loading payout method…</p>
+            ) : null}
+
+            {!payoutLoading && defaultPayoutMethod && !payoutEditOpen ? (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#0f172a]">
+                  {formatPayoutDestinationDisplay(defaultPayoutMethod)}
+                </p>
+                <p className="text-sm text-[#475569]">
+                  <span className="font-semibold text-[#64748b]">Cardholder: </span>
+                  {defaultPayoutMethod.cardholder_name || '—'}
+                </p>
+                <p className="text-sm text-[#475569]">
+                  <span className="font-semibold text-[#64748b]">Brand: </span>
+                  {defaultPayoutMethod.brand || '—'}
+                  <span className="mx-2 text-[#cbd5e1]">·</span>
+                  <span className="font-semibold text-[#64748b]">Last 4: </span>••••
+                  {defaultPayoutMethod.last4}
+                </p>
+                {defaultPayoutMethod.is_default ? (
+                  <p className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-900">
+                    Default payout method
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPayoutFeedback({ type: null, message: '' });
+                    hydratePayoutFormFromMethod(defaultPayoutMethod);
+                    setPayoutEditOpen(true);
+                  }}
+                  className="mt-3 w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Update payout method
+                </button>
+              </div>
+            ) : null}
+
+            {!payoutLoading && payoutEditOpen ? (
+              <div className="space-y-3">
+                <p className="text-xs text-[#64748b]">
+                  For soft launch we only store cardholder name, brand, last 4 digits, and an optional
+                  label — not your full card number.
+                </p>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#64748b]">
+                    Cardholder name
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
+                    value={pmCardholder}
+                    onChange={(e) => setPmCardholder(e.target.value)}
+                    placeholder="Name on card"
+                    autoComplete="cc-name"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#64748b]">
+                    Card brand
+                  </label>
+                  <select
+                    className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
+                    value={pmBrandPreset}
+                    onChange={(e) => setPmBrandPreset(e.target.value)}
+                  >
+                    {PAYOUT_BRAND_PRESETS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                  {pmBrandPreset === 'Other' ? (
+                    <input
+                      type="text"
+                      className="mt-2 w-full rounded-[10px] border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
+                      value={pmBrandOther}
+                      onChange={(e) => setPmBrandOther(e.target.value)}
+                      placeholder="Enter brand"
+                    />
+                  ) : null}
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#64748b]">
+                    Last 4 digits
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
+                    value={pmLast4}
+                    onChange={(e) => setPmLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    placeholder="1234"
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#64748b]">
+                    Label (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
+                    value={pmLabel}
+                    onChange={(e) => setPmLabel(e.target.value)}
+                    placeholder='e.g. "Visa ending 1234"'
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleSavePayoutMethod}
+                    disabled={payoutSaving}
+                    className="flex-1 rounded-md bg-green-600 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {payoutSaving ? 'Saving…' : 'Save payout method'}
+                  </button>
+                  {defaultPayoutMethod ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayoutFeedback({ type: null, message: '' });
+                        hydratePayoutFormFromMethod(defaultPayoutMethod);
+                        setPayoutEditOpen(false);
+                      }}
+                      disabled={payoutSaving}
+                      className="flex-1 rounded-md bg-gray-200 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {payoutFeedback.type === 'success' && payoutFeedback.message ? (
+              <p
+                className="mt-3 rounded-[10px] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+                role="status"
+              >
+                {payoutFeedback.message}
+              </p>
+            ) : null}
+            {payoutFeedback.type === 'error' && payoutFeedback.message ? (
+              <p
+                className="mt-3 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                role="alert"
+              >
+                {payoutFeedback.message}
+              </p>
+            ) : null}
+          </div>
 
           <button
             type="button"

@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
+import { fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -17,6 +18,15 @@ function formatMoney(value) {
 function displayNameFromProfile(p) {
   if (!p) return null;
   return p.full_name?.trim() || p.email?.trim() || null;
+}
+
+function withdrawalStatusLabel(status) {
+  const v = String(status || "").toLowerCase();
+  if (v === "pending") return "Pending";
+  if (v === "processing") return "Processing";
+  if (v === "paid") return "Paid";
+  if (v === "rejected") return "Rejected";
+  return v ? String(status) : "—";
 }
 
 function formatShortWhen(iso) {
@@ -98,6 +108,7 @@ export default function WalletPage() {
   const router = useRouter();
   const [balance, setBalance] = useState(0);
   const [previewRows, setPreviewRows] = useState(null);
+  const [withdrawalPreview, setWithdrawalPreview] = useState(null);
 
   const refreshWallet = useCallback(async () => {
     if (!user?.id) return;
@@ -147,11 +158,25 @@ export default function WalletPage() {
     setPreviewRows(txns.map((t) => classifyPreview(t, user.id, namesById)));
   }, [user?.id, profile?.email, profile?.full_name]);
 
+  const refreshWithdrawalPreview = useCallback(async () => {
+    if (!user?.id) {
+      setWithdrawalPreview([]);
+      return;
+    }
+    const { rows, error } = await fetchUserWithdrawalRequests(user.id, 3);
+    if (error) {
+      setWithdrawalPreview([]);
+      return;
+    }
+    setWithdrawalPreview(rows);
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id) return;
     refreshWallet();
     refreshPreview();
-  }, [user?.id, refreshWallet, refreshPreview]);
+    void refreshWithdrawalPreview();
+  }, [user?.id, refreshWallet, refreshPreview, refreshWithdrawalPreview]);
 
   if (loading) return null;
 
@@ -189,6 +214,36 @@ export default function WalletPage() {
           <Link href="/insights" style={insightsLink}>
             Insights →
           </Link>
+        </div>
+
+        <div style={withdrawalTeaserCard}>
+          <div style={withdrawalTeaserHeader}>
+            <h3 style={withdrawalTeaserTitle}>Withdrawal requests</h3>
+            <Link href="/withdraw-wallet" style={withdrawalTeaserLink}>
+              View / withdraw
+            </Link>
+          </div>
+          {!withdrawalPreview ? (
+            <p style={withdrawalTeaserMuted}>Loading…</p>
+          ) : withdrawalPreview.length === 0 ? (
+            <p style={withdrawalTeaserMuted}>No withdrawal requests yet.</p>
+          ) : (
+            <ul style={withdrawalTeaserList}>
+              {withdrawalPreview.map((w, i) => (
+                <li
+                  key={w.id}
+                  style={{
+                    ...withdrawalTeaserRow,
+                    borderTop: i === 0 ? "none" : "1px solid #f1f5f9",
+                  }}
+                >
+                  <span style={withdrawalTeaserAmount}>${formatMoney(w?.amount)}</span>
+                  <span style={withdrawalTeaserStatus}>{withdrawalStatusLabel(w?.status)}</span>
+                  <span style={withdrawalTeaserWhen}>{formatShortWhen(w?.created_at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div style={activityCard}>
@@ -338,6 +393,40 @@ const insightsLink = {
   color: "#7dd3fc",
   textDecoration: "none",
 };
+
+const withdrawalTeaserCard = {
+  marginBottom: "1rem",
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  borderRadius: "14px",
+  boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
+  padding: "0.95rem 1rem",
+};
+
+const withdrawalTeaserHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+  marginBottom: "0.65rem",
+};
+
+const withdrawalTeaserTitle = { margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#0f172a" };
+const withdrawalTeaserLink = { fontSize: "0.82rem", fontWeight: 600, color: "#2563eb", textDecoration: "none" };
+const withdrawalTeaserMuted = { margin: 0, fontSize: "0.85rem", color: "#64748b" };
+const withdrawalTeaserList = { margin: 0, padding: 0, listStyle: "none" };
+const withdrawalTeaserRow = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "baseline",
+  gap: "0.35rem 0.75rem",
+  padding: "0.45rem 0",
+  fontSize: "0.84rem",
+  color: "#334155",
+};
+const withdrawalTeaserAmount = { fontWeight: 700, fontVariantNumeric: "tabular-nums" };
+const withdrawalTeaserStatus = { fontWeight: 600, color: "#0369a1" };
+const withdrawalTeaserWhen = { fontSize: "0.78rem", color: "#94a3b8", marginLeft: "auto" };
 
 const activityCard = {
   marginTop: "0.75rem",

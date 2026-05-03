@@ -5,7 +5,6 @@ import { useUser } from '../lib/userContext';
 import { isAdminUser } from '../lib/adminAccess';
 import { getSoftEnforcementState } from '../lib/softEnforcement';
 import Image from 'next/image';
-import logo from '../assets/logo.png'; // Ensure you have a logo.png in assets
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
@@ -35,7 +34,14 @@ export default function Navbar() {
         className="flex items-center cursor-pointer"
         onClick={() => router.push('/wallet')}
       >
-        <Image src={logo} alt="Logo" width={30} height={30} />
+        <Image
+          src="/logo.png"
+          alt="Tropicash"
+          width={32}
+          height={32}
+          className="object-contain"
+          priority
+        />
         <span className="ml-2 text-xl font-bold">Tropicash</span>
       </div>
 
@@ -97,6 +103,12 @@ export default function Navbar() {
                       className="block w-full text-left px-4 py-2 hover:bg-gray-100"
                     >
                       Cases
+                    </button>
+                    <button
+                      onClick={() => router.push('/admin/withdrawals')}
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                    >
+                      Withdrawals
                     </button>
                   </>
                 ) : null}

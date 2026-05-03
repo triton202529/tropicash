@@ -19,11 +19,12 @@ export default function Home() {
     >
       <main className="flex flex-col gap-8 row-start-2 items-center text-center">
         <Image
-          src="/logo.png" // Replace this with your Tropicash logo
-          alt="Tropicash Logo"
+          src="/logo.png"
+          alt="Tropicash"
           width={120}
           height={120}
-          className="rounded-full"
+          className="object-contain"
+          priority
         />
         <h1 className="text-3xl font-bold text-gray-800">
           Welcome to <span className="text-green-600">Tropicash</span>
