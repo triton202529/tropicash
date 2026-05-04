@@ -15,42 +15,46 @@ const geistMono = Geist_Mono({
 export default function Home() {
   return (
     <div
-      className={`${geistSans.className} ${geistMono.className} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 bg-gradient-to-br from-green-100 to-blue-100`}
+      className={`${geistSans.className} ${geistMono.className} flex min-h-screen flex-col bg-gradient-to-br from-slate-100 via-sky-50 to-emerald-100 px-5 py-12 sm:px-10 sm:py-16`}
     >
-      <main className="flex flex-col gap-8 row-start-2 items-center text-center">
-        <Image
-          src="/logo.png"
-          alt="Tropicash"
-          width={120}
-          height={120}
-          className="object-contain"
-          priority
-        />
-        <h1 className="text-3xl font-bold text-gray-800">
-          Welcome to <span className="text-green-600">Tropicash</span>
+      <main className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="mb-2 flex justify-center">
+          <Image
+            src="/tropicash-logo-dark.png"
+            alt="Tropicash"
+            width={260}
+            height={78}
+            className="h-auto w-[min(72vw,260px)] object-contain"
+            priority
+          />
+        </div>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+          Welcome to <span className="text-emerald-600">Tropicash</span>
         </h1>
-        <p className="text-gray-600 max-w-md">
-          Send and receive money across the Caribbean. Fund your Triton trading account. Manage it all from one place.
+        <p className="mb-8 max-w-md text-base leading-relaxed text-slate-600 sm:text-lg">
+          Send, receive, and manage money across the Caribbean. Fund your wallet, make transfers, request withdrawals, and
+          track everything from one secure place.
         </p>
 
-        <div className="flex gap-4 flex-wrap justify-center">
-          <Link href="/auth">
-            <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded">
-              Sign In / Sign Up
-            </button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/auth"
+            className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:text-base"
+          >
+            Sign In / Sign Up
           </Link>
-          <Link href="/wallet">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
-              Go to Wallet
-            </button>
+          <Link
+            href="/wallet"
+            className="rounded-lg border border-slate-300 bg-white/80 px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white sm:text-base"
+          >
+            Go to Wallet
           </Link>
         </div>
       </main>
 
-      <footer className="row-start-3 text-sm text-gray-500">
+      <footer className="py-6 text-center text-xs text-slate-500 sm:text-sm">
         © {new Date().getFullYear()} Tropicash · Powered by Next.js & Supabase
       </footer>
     </div>
   );
 }
-

@@ -1,7 +1,8 @@
 // pages/login.jsx
-import { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { useRouter } from 'next/router';
+import { useState } from "react";
+import Link from "next/link";
+import { supabase } from "../lib/supabaseClient";
+import { useRouter } from "next/router";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,9 +24,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-8">
+      <div className="mb-4 w-full max-w-sm">
+        <Link
+          href="/"
+          className="inline-flex items-center text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline"
+        >
+          ← Back to Home
+        </Link>
+      </div>
       <div className="w-full max-w-sm rounded-[14px] border border-[#e2e8f0] bg-white p-8 shadow-[0_8px_25px_rgba(15,23,42,0.08)]">
-        <h2 className="text-2xl font-bold mb-6 text-center text-blue-700">Login to Tropicash</h2>
+        <h2 className="mb-6 text-center text-2xl font-bold text-blue-700">Login to Tropicash</h2>
         {errorMsg && (
           <div className="text-red-600 text-sm mb-4 text-center">{errorMsg}</div>
         )}

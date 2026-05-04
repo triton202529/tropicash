@@ -36,6 +36,11 @@ export default function AuthPage() {
     <>
       <Navbar />
       <div style={pageShell}>
+        <div style={backRow}>
+          <Link href="/" style={backToHome}>
+            ← Back to Home
+          </Link>
+        </div>
         <div style={card}>
           <h1 style={title}>{isSignUp ? "Create Account" : "Login to Tropicash"}</h1>
 
@@ -97,10 +102,24 @@ const pageShell = {
   minHeight: "calc(100vh - 3.5rem)",
   background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
   display: "flex",
+  flexDirection: "column",
   justifyContent: "center",
   alignItems: "center",
   padding: "1.25rem",
   boxSizing: "border-box",
+};
+
+const backRow = {
+  width: "100%",
+  maxWidth: "430px",
+  marginBottom: "0.65rem",
+};
+
+const backToHome = {
+  fontSize: "0.9rem",
+  fontWeight: 600,
+  color: "#7dd3fc",
+  textDecoration: "none",
 };
 
 const card = {

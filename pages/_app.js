@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import "@/styles/globals.css";
 import { UserProvider } from "@/lib/userContext"; // ✅ use relative path
+import RouteAuthGuard from "@/components/RouteAuthGuard";
 
 export default function App({ Component, pageProps }) {
   useEffect(() => {
@@ -38,7 +39,9 @@ export default function App({ Component, pageProps }) {
 
   return (
     <UserProvider>
-      <Component {...pageProps} />
+      <RouteAuthGuard>
+        <Component {...pageProps} />
+      </RouteAuthGuard>
     </UserProvider>
   );
 }

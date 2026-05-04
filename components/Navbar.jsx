@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from "../lib/supabaseClient";
 import { useUser } from '../lib/userContext';
 import { isAdminUser } from '../lib/adminAccess';
 import { getSoftEnforcementState } from '../lib/softEnforcement';
@@ -8,13 +8,18 @@ import Image from 'next/image';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
-  const { user, profile, loading } = useUser();
+  const { user, profile, loading, logout } = useUser();
   const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+    setShowDropdown(false);
+    if (typeof logout === "function") {
+      await logout();
+    } else {
+      await supabase.auth.signOut();
+    }
+    await router.replace("/");
   };
 
   const displayName = profile?.full_name?.split(' ')[0] || 'User';
@@ -32,14 +37,14 @@ export default function Navbar() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
       <div
         className="flex items-center cursor-pointer"
-        onClick={() => router.push('/wallet')}
+        onClick={() => router.push(user ? "/wallet" : "/")}
       >
         <Image
-          src="/logo.png"
+          src="/tropicash-logo-light.png"
           alt="Tropicash"
-          width={32}
+          width={112}
           height={32}
-          className="object-contain"
+          className="h-8 w-auto max-w-[140px] object-contain object-left"
           priority
         />
         <span className="ml-2 text-xl font-bold">Tropicash</span>
