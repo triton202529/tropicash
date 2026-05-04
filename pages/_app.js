@@ -5,6 +5,7 @@ import { UserProvider } from "@/lib/userContext"; // ✅ use relative path
 export default function App({ Component, pageProps }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
 
     const registerSw = () => {

@@ -121,7 +121,12 @@ export default function FundWalletPage() {
 
   useEffect(() => {
     const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
-    if (raw !== "sandbox" && raw !== "live" && process.env.NEXT_PUBLIC_PAYPAL_MODE) {
+    if (
+      process.env.NODE_ENV === "development" &&
+      raw !== "sandbox" &&
+      raw !== "live" &&
+      process.env.NEXT_PUBLIC_PAYPAL_MODE
+    ) {
       console.warn(
         `[fund-wallet] Invalid NEXT_PUBLIC_PAYPAL_MODE "${process.env.NEXT_PUBLIC_PAYPAL_MODE}", using sandbox.`,
       );
