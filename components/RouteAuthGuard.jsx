@@ -9,6 +9,7 @@ const PUBLIC_PATHNAMES = new Set([
   "/auth",
   "/forgot-password",
   "/reset-password",
+  "/support",
 ]);
 
 const loadingShellStyle = {

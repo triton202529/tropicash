@@ -210,9 +210,21 @@ export default function WalletPage() {
           ))}
         </div>
 
-        <div style={{ marginTop: "0.5rem", marginBottom: "1rem" }}>
+        <div
+          style={{
+            marginTop: "0.5rem",
+            marginBottom: "1rem",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "1rem",
+            alignItems: "center",
+          }}
+        >
           <Link href="/insights" style={insightsLink}>
             Insights →
+          </Link>
+          <Link href="/support" style={insightsLink}>
+            Help & support
           </Link>
         </div>
 

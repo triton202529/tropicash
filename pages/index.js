@@ -52,8 +52,11 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-xs text-slate-500 sm:text-sm">
-        © {new Date().getFullYear()} Tropicash · Powered by Next.js & Supabase
+      <footer className="flex flex-col items-center gap-2 py-6 text-center text-xs text-slate-500 sm:text-sm">
+        <Link href="/support" className="font-semibold text-blue-700 hover:underline">
+          Help & support
+        </Link>
+        <span>© {new Date().getFullYear()} Tropicash · Powered by Next.js & Supabase</span>
       </footer>
     </div>
   );

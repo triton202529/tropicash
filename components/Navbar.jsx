@@ -50,6 +50,14 @@ export default function Navbar() {
         <span className="ml-2 text-xl font-bold">Tropicash</span>
       </div>
 
+      <div className="flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={() => router.push("/support")}
+          className="rounded-md px-2 py-1.5 text-sm font-semibold text-white/95 hover:bg-blue-700/80 sm:px-3"
+        >
+          Help
+        </button>
       {loading ? (
         <span className="text-sm">Loading...</span>
       ) : user ? (
@@ -128,6 +136,7 @@ export default function Navbar() {
           </div>
         </div>
       ) : null}
+      </div>
       </nav>
       <div className="h-16" aria-hidden="true" />
     </>
