@@ -10,6 +10,7 @@ const PUBLIC_PATHNAMES = new Set([
   "/forgot-password",
   "/reset-password",
   "/support",
+  "/security",
 ]);
 
 const loadingShellStyle = {
@@ -33,17 +34,18 @@ export default function RouteAuthGuard({ children }) {
     if (!router.isReady) return;
     if (isPublic) return;
     if (loading) return;
+
     if (!user) {
       router.replace("/");
     }
-  }, [router, router.isReady, router.pathname, loading, user, isPublic]);
-
-  if (!router.isReady) {
-    return <div style={loadingShellStyle}>Loading…</div>;
-  }
+  }, [router, router.isReady, loading, user, isPublic]);
 
   if (isPublic) {
     return children;
+  }
+
+  if (!router.isReady) {
+    return <div style={loadingShellStyle}>Loading…</div>;
   }
 
   if (loading || !user) {

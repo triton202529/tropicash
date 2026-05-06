@@ -67,7 +67,7 @@ const pageWrap = {
   maxWidth: "1200px",
   margin: "0 auto",
   minHeight: "calc(100vh - 3.5rem)",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
   boxSizing: "border-box",
 };
 
@@ -563,7 +563,7 @@ export default function AdminFraudDashboardPage() {
             style={{
               fontSize: "1.55rem",
               fontWeight: 700,
-              color: "#f8fafc",
+              color: "#0f172a",
               marginBottom: "1rem",
               letterSpacing: "-0.02em",
             }}
@@ -585,7 +585,7 @@ export default function AdminFraudDashboardPage() {
             style={{
               fontSize: "1.55rem",
               fontWeight: 700,
-              color: "#f8fafc",
+              color: "#0f172a",
               marginBottom: "0.75rem",
               letterSpacing: "-0.02em",
             }}
@@ -651,7 +651,7 @@ export default function AdminFraudDashboardPage() {
               style={{
                 fontSize: "1.55rem",
                 fontWeight: 700,
-                color: "#f8fafc",
+                color: "#0f172a",
                 margin: 0,
                 letterSpacing: "-0.02em",
               }}

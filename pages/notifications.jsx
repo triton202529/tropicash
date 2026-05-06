@@ -78,7 +78,7 @@ export default function NotificationsPage() {
     return (
       <>
         <Navbar />
-        <div className="p-6 max-w-lg mx-auto">
+        <div className="mx-auto max-w-lg p-6">
           <p className="text-slate-600">Loading…</p>
         </div>
       </>
@@ -137,7 +137,7 @@ export default function NotificationsPage() {
         {loading ? (
           <p className="text-slate-600">Loading…</p>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+          <div className="tropicash-surface rounded-xl border border-dashed border-slate-200/90 p-10 text-center">
             <p className="text-slate-700 font-medium">No notifications yet</p>
             <p className="text-sm text-slate-500 mt-2">
               When you send or receive money or fund your wallet, updates will
@@ -151,10 +151,10 @@ export default function NotificationsPage() {
                 <button
                   type="button"
                   onClick={() => handleRowClick(n)}
-                  className={`w-full text-left rounded-xl border p-4 shadow-sm transition hover:border-slate-300 hover:shadow ${
+                  className={`w-full rounded-xl border p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow ${
                     n.is_read
-                      ? "bg-white border-slate-200"
-                      : "bg-sky-50 border-sky-200 ring-1 ring-sky-100"
+                      ? "tropicash-surface border-slate-200"
+                      : "border-sky-200 bg-sky-50 ring-1 ring-sky-100"
                   }`}
                 >
                   <div className="flex justify-between gap-2 items-start">

@@ -39,6 +39,7 @@ export default function App({ Component, pageProps }) {
 
   return (
     <UserProvider>
+      <div className="tropicash-global-bg" aria-hidden="true" />
       <RouteAuthGuard>
         <Component {...pageProps} />
       </RouteAuthGuard>

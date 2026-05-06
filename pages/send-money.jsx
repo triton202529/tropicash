@@ -62,7 +62,7 @@ const pageShell = {
   maxWidth: "500px",
   margin: "0 auto",
   minHeight: "calc(100vh - 3.5rem)",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
   boxSizing: "border-box",
 };
 
@@ -412,7 +412,7 @@ export default function SendMoneyPage() {
       <>
         <Navbar />
         <div style={pageShell}>
-          <h2 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", margin: "0 0 0.5rem" }}>
+          <h2 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.5rem" }}>
             Send Money
           </h2>
           <p style={{ color: "#64748b" }}>Loading…</p>
@@ -426,7 +426,7 @@ export default function SendMoneyPage() {
       <>
         <Navbar />
         <div style={pageShell}>
-          <h2 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", margin: "0 0 0.5rem" }}>
+          <h2 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.5rem" }}>
             Send Money
           </h2>
           <p style={{ color: "#64748b" }}>Sign in to send money.</p>
@@ -467,7 +467,7 @@ export default function SendMoneyPage() {
           style={{
             fontSize: "1.55rem",
             fontWeight: 700,
-            color: "#f8fafc",
+            color: "#0f172a",
             margin: "0 0 0.25rem",
             letterSpacing: "-0.02em",
           }}
@@ -555,7 +555,7 @@ export default function SendMoneyPage() {
 
         <p style={{ margin: "0.75rem 0 0", fontSize: "1rem", color: "#64748b" }}>
           <strong style={{ color: "#94a3b8" }}>Balance:</strong>{" "}
-          <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "#f8fafc" }}>
+          <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "#0f172a" }}>
             ${formatMoney(balance)}
           </span>
         </p>

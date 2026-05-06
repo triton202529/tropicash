@@ -19,6 +19,12 @@ import {
 
 const PAYOUT_BRAND_PRESETS = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Other'];
 
+function isValidPayoutEmail(value) {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
 export default function ProfilePage() {
   const { user, profile, loading } = useUser();
 
@@ -35,6 +41,8 @@ export default function ProfilePage() {
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutSaving, setPayoutSaving] = useState(false);
   const [payoutFeedback, setPayoutFeedback] = useState({ type: null, message: '' });
+  const [payoutEmailField, setPayoutEmailField] = useState('');
+  const [payoutEmailSaving, setPayoutEmailSaving] = useState(false);
   const [payoutEditOpen, setPayoutEditOpen] = useState(false);
   const [pmCardholder, setPmCardholder] = useState('');
   const [pmBrandPreset, setPmBrandPreset] = useState('Visa');
@@ -108,6 +116,7 @@ export default function ProfilePage() {
     if (profile) {
       setNewName(profile.full_name || '');
       setNewPhone(profile.phone || '');
+      setPayoutEmailField(String(profile.payout_email || '').trim());
     }
   }, [profile]);
 
@@ -239,6 +248,45 @@ export default function ProfilePage() {
     return pmBrandPreset;
   };
 
+  const handleSavePayPalPayoutEmail = async () => {
+    if (!user?.id) return;
+    setPayoutFeedback({ type: null, message: '' });
+    const trimmed = String(payoutEmailField || '').trim().toLowerCase();
+    if (!isValidPayoutEmail(trimmed)) {
+      setPayoutFeedback({
+        type: 'error',
+        message: 'Enter a valid PayPal payout email address.',
+      });
+      return;
+    }
+    setPayoutEmailSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ payout_email: trimmed })
+        .eq('id', user.id);
+      if (error) {
+        setPayoutFeedback({
+          type: 'error',
+          message: error.message || 'Could not save PayPal email.',
+        });
+        return;
+      }
+      const refreshed = await getUserProfile(user.id);
+      setLocalProfile(refreshed);
+      setPayoutEmailField(trimmed);
+      setPayoutFeedback({ type: 'success', message: 'PayPal payout email saved.' });
+    } catch (err) {
+      console.error('[profile] payout email save', err);
+      setPayoutFeedback({
+        type: 'error',
+        message: err?.message || 'Something went wrong while saving.',
+      });
+    } finally {
+      setPayoutEmailSaving(false);
+    }
+  };
+
   const handleSavePayoutMethod = async () => {
     if (!user?.id) return;
     setPayoutFeedback({ type: null, message: '' });
@@ -320,7 +368,7 @@ export default function ProfilePage() {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-blue-50 py-10 px-4">
+        <div className="min-h-screen px-4 py-10">
           <p className="text-center">Loading...</p>
         </div>
       </>
@@ -331,7 +379,7 @@ export default function ProfilePage() {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen bg-blue-50 py-10 px-4">
+        <div className="min-h-screen px-4 py-10">
           <p className="text-center">Loading...</p>
         </div>
       </>
@@ -342,8 +390,8 @@ export default function ProfilePage() {
     <>
       <Navbar />
 
-      <div className="min-h-screen bg-blue-50 py-10 px-4">
-        <div className="mx-auto max-w-md rounded-[14px] border border-[#e2e8f0] bg-white p-6 shadow-[0_8px_25px_rgba(15,23,42,0.08)]">
+      <div className="min-h-screen px-4 py-10">
+        <div className="mx-auto max-w-md rounded-[14px] p-6 tropicash-surface">
           <h1 className="mb-6 text-center text-2xl font-bold text-[#0f172a]">Profile</h1>
 
           {saveFeedback.type === 'success' && saveFeedback.message ? (
@@ -468,6 +516,34 @@ export default function ProfilePage() {
               )}
             </div>
           ) : null}
+
+          <div className="mt-5 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] p-4 text-left">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+              Payout settings
+            </h2>
+            <p className="mb-3 text-xs leading-relaxed text-[#64748b]">
+              This email will be used to receive withdrawals via PayPal.
+            </p>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#64748b]">
+              PayPal email
+            </label>
+            <input
+              type="email"
+              className="mb-3 w-full rounded-[10px] border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
+              value={payoutEmailField}
+              onChange={(e) => setPayoutEmailField(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+            <button
+              type="button"
+              onClick={() => void handleSavePayPalPayoutEmail()}
+              disabled={payoutEmailSaving}
+              className="w-full rounded-md bg-sky-600 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {payoutEmailSaving ? 'Saving…' : 'Save PayPal email'}
+            </button>
+          </div>
 
           <div className="mt-5 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] p-4 text-left">
             <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#94a3b8]">

@@ -20,7 +20,7 @@ export default function WithdrawRedirectPage() {
         margin: "0 auto",
         minHeight: "100vh",
         boxSizing: "border-box",
-        background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+        background: "transparent",
       }}
     >
       <p style={{ color: "#64748b" }}>Redirecting to withdrawal…</p>

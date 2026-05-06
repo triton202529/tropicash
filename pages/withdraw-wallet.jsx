@@ -8,15 +8,14 @@ import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
 import { fetchDefaultPayoutMethod, formatPayoutDestinationDisplay } from "../lib/payoutMethods";
-import {
-  insertWithdrawalRequestAfterWalletDebit,
-  notifyAdminNewWithdrawalRequest,
-  fetchUserWithdrawalRequests,
-} from "../lib/withdrawalRequests";
+import { notifyAdminNewWithdrawalRequest, fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
 
 function messageForRpcError(err) {
   const msg = String(err?.message || "");
-  if (msg.includes("insufficient_funds")) return "Insufficient funds.";
+  if (msg.includes("insufficient_funds") || msg.includes("Insufficient funds")) return "Insufficient funds.";
+  if (msg.includes("Wallet not found")) return "Wallet not found.";
+  if (msg.includes("payout_email_required")) return "Add a payout email before requesting a withdrawal.";
+  if (msg.includes("not_authorized")) return "You are not allowed to perform this withdrawal.";
   return "Could not complete withdrawal. Try again.";
 }
 
@@ -44,7 +43,14 @@ function withdrawalStatusLabel(status) {
   if (v === "processing") return "Processing";
   if (v === "paid") return "Paid";
   if (v === "rejected") return "Rejected";
+  if (v === "failed") return "Failed";
   return v ? String(status) : "—";
+}
+
+function isValidPayoutEmail(value) {
+  const s = String(value || "").trim();
+  if (!s) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
 async function insertWithdrawNotification(userId, amount) {
@@ -79,7 +85,7 @@ const pageShell = {
   maxWidth: "500px",
   margin: "0 auto",
   minHeight: "calc(100vh - 3.5rem)",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
   boxSizing: "border-box",
 };
 
@@ -106,6 +112,7 @@ export default function WithdrawWalletPage() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successBanner, setSuccessBanner] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [defaultPayoutRow, setDefaultPayoutRow] = useState(null);
   const [payoutCheckLoading, setPayoutCheckLoading] = useState(true);
   const [recentWithdrawals, setRecentWithdrawals] = useState([]);
@@ -213,6 +220,13 @@ export default function WithdrawWalletPage() {
       return;
     }
 
+    const payoutEmail = String(profile?.payout_email || "").trim();
+    if (!isValidPayoutEmail(payoutEmail)) {
+      setErrorMsg("Add a payout email before requesting a withdrawal.");
+      setLoadingAction(false);
+      return;
+    }
+
     const amt = parseFloat(amount);
     if (!Number.isFinite(amt) || amt <= 0) {
       setErrorMsg("Please enter a valid amount.");
@@ -245,9 +259,10 @@ export default function WithdrawWalletPage() {
       }
     }
 
-    const { error } = await supabase.rpc("withdraw_wallet", {
+    const { error } = await supabase.rpc("create_withdrawal_request", {
       p_user_id: user.id,
       p_amount: amt,
+      p_payout_email: payoutEmail,
     });
 
     if (error) {
@@ -258,23 +273,12 @@ export default function WithdrawWalletPage() {
 
     await fetchWalletBalance();
 
-    const { error: requestLogError } = await insertWithdrawalRequestAfterWalletDebit({
-      userId: user.id,
-      amount: amt,
-      payoutMethodId: defaultPayoutRow.id,
-      payoutLabel: formatPayoutDestinationDisplay(defaultPayoutRow),
-    });
-
-    if (requestLogError) {
-      console.error("[withdraw-wallet] withdrawal_requests insert failed:", requestLogError);
-    } else {
-      try {
-        await notifyAdminNewWithdrawalRequest(amt);
-      } catch (adminNotifErr) {
-        console.error("[withdraw-wallet] admin withdrawal notification failed:", adminNotifErr);
-      }
-      await loadRecentWithdrawals();
+    try {
+      await notifyAdminNewWithdrawalRequest(amt);
+    } catch (adminNotifErr) {
+      console.error("[withdraw-wallet] admin withdrawal notification failed:", adminNotifErr);
     }
+    await loadRecentWithdrawals();
 
     try {
       await evaluateAndLogFraud({
@@ -300,7 +304,7 @@ export default function WithdrawWalletPage() {
     setSuccessBanner({
       amountFormatted: formatMoney(amt),
       payoutNote: payoutNote.trim(),
-      loggingFailed: !!requestLogError,
+      loggingFailed: false,
     });
     setLoadingAction(false);
   };
@@ -309,14 +313,39 @@ export default function WithdrawWalletPage() {
   const amountLooksValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const formDisabled = loadingAction || !!successBanner;
   const hasDefaultPayout = !!defaultPayoutRow;
-  const withdrawButtonDisabled = formDisabled || payoutCheckLoading || !hasDefaultPayout;
+  const normalizedPayoutEmail = String(profile?.payout_email || "").trim();
+  const payoutEmailOk =
+    normalizedPayoutEmail.length > 0 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedPayoutEmail);
+  const withdrawButtonDisabled =
+    formDisabled ||
+    payoutCheckLoading ||
+    !hasDefaultPayout ||
+    !payoutEmailOk ||
+    !amountLooksValid;
+
+  const handleSubmitWithConfirm = (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    if (withdrawButtonDisabled) return;
+    setConfirmOpen(true);
+  };
+
+  const confirmCopy = amountLooksValid
+    ? `You are about to send $${formatMoney(parsedAmount)} to your PayPal account (${normalizedPayoutEmail}). This action cannot be undone.`
+    : "Enter a valid amount to continue.";
+
+  const runConfirmedWithdrawal = () => {
+    setConfirmOpen(false);
+    handleWithdraw({ preventDefault() {} });
+  };
 
   if (loading) {
     return (
       <>
         <Navbar />
         <div style={pageShell}>
-          <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", margin: "0 0 0.5rem" }}>
+          <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.5rem" }}>
             Withdraw Wallet
           </h1>
           <p style={{ color: "#64748b" }}>Loading withdraw page...</p>
@@ -330,7 +359,7 @@ export default function WithdrawWalletPage() {
       <>
         <Navbar />
         <div style={pageShell}>
-          <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", margin: "0 0 0.5rem" }}>Withdraw Wallet</h1>
+          <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.5rem" }}>Withdraw Wallet</h1>
           <p style={{ color: "#64748b" }}>Sign in to withdraw.</p>
           <Link
             href="/login"
@@ -353,7 +382,7 @@ export default function WithdrawWalletPage() {
       <style dangerouslySetInnerHTML={{ __html: withdrawFocusCss }} />
       <Navbar />
       <div style={pageShell}>
-        <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", margin: "0 0 1rem", letterSpacing: "-0.02em" }}>
+        <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", margin: "0 0 1rem", letterSpacing: "-0.02em" }}>
           Withdraw Wallet
         </h1>
 
@@ -362,13 +391,15 @@ export default function WithdrawWalletPage() {
             marginBottom: "1.25rem",
             padding: "1rem 1.1rem",
             borderRadius: "12px",
-            border: "1px solid rgba(56, 189, 248, 0.35)",
-            background: "rgba(14, 165, 233, 0.1)",
+            border: "1px solid #e2e8f0",
+            background: "rgba(255,255,255,0.9)",
           }}
         >
-          <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#bae6fd", lineHeight: 1.5 }}>
-            Beta withdrawals are processed manually. After submitting, Tropicash will send your payout to your saved payout
-            method. Processing time may vary during beta.
+          <p style={{ margin: "0 0 0.4rem", fontSize: "0.9rem", fontWeight: 800, color: "#0f172a" }}>
+            How withdrawals work
+          </p>
+          <p style={{ margin: 0, fontSize: "0.86rem", color: "#475569", lineHeight: 1.55 }}>
+            Withdrawals are sent to your PayPal account. You can then transfer funds to your bank from PayPal.
           </p>
         </div>
 
@@ -406,13 +437,73 @@ export default function WithdrawWalletPage() {
           </div>
         ) : null}
 
+        {!payoutCheckLoading && hasDefaultPayout && payoutEmailOk ? (
+          <div
+            style={{
+              marginBottom: "1.25rem",
+              padding: "1rem 1.1rem",
+              borderRadius: "12px",
+              border: "1px solid #e2e8f0",
+              background: "rgba(255,255,255,0.9)",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+              PayPal payout email
+            </p>
+            <p style={{ margin: "0.35rem 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "#0f172a", wordBreak: "break-word" }}>
+              {normalizedPayoutEmail}
+            </p>
+            <Link
+              href="/profile"
+              style={{
+                display: "inline-block",
+                fontWeight: 700,
+                color: "#0ea5e9",
+              }}
+            >
+              Change
+            </Link>
+          </div>
+        ) : null}
+
+        {!payoutCheckLoading && hasDefaultPayout && !payoutEmailOk ? (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "1.25rem",
+              padding: "1rem 1.1rem",
+              borderRadius: "12px",
+              border: "1px solid rgba(251, 191, 36, 0.45)",
+              background: "rgba(254, 243, 199, 0.12)",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, color: "#fcd34d" }}>
+              Add a payout email before requesting a withdrawal.
+            </p>
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "#94a3b8", lineHeight: 1.45 }}>
+              Withdrawals are currently sent through PayPal. Bank payouts will be added later.
+            </p>
+            <Link
+              href="/profile"
+              style={{
+                display: "inline-block",
+                marginTop: "0.85rem",
+                fontWeight: 600,
+                color: "#38bdf8",
+              }}
+            >
+              Add PayPal payout email
+            </Link>
+          </div>
+        ) : null}
+
         {!payoutCheckLoading && hasDefaultPayout ? (
           <p
             style={{
               marginBottom: "1.25rem",
               fontSize: "0.95rem",
               fontWeight: 600,
-              color: "#e2e8f0",
+              color: "#334155",
               lineHeight: 1.45,
             }}
           >
@@ -441,13 +532,12 @@ export default function WithdrawWalletPage() {
               </>
             ) : (
               <>
-                <strong style={{ color: "#234e52" }}>Request submitted:</strong>{" "}
+                <strong style={{ color: "#234e52" }}>Withdrawal request submitted</strong>{" "}
                 <span style={{ color: "#234e52" }}>
-                  Withdrawal request submitted. Your wallet has been debited and Tropicash will process the payout manually.
+                  Your request is being processed. You will be notified once your payout is completed.
                 </span>
                 <p style={{ margin: "0.65rem 0 0", fontSize: "0.88rem", color: "#2c7a7b", lineHeight: 1.45 }}>
-                  Amount: ${successBanner.amountFormatted}. Payout is not completed until our team marks it paid after sending
-                  funds outside the app.
+                  Amount: ${successBanner.amountFormatted}. Status: pending.
                 </p>
               </>
             )}
@@ -495,7 +585,7 @@ export default function WithdrawWalletPage() {
           </p>
         </div>
 
-        <form onSubmit={handleWithdraw}>
+        <form onSubmit={handleSubmitWithConfirm}>
           <label
             htmlFor="withdraw-amt"
             style={{
@@ -548,7 +638,7 @@ export default function WithdrawWalletPage() {
               color: "#94a3b8",
             }}
           >
-            Bank / payout note
+            Note (optional)
           </label>
           <input
             id="withdraw-note"
@@ -556,7 +646,7 @@ export default function WithdrawWalletPage() {
             type="text"
             value={payoutNote}
             onChange={(e) => setPayoutNote(e.target.value)}
-            placeholder="Bank / payout note"
+            placeholder="Optional note"
             disabled={formDisabled}
             style={inputField}
           />
@@ -583,6 +673,77 @@ export default function WithdrawWalletPage() {
           </button>
         </form>
 
+        {confirmOpen ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm withdrawal"
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.55)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "1.25rem",
+              zIndex: 50,
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "420px",
+                borderRadius: "14px",
+                border: "1px solid #e2e8f0",
+                background: "rgba(255,255,255,0.98)",
+                boxShadow: "0 18px 55px rgba(15, 23, 42, 0.35)",
+                padding: "1rem 1.05rem",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#0f172a" }}>Confirm withdrawal</p>
+              <p style={{ margin: "0.6rem 0 0.9rem", fontSize: "0.9rem", color: "#475569", lineHeight: 1.55 }}>
+                {confirmCopy}
+              </p>
+              <div style={{ display: "flex", gap: "0.6rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 0.85rem",
+                    borderRadius: "10px",
+                    border: "1px solid #cbd5e1",
+                    background: "#f1f5f9",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!payoutEmailOk || !amountLooksValid || loadingAction}
+                  onClick={() => runConfirmedWithdrawal()}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 0.85rem",
+                    borderRadius: "10px",
+                    border: "1px solid rgba(59, 130, 246, 0.55)",
+                    background: "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)",
+                    fontWeight: 800,
+                    color: "#fff",
+                    cursor: "pointer",
+                    opacity: !payoutEmailOk || !amountLooksValid || loadingAction ? 0.65 : 1,
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {errorMsg ? (
           <p
             style={{
@@ -606,7 +767,7 @@ export default function WithdrawWalletPage() {
               margin: "0 0 0.75rem",
               fontSize: "1rem",
               fontWeight: 700,
-              color: "#e2e8f0",
+              color: "#0f172a",
               letterSpacing: "-0.01em",
             }}
           >
@@ -623,6 +784,19 @@ export default function WithdrawWalletPage() {
                 const paidAt = rw?.paid_at ? formatWhen(rw.paid_at) : null;
                 const paidVia = rw?.paid_via != null ? String(rw.paid_via).trim() : "";
                 const extRef = rw?.external_reference != null ? String(rw.external_reference).trim() : "";
+                const st = String(rw?.status || "").toLowerCase();
+                const statusHelp =
+                  st === "pending"
+                    ? "Your request is waiting to be processed."
+                    : st === "processing"
+                      ? "Your payout is being processed."
+                      : st === "paid"
+                        ? "Your payout has been sent to your PayPal account."
+                        : st === "failed"
+                          ? "Your payout failed. Please contact support."
+                          : st === "rejected"
+                            ? "Your request was rejected. Please contact support."
+                            : "";
                 return (
                   <li
                     key={rw.id}
@@ -630,14 +804,19 @@ export default function WithdrawWalletPage() {
                       marginBottom: "0.85rem",
                       padding: "0.85rem 1rem",
                       borderRadius: "12px",
-                      border: "1px solid rgba(148, 163, 184, 0.35)",
-                      background: "rgba(15, 23, 42, 0.65)",
+                      border: "1px solid rgba(226, 232, 240, 0.95)",
+                      background: "rgba(255, 255, 255, 0.95)",
                     }}
                   >
-                    <p style={{ margin: 0, fontWeight: 700, color: "#f8fafc", fontSize: "0.95rem" }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: "0.95rem" }}>
                       ${formatMoney(rw?.amount)}{" "}
                       <span style={{ fontWeight: 600, color: "#38bdf8" }}>{withdrawalStatusLabel(rw?.status)}</span>
                     </p>
+                    {statusHelp ? (
+                      <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "#475569", lineHeight: 1.45 }}>
+                        {statusHelp}
+                      </p>
+                    ) : null}
                     <p style={{ margin: "0.35rem 0 0", fontSize: "0.82rem", color: "#94a3b8", lineHeight: 1.45 }}>
                       {payout || "—"}
                     </p>

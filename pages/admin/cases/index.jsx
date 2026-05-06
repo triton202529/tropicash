@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { supabase } from "../../lib/supabaseClient";
-import { useUser } from "../../lib/userContext";
-import { isAdminUser } from "../../lib/adminAccess";
-import Navbar from "../../components/Navbar";
+import { supabase } from "../../../lib/supabaseClient";
+import { useUser } from "../../../lib/userContext";
+import { isAdminUser } from "../../../lib/adminAccess";
+import Navbar from "../../../components/Navbar";
 
 const pageWrap = {
   padding: "2rem 1.25rem 3rem",
   maxWidth: "1200px",
   margin: "0 auto",
   minHeight: "calc(100vh - 3.5rem)",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
   boxSizing: "border-box",
 };
 
@@ -348,7 +348,7 @@ export default function AdminCasesPage() {
               style={{
                 fontSize: "1.55rem",
                 fontWeight: 700,
-                color: "#f8fafc",
+                color: "#0f172a",
                 margin: 0,
                 letterSpacing: "-0.02em",
               }}

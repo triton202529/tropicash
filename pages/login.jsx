@@ -3,12 +3,26 @@ import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useRouter } from "next/router";
+import Navbar from "../components/Navbar";
+import {
+  authCardClass,
+  authErrorBoxClass,
+  authFormStackClass,
+  authInputClass,
+  authLabelClass,
+  authLinkClass,
+  authPageShellClass,
+  authPrimaryBtnClass,
+  authSubtitleClass,
+  authTitleClass,
+  authTopRowClass,
+} from "../lib/authFormUi";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,50 +33,71 @@ export default function LoginPage() {
     if (error) {
       setErrorMsg(error.message);
     } else {
-      router.push('/wallet'); // redirect after login
+      router.push("/wallet");
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 px-4 py-8">
-      <div className="mb-4 w-full max-w-sm">
-        <Link
-          href="/"
-          className="inline-flex items-center text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline"
-        >
-          ← Back to Home
-        </Link>
+    <>
+      <Navbar />
+      <div className={authPageShellClass}>
+        <div className={authTopRowClass}>
+          <Link href="/" className={authLinkClass}>
+            ← Back to home
+          </Link>
+          <Link href="/auth" className={authLinkClass}>
+            Sign up
+          </Link>
+        </div>
+        <div className={authCardClass}>
+          <h1 className={authTitleClass}>Welcome back</h1>
+          <p className={authSubtitleClass}>Sign in to access your wallet and recent activity.</p>
+
+          <form className={authFormStackClass} onSubmit={handleLogin}>
+            {errorMsg ? (
+              <div className={authErrorBoxClass} role="alert">
+                {errorMsg}
+              </div>
+            ) : null}
+            <div>
+              <label htmlFor="login-email" className={authLabelClass}>
+                Email
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                placeholder="you@example.com"
+                className={`${authInputClass} mt-2`}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="login-password" className={authLabelClass}>
+                Password
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                placeholder="Enter password"
+                className={`${authInputClass} mt-2`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Link href="/forgot-password" className={authLinkClass}>
+                Forgot password?
+              </Link>
+            </div>
+            <button type="submit" className={authPrimaryBtnClass}>
+              Sign In
+            </button>
+          </form>
+        </div>
       </div>
-      <div className="w-full max-w-sm rounded-[14px] border border-[#e2e8f0] bg-white p-8 shadow-[0_8px_25px_rgba(15,23,42,0.08)]">
-        <h2 className="mb-6 text-center text-2xl font-bold text-blue-700">Login to Tropicash</h2>
-        {errorMsg && (
-          <div className="text-red-600 text-sm mb-4 text-center">{errorMsg}</div>
-        )}
-        <form onSubmit={handleLogin}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-4 w-full rounded-[10px] border border-[#cbd5e1] bg-[#f4f6f9] px-4 py-2 text-[#0f172a] placeholder:text-[#94a3b8] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-6 w-full rounded-[10px] border border-[#cbd5e1] bg-[#f4f6f9] px-4 py-2 text-[#0f172a] placeholder:text-[#94a3b8] outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]"
-            required
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition duration-200"
-          >
-            Log In
-          </button>
-        </form>
-      </div>
-    </div>
+    </>
   );
 }

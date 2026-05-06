@@ -53,7 +53,7 @@ function transactionMethod(txn) {
   if (norm === "fund" && isPayPalFundContext(txn)) return "PayPal Sandbox";
   if (norm === "fund") return "Wallet";
   if (norm === "send" || norm === "receive") return "Wallet Transfer";
-  if (norm === "withdraw") return "Wallet Withdrawal";
+  if (norm === "withdraw") return "PayPal payout";
   return "Wallet";
 }
 
@@ -76,10 +76,10 @@ function classifyDetail(txn, userId, namesById) {
   let recipientName = recipientId ? namesById[recipientId] || recipientId : "—";
 
   if (normalized === "withdraw") {
-    label = "Withdrawn";
+    label = "Withdrawal";
     direction = "outgoing";
     senderName = "You";
-    recipientName = "Bank / External";
+    recipientName = "PayPal";
   } else if (normalized === "fund") {
     label = fundingRowLabel(txn);
     direction = "incoming";
@@ -248,7 +248,7 @@ export default function TransactionDetailPage() {
       <>
         <Navbar />
         <div style={pageShell}>
-          <div style={card}>
+          <div className="tropicash-surface" style={card}>
             <p style={stateTitle}>Sign in to view this transaction.</p>
             <Link href="/login" style={linkBtn}>
               Go to login
@@ -264,18 +264,18 @@ export default function TransactionDetailPage() {
       <Navbar />
       <div style={pageShell}>
         {authLoading || loading ? (
-          <div style={card}>
+          <div className="tropicash-surface" style={card}>
             <p style={stateTitle}>Loading transaction details...</p>
           </div>
         ) : errorMsg || !transaction ? (
-          <div style={card}>
+          <div className="tropicash-surface" style={card}>
             <p style={stateTitle}>{errorMsg || "Transaction not found."}</p>
             <button type="button" onClick={() => router.push("/transactions")} style={backBtn}>
               Back to history
             </button>
           </div>
         ) : (
-          <div style={card}>
+          <div className="tropicash-surface" style={card}>
             <p style={eyebrow}>Transaction Detail</p>
             <h1 style={title}>{detail.label}</h1>
             <p style={{ ...amountText, color: detail.amountColor }}>{detail.amountLine}</p>
@@ -338,7 +338,7 @@ const pageShell = {
   minHeight: "calc(100vh - 3.5rem)",
   padding: "2rem 1.25rem 3rem",
   boxSizing: "border-box",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
@@ -347,10 +347,7 @@ const pageShell = {
 const card = {
   width: "100%",
   maxWidth: "620px",
-  background: "#ffffff",
-  border: "1px solid #e2e8f0",
   borderRadius: "16px",
-  boxShadow: "0 12px 30px rgba(15, 23, 42, 0.14)",
   padding: "1.35rem 1.15rem",
 };
 

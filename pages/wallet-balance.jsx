@@ -9,7 +9,7 @@ const pageWrap = {
   margin: "0 auto",
   minHeight: "100vh",
   boxSizing: "border-box",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
 };
 
 export default function WalletBalancePage() {
@@ -50,7 +50,7 @@ export default function WalletBalancePage() {
   if (loading) {
     return (
       <div style={pageWrap}>
-        <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", letterSpacing: "-0.02em" }}>Wallet Balance</h2>
+        <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.02em" }}>Wallet Balance</h2>
         <p style={{ marginTop: "0.75rem", color: "#64748b" }}>Loading...</p>
       </div>
     );
@@ -58,7 +58,7 @@ export default function WalletBalancePage() {
 
   return (
     <div style={pageWrap}>
-      <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 700, color: "#f8fafc", letterSpacing: "-0.02em" }}>Wallet Balance</h2>
+      <h2 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.02em" }}>Wallet Balance</h2>
       {status ? <p style={{ marginTop: "0.75rem", color: "#64748b" }}>{status}</p> : null}
 
       {!status && (

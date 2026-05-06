@@ -123,10 +123,10 @@ function classifyTransaction(txn, currentUserId, namesById) {
 
   if (normalizedType === "withdraw") {
     category = "withdrawn";
-    label = "Withdrawn";
+    label = "Withdrawal";
     direction = "outgoing";
     senderName = "You";
-    recipientName = "Bank / External";
+    recipientName = "PayPal";
   } else if (normalizedType === "fund") {
     category = "funded";
     label = fundingRowLabel(txn);
@@ -412,7 +412,7 @@ export default function TransactionsPage() {
                   type="button"
                   onClick={() => router.push(`/transactions/${encodeURIComponent(String(row.id))}`)}
                   style={rowBtn}
-                  className="tx-row"
+                  className="tx-row tropicash-surface"
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
@@ -459,11 +459,11 @@ const pageShell = {
   maxWidth: "640px",
   margin: "0 auto",
   minHeight: "calc(100vh - 3.5rem)",
-  background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+  background: "transparent",
   boxSizing: "border-box",
 };
 
-const pageTitle = { margin: 0, color: "#f8fafc", fontSize: "1.55rem", fontWeight: 700, letterSpacing: "-0.02em" };
+const pageTitle = { margin: 0, color: "#0f172a", fontSize: "1.55rem", fontWeight: 700, letterSpacing: "-0.02em" };
 const subtleText = { margin: "0.45rem 0 0", color: "#94a3b8", fontSize: "0.92rem" };
 const filterWrap = { marginTop: "1.2rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" };
 const filterBtn = {
@@ -485,12 +485,9 @@ const filterBtnActive = {
 const rowBtn = {
   width: "100%",
   textAlign: "left",
-  border: "1px solid #e2e8f0",
   borderRadius: "14px",
-  background: "#ffffff",
   padding: "0.95rem 1rem",
   cursor: "pointer",
-  boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",

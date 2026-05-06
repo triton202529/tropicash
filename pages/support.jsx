@@ -13,8 +13,7 @@ const ISSUE_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-const sectionCard =
-  "rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm sm:p-5";
+const sectionCard = "tropicash-surface rounded-xl p-4 sm:p-5";
 
 export default function SupportPage() {
   const [name, setName] = useState("");
@@ -31,7 +30,7 @@ export default function SupportPage() {
   return (
     <>
       <Navbar />
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-2xl">
           <div className="mb-8 flex flex-col items-center text-center">
             <Image
@@ -48,6 +47,11 @@ export default function SupportPage() {
               <a href="mailto:support@tropicash.com" className="font-semibold text-blue-700 hover:underline">
                 support@tropicash.com
               </a>
+            </p>
+            <p className="mt-3 text-sm sm:text-base">
+              <Link href="/security" className="font-semibold text-blue-700 hover:underline">
+                Security Center →
+              </Link>
             </p>
           </div>
 
