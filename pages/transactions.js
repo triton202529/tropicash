@@ -5,6 +5,12 @@ import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import { findWithdrawalMatchForWithdrawTransaction } from "../lib/withdrawalRequests";
+import {
+  formatPayPalEnvironmentBadge,
+  fundingMethodLabel,
+  getPayPalAppEnvironment,
+  resolveFundingMethodForTransaction,
+} from "../lib/paymentSource";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -68,8 +74,8 @@ function isPayPalFundContext(txn) {
   return blob.includes("paypal");
 }
 
-function fundingRowLabel(txn) {
-  return isPayPalFundContext(txn) ? "Funded (PayPal)" : "Funded";
+function fundingRowLabel() {
+  return "Funded";
 }
 
 function inDateRange(createdAt, filterId) {
@@ -130,9 +136,11 @@ function classifyTransaction(txn, currentUserId, namesById) {
     recipientName = "PayPal";
   } else if (normalizedType === "fund") {
     category = "funded";
-    label = fundingRowLabel(txn);
+    label = fundingRowLabel();
     direction = "incoming";
-    senderName = "PayPal Sandbox";
+    senderName = isPayPalFundContext(txn)
+      ? fundingMethodLabel(resolveFundingMethodForTransaction(txn))
+      : "Wallet";
     recipientName = "You";
   } else if ((normalizedType === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
     category = "sent";
@@ -152,7 +160,7 @@ function classifyTransaction(txn, currentUserId, namesById) {
     recipientName = "You";
   } else if (isSelf) {
     category = "funded";
-    label = fundingRowLabel(txn);
+    label = fundingRowLabel();
     direction = "neutral";
     senderName = "You";
     recipientName = "You";
@@ -171,9 +179,14 @@ function classifyTransaction(txn, currentUserId, namesById) {
           ? "Recipient: PayPal"
           : category === "funded"
             ? isPayPalFundContext(txn)
-              ? "From PayPal"
+              ? `From ${fundingMethodLabel(resolveFundingMethodForTransaction(txn))}`
               : "Funds added to wallet"
             : "Wallet activity";
+
+  const fundingEnvBadge =
+    category === "funded" && isPayPalFundContext(txn)
+      ? formatPayPalEnvironmentBadge(getPayPalAppEnvironment())
+      : null;
 
   return {
     ...txn,
@@ -187,6 +200,7 @@ function classifyTransaction(txn, currentUserId, namesById) {
     dateLine: formatWhen(txn.created_at),
     statusLine: txn.status ? String(txn.status) : "completed",
     description,
+    fundingEnvBadge,
     amountValue: amount,
   };
 }
@@ -451,6 +465,9 @@ export default function TransactionsPage() {
                       </span>
                       <span style={rowLabel}>{row.label}</span>
                       <span style={friendlyPill}>{row.bucketLabel}</span>
+                      {row.fundingEnvBadge ? (
+                        <span style={fundingEnvBadgeStyle}>{row.fundingEnvBadge}</span>
+                      ) : null}
                       <span
                         style={{
                           ...statusPill,
@@ -537,6 +554,17 @@ const friendlyPill = {
   background: "#f1f5f9",
   padding: "0.18rem 0.45rem",
   borderRadius: "999px",
+};
+const fundingEnvBadgeStyle = {
+  fontSize: "0.65rem",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#475569",
+  background: "#fffbeb",
+  padding: "0.16rem 0.42rem",
+  borderRadius: "999px",
+  border: "1px solid #fde68a",
 };
 const rowDescription = {
   margin: "0.3rem 0 0",

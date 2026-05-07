@@ -11,6 +11,12 @@ import {
   withdrawalStatusBadgeStyle,
   withdrawalStatusUserLine,
 } from "../lib/withdrawalRequests";
+import {
+  formatPayPalEnvironmentBadge,
+  fundingMethodLabel,
+  getPayPalAppEnvironment,
+  resolveFundingMethodForTransaction,
+} from "../lib/paymentSource";
 
 const pillLinkClass =
   "inline-flex items-center gap-1 rounded-full border border-[#e2e8f0] bg-white/95 px-2.5 py-1 text-xs font-semibold text-[#0369a1] shadow-sm backdrop-blur-sm transition hover:bg-slate-50 sm:text-sm";
@@ -74,15 +80,18 @@ function classifyPreview(txn, userId, namesById) {
   let label = "Activity";
   let direction = "neutral";
   let partyLine = null;
+  let envBadge = null;
 
   if (type === "withdraw") {
     label = "Withdrawal";
     direction = "outgoing";
     partyLine = "PayPal payout";
   } else if (type === "fund") {
-    label = "Funded";
+    label = "Funding";
     direction = "incoming";
-    partyLine = "From bank / card";
+    const method = resolveFundingMethodForTransaction(txn);
+    partyLine = fundingMethodLabel(method);
+    envBadge = formatPayPalEnvironmentBadge(getPayPalAppEnvironment());
   } else if ((type === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
     label = "Sent";
     direction = "outgoing";
@@ -106,6 +115,7 @@ function classifyPreview(txn, userId, namesById) {
     id: txn.id,
     label,
     partyLine,
+    envBadge,
     whenLine: formatShortWhen(txn.created_at),
     amountLine: `${sign}$${formatMoney(amount)}`,
     amountTone: direction,
@@ -387,7 +397,14 @@ export default function WalletPage() {
               >
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={rowLabel}>{row.label}</p>
-                  {row.partyLine ? <p style={rowParty}>{row.partyLine}</p> : null}
+                  {row.partyLine ? (
+                    <p style={rowParty}>
+                      {row.partyLine}
+                      {row.envBadge ? (
+                        <span style={rowEnvBadge}>{row.envBadge}</span>
+                      ) : null}
+                    </p>
+                  ) : null}
                   <p style={rowWhen}>{row.whenLine}</p>
                 </div>
                 <p
@@ -582,6 +599,20 @@ const rowParty = {
   whiteSpace: "normal",
   overflow: "hidden",
   wordBreak: "break-word",
+};
+const rowEnvBadge = {
+  display: "inline-block",
+  marginLeft: "0.45rem",
+  padding: "0.12rem 0.42rem",
+  borderRadius: "999px",
+  fontSize: "0.65rem",
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  verticalAlign: "middle",
+  background: "#f1f5f9",
+  color: "#475569",
+  border: "1px solid #e2e8f0",
 };
 const rowWhen = { margin: "0.18rem 0 0", fontSize: "0.78rem", color: "#94a3b8" };
 const rowAmount = { margin: 0, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };

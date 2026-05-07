@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, isValidElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import Navbar from "../../components/Navbar";
@@ -10,6 +10,12 @@ import {
   withdrawalStatusBadgeStyle,
   withdrawalStatusUserLine,
 } from "../../lib/withdrawalRequests";
+import {
+  formatPayPalEnvironmentBadge,
+  fundingMethodLabel,
+  getPayPalAppEnvironment,
+  resolveFundingMethodForTransaction,
+} from "../../lib/paymentSource";
 
 function formatMoney(value) {
   const amount = Number(value);
@@ -50,13 +56,15 @@ function isPayPalFundContext(txn) {
   return blob.includes("paypal");
 }
 
-function fundingRowLabel(txn) {
-  return isPayPalFundContext(txn) ? "Funded (PayPal)" : "Funded";
+function fundingRowLabel() {
+  return "Funded";
 }
 
 function transactionMethod(txn) {
   const norm = normalizeType(txn.type);
-  if (norm === "fund" && isPayPalFundContext(txn)) return "PayPal Sandbox";
+  if (norm === "fund" && isPayPalFundContext(txn)) {
+    return fundingMethodLabel(resolveFundingMethodForTransaction(txn));
+  }
   if (norm === "fund") return "Wallet";
   if (norm === "send" || norm === "receive") return "Wallet Transfer";
   if (norm === "withdraw") return "PayPal payout";
@@ -87,9 +95,11 @@ function classifyDetail(txn, userId, namesById) {
     senderName = "You";
     recipientName = "PayPal";
   } else if (normalized === "fund") {
-    label = fundingRowLabel(txn);
+    label = fundingRowLabel();
     direction = "incoming";
-    senderName = isPayPalFundContext(txn) ? "PayPal" : "Wallet funding";
+    senderName = isPayPalFundContext(txn)
+      ? fundingMethodLabel(resolveFundingMethodForTransaction(txn))
+      : "Wallet funding";
     recipientName = "You";
   } else if ((normalized === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
     label = "Sent";
@@ -106,7 +116,7 @@ function classifyDetail(txn, userId, namesById) {
     senderName = namesById[senderId] || senderId || "Sender";
     recipientName = "You";
   } else if (isSelf) {
-    label = fundingRowLabel(txn);
+    label = fundingRowLabel();
     direction = "neutral";
     senderName = "You";
     recipientName = "You";
@@ -116,9 +126,15 @@ function classifyDetail(txn, userId, namesById) {
   const sign = direction === "outgoing" ? "-" : direction === "incoming" ? "+" : "";
   const color = direction === "outgoing" ? "#dc2626" : direction === "incoming" ? "#059669" : "#334155";
 
+  const payPalFund = normalized === "fund" && isPayPalFundContext(txn);
+  const fundingEnvironmentBadge = payPalFund
+    ? formatPayPalEnvironmentBadge(getPayPalAppEnvironment())
+    : null;
+
   return {
     label,
     method: transactionMethod(txn),
+    fundingEnvironmentBadge,
     senderName: senderName === userId ? "You" : senderName,
     recipientName: recipientName === userId ? "You" : recipientName,
     amountLine: `${sign}$${formatMoney(amount)}`,
@@ -244,6 +260,7 @@ export default function TransactionDetailPage() {
       return {
         label: "Transaction",
         method: "Wallet",
+        fundingEnvironmentBadge: null,
         senderName: "—",
         recipientName: "—",
         amountLine: "$0.00",
@@ -314,6 +331,12 @@ export default function TransactionDetailPage() {
             <div style={metaGrid}>
               <DetailRow label="Type" value={detail.label} />
               <DetailRow label="Method" value={detail.method} />
+              {detail.fundingEnvironmentBadge ? (
+                <DetailRow
+                  label="Environment"
+                  value={<span style={fundingEnvBadgeDetail}>{detail.fundingEnvironmentBadge}</span>}
+                />
+              ) : null}
               <DetailRow label="Date & time" value={formatDateTime(transaction.created_at)} />
               <DetailRow label="Status" value={transaction.status || "completed"} />
             </div>
@@ -434,13 +457,22 @@ function WithdrawalLifecycle({ withdrawal }) {
 }
 
 function DetailRow({ label, value, mono = false, extraAction = null }) {
+  const body =
+    value == null || value === "" ? (
+      <p style={mono ? detailValueMono : detailValue}>—</p>
+    ) : isValidElement(value) ? (
+      <div style={{ margin: "0.2rem 0 0" }}>{value}</div>
+    ) : (
+      <p style={mono ? detailValueMono : detailValue}>{String(value)}</p>
+    );
+
   return (
     <div style={detailRow}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.6rem" }}>
         <p style={detailLabel}>{label}</p>
         {extraAction}
       </div>
-      <p style={mono ? detailValueMono : detailValue}>{value || "—"}</p>
+      {body}
     </div>
   );
 }
@@ -524,6 +556,19 @@ const detailValueMono = {
   ...detailValue,
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   fontSize: "0.82rem",
+};
+
+const fundingEnvBadgeDetail = {
+  display: "inline-block",
+  padding: "0.22rem 0.55rem",
+  borderRadius: "999px",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  background: "#f1f5f9",
+  color: "#475569",
+  border: "1px solid #e2e8f0",
 };
 
 const stateTitle = {

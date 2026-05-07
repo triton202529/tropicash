@@ -6,6 +6,14 @@ import Navbar from "../components/Navbar";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
+import { buildPayPalFundWalletSdkUrl } from "../lib/paypalSdkUrl";
+import {
+  fundingMethodFromPayPalApproveData,
+  fundingMethodLabel,
+  formatPayPalEnvironmentBadge,
+  getPayPalAppEnvironment,
+  rememberFundingPaymentSource,
+} from "../lib/paymentSource";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -64,8 +72,6 @@ const receiptRowValue = {
   wordBreak: "break-word",
 };
 
-const PAYPAL_SDK_SCRIPT_BASE = "https://www.paypal.com/sdk/js";
-
 const sandboxModeBadge = {
   display: "inline-block",
   padding: "0.2rem 0.55rem",
@@ -108,6 +114,7 @@ export default function FundWalletPage() {
 
   const paypalButtonContainerRef = useRef(null);
   const latestAmountRef = useRef("");
+  const captureInFlightRef = useRef(false);
 
   const paypalUiMode = useMemo(() => {
     const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
@@ -115,9 +122,6 @@ export default function FundWalletPage() {
     if (raw === "sandbox") return "sandbox";
     return "sandbox";
   }, []);
-
-  const paypalReceiptMethodLabel =
-    paypalUiMode === "live" ? "PayPal Live" : "PayPal Sandbox";
 
   useEffect(() => {
     const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
@@ -206,8 +210,16 @@ export default function FundWalletPage() {
     }
 
     let cancelled = false;
-    const existing = document.querySelector('script[src*="www.paypal.com/sdk/js"]');
+    const desiredSdkUrl = buildPayPalFundWalletSdkUrl(clientId);
+    const existing =
+      document.querySelector(`script[src="${CSS.escape(desiredSdkUrl)}"]`) ||
+      document.querySelector('script[src*="www.paypal.com/sdk/js"]');
     if (existing) {
+      if (existing.src !== desiredSdkUrl) {
+        console.warn(
+          "[fund-wallet] PayPal SDK already loaded with different options. Hard-refresh the page for Caribbean locale and billing defaults.",
+        );
+      }
       const onLoad = () => {
         if (!cancelled && window.paypal) setPaypalReady(true);
       };
@@ -220,7 +232,7 @@ export default function FundWalletPage() {
     }
 
     const script = document.createElement("script");
-    script.src = `${PAYPAL_SDK_SCRIPT_BASE}?client-id=${encodeURIComponent(clientId)}&currency=USD`;
+    script.src = desiredSdkUrl;
     script.async = true;
     script.onload = () => {
       if (!cancelled) setPaypalReady(true);
@@ -298,6 +310,8 @@ export default function FundWalletPage() {
         }
       },
       onApprove: async (data) => {
+        if (captureInFlightRef.current) return;
+        captureInFlightRef.current = true;
         setErrorMsg("");
         setLoading(true);
         try {
@@ -339,7 +353,12 @@ export default function FundWalletPage() {
           }
 
           const receiptOrderId = payload.orderID || data.orderID || null;
+          const paymentMethod = fundingMethodFromPayPalApproveData(data);
+          if (receiptOrderId) {
+            rememberFundingPaymentSource(receiptOrderId, paymentMethod);
+          }
 
+          console.log("[FUNDING_PROCESS]", { orderID: receiptOrderId, duplicate: !!payload.duplicate });
           await fetchWalletBalance();
 
           try {
@@ -358,8 +377,9 @@ export default function FundWalletPage() {
           setAmount("");
           setSuccessReceipt({
             amountFormatted: formatMoney(fundedAmount),
-            method: paypalReceiptMethodLabel,
-            status: "Completed",
+            paymentMethod,
+            environment: getPayPalAppEnvironment(),
+            status: payload.duplicate ? "Completed (already processed)" : "Completed",
             orderId: receiptOrderId,
           });
         } catch (unexpected) {
@@ -367,6 +387,7 @@ export default function FundWalletPage() {
           setErrorMsg(friendlyFundingError(unexpected));
         } finally {
           setLoading(false);
+          captureInFlightRef.current = false;
         }
       },
       onError: (err) => {
@@ -401,7 +422,6 @@ export default function FundWalletPage() {
     successReceipt,
     user?.id,
     fetchWalletBalance,
-    paypalReceiptMethodLabel,
     fundTrust.status,
     fundTrust.result,
   ]);
@@ -661,7 +681,34 @@ export default function FundWalletPage() {
             >
               <div>
                 <p style={{ ...receiptRowLabel, margin: 0 }}>Method</p>
-                <p style={{ ...receiptRowValue, margin: 0 }}>{successReceipt.method}</p>
+                <p style={{ ...receiptRowValue, margin: 0 }}>
+                  {fundingMethodLabel(successReceipt.paymentMethod)}
+                </p>
+              </div>
+              <div>
+                <p style={{ ...receiptRowLabel, margin: 0 }}>Environment</p>
+                <p style={{ ...receiptRowValue, margin: 0 }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "0.2rem 0.55rem",
+                      borderRadius: "999px",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      background:
+                        successReceipt.environment === "live" ? "#fef2f2" : "#f1f5f9",
+                      color: successReceipt.environment === "live" ? "#991b1b" : "#475569",
+                      border:
+                        successReceipt.environment === "live"
+                          ? "1px solid #f87171"
+                          : "1px solid #e2e8f0",
+                    }}
+                  >
+                    {formatPayPalEnvironmentBadge(successReceipt.environment)}
+                  </span>
+                </p>
               </div>
               <div>
                 <p style={{ ...receiptRowLabel, margin: 0 }}>Status</p>
@@ -823,6 +870,21 @@ export default function FundWalletPage() {
                 }}
               >
                 Your wallet is funded only after PayPal confirms payment (capture COMPLETED).
+              </p>
+              <p
+                style={{
+                  margin: "0 0 0.85rem",
+                  padding: "0.65rem 0.75rem",
+                  borderRadius: "10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "0.78rem",
+                  color: "#475569",
+                  lineHeight: 1.5,
+                }}
+              >
+                For card payments, PayPal may ask for a billing address. Select your correct country
+                before entering address details.
               </p>
 
               {paypalConfigMissing ? (
