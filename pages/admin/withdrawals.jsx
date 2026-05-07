@@ -394,7 +394,10 @@ export default function AdminWithdrawalsPage() {
       return;
     }
 
-    const { data: profs, error: pErr } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+    const { data: profs, error: pErr } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, created_at")
+      .in("id", ids);
 
     if (pErr) {
       console.error("[admin/withdrawals] profiles:", pErr);
@@ -421,6 +424,19 @@ export default function AdminWithdrawalsPage() {
 
   const pendingCount = useMemo(() => {
     return rows.filter((r) => String(r.status || "").toLowerCase() === "pending").length;
+  }, [rows]);
+
+  const userWithdrawalCounts = useMemo(() => {
+    const map = {};
+    for (const r of rows) {
+      const uid = r?.user_id;
+      if (!uid) continue;
+      const st = String(r?.status || "").toLowerCase();
+      if (!map[uid]) map[uid] = { pending: 0, failed: 0 };
+      if (st === "pending" || st === "processing") map[uid].pending += 1;
+      if (st === "failed") map[uid].failed += 1;
+    }
+    return map;
   }, [rows]);
 
   const setNoteDraft = (id, value) => {
@@ -546,7 +562,7 @@ export default function AdminWithdrawalsPage() {
     const id = r?.id;
     if (!id) return;
     const ok = window.confirm(
-      "This will attempt to send money using the connected payout processor (PayPal Payouts). Continue?",
+      "Confirm you want to send this payout through PayPal. This will move funds using the connected payout processor. Continue?",
     );
     if (!ok) return;
     setActionBusyId(id);
@@ -718,6 +734,12 @@ export default function AdminWithdrawalsPage() {
           Pending withdrawals must be sent using the payout system before they are marked as paid.
         </p>
 
+        <div style={{ ...cardBase, padding: "0.75rem 1rem", marginBottom: "1.25rem", background: "#f8fafc" }}>
+          <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.5 }}>
+            <strong>Confirm your PayPal mode before sending live payouts.</strong> If you are testing, ensure PayPal is set to sandbox.
+          </p>
+        </div>
+
         <div style={{ ...cardBase, padding: "0.85rem 1rem", marginBottom: "1.25rem" }}>
           <button type="button" onClick={() => void fetchRows()} disabled={dataLoading} style={{ ...btnSm, marginTop: 0 }}>
             {dataLoading ? "Refreshing…" : "Refresh"}
@@ -787,6 +809,10 @@ export default function AdminWithdrawalsPage() {
               const canRecordManual = st !== "paid" && st !== "rejected";
               const canMarkProcessing = st === "pending";
               const p = profilesMap[r.user_id];
+              const userCounts = userWithdrawalCounts[r.user_id] || { pending: 0, failed: 0 };
+              const createdAt = p?.created_at ? new Date(String(p.created_at)) : null;
+              const isNewUser =
+                createdAt && !Number.isNaN(createdAt.getTime()) ? Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000 : false;
               const failureReasonRaw = r?.failure_reason != null ? String(r.failure_reason) : "";
               const proc = r?.processor != null ? String(r.processor).trim() : "";
               const procStatus = r?.processor_status != null ? String(r.processor_status).trim() : "";
@@ -840,6 +866,22 @@ export default function AdminWithdrawalsPage() {
                       }}
                     >
                       {userLabel(p, r.user_id)}
+                      <div style={{ marginTop: "0.35rem", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.35 }}>
+                        {isNewUser ? (
+                          <span style={{ display: "inline-block", marginRight: "0.5rem", fontWeight: 700, color: "#92400e" }}>New user</span>
+                        ) : null}
+                        <span style={{ display: "inline-block", marginRight: "0.5rem" }}>
+                          In queue: <strong style={{ color: "#0f172a" }}>{userCounts.pending}</strong>
+                        </span>
+                        <span style={{ display: "inline-block", marginRight: "0.5rem" }}>
+                          Failed: <strong style={{ color: "#0f172a" }}>{userCounts.failed}</strong>
+                        </span>
+                        {payoutEmail ? (
+                          <span style={{ display: "inline-block", wordBreak: "break-all" }}>
+                            PayPal: <strong style={{ color: "#0f172a", fontWeight: 600 }}>{payoutEmail}</strong>
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <div
                       style={{

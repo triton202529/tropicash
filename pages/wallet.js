@@ -5,7 +5,12 @@ import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
-import { fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
+import {
+  fetchUserWithdrawalRequests,
+  formatWithdrawalFailureForUser,
+  withdrawalStatusBadgeStyle,
+  withdrawalStatusUserLine,
+} from "../lib/withdrawalRequests";
 
 const pillLinkClass =
   "inline-flex items-center gap-1 rounded-full border border-[#e2e8f0] bg-white/95 px-2.5 py-1 text-xs font-semibold text-[#0369a1] shadow-sm backdrop-blur-sm transition hover:bg-slate-50 sm:text-sm";
@@ -23,13 +28,14 @@ function displayNameFromProfile(p) {
   return p.full_name?.trim() || p.email?.trim() || null;
 }
 
-function withdrawalStatusLabel(status) {
-  const v = String(status || "").toLowerCase();
-  if (v === "pending") return "Pending";
-  if (v === "processing") return "Processing";
-  if (v === "paid") return "Paid";
-  if (v === "rejected") return "Rejected";
-  return v ? String(status) : "—";
+function formatWithdrawalDateTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function formatShortWhen(iso) {
@@ -70,9 +76,9 @@ function classifyPreview(txn, userId, namesById) {
   let partyLine = null;
 
   if (type === "withdraw") {
-    label = "Withdrawn";
+    label = "Withdrawal";
     direction = "outgoing";
-    partyLine = "To bank / external";
+    partyLine = "PayPal payout";
   } else if (type === "fund") {
     label = "Funded";
     direction = "incoming";
@@ -166,7 +172,7 @@ export default function WalletPage() {
       setWithdrawalPreview([]);
       return;
     }
-    const { rows, error } = await fetchUserWithdrawalRequests(user.id, 3);
+    const { rows, error } = await fetchUserWithdrawalRequests(user.id, 5);
     if (error) {
       setWithdrawalPreview([]);
       return;
@@ -291,19 +297,65 @@ export default function WalletPage() {
             <p style={withdrawalTeaserMuted}>No withdrawal requests yet.</p>
           ) : (
             <ul style={withdrawalTeaserList}>
-              {withdrawalPreview.map((w, i) => (
-                <li
-                  key={w.id}
-                  style={{
-                    ...withdrawalTeaserRow,
-                    borderTop: i === 0 ? "none" : "1px solid #e2e8f0",
-                  }}
-                >
-                  <span style={withdrawalTeaserAmount}>${formatMoney(w?.amount)}</span>
-                  <span style={withdrawalTeaserStatus}>{withdrawalStatusLabel(w?.status)}</span>
-                  <span style={withdrawalTeaserWhen}>{formatShortWhen(w?.created_at)}</span>
-                </li>
-              ))}
+              {withdrawalPreview.map((w, i) => {
+                const st = String(w?.status || "").toLowerCase();
+                const payoutTo = String(w?.payout_email || w?.payout_destination || "").trim();
+                const failUser = st === "failed" ? formatWithdrawalFailureForUser(w?.failure_reason) : "";
+                return (
+                  <li
+                    key={w.id}
+                    style={{
+                      ...withdrawalCard,
+                      marginTop: i === 0 ? 0 : "0.75rem",
+                      borderTop: i === 0 ? "none" : undefined,
+                      paddingTop: i === 0 ? "0.15rem" : "0.85rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "0.5rem 0.75rem",
+                        marginBottom: "0.65rem",
+                      }}
+                    >
+                      <span style={withdrawalTeaserAmount}>${formatMoney(w?.amount)}</span>
+                      <span style={withdrawalStatusBadgeStyle(w?.status)}>{withdrawalStatusUserLine(w?.status)}</span>
+                    </div>
+                    <div style={withdrawalMetaBlock}>
+                      <p style={withdrawalMetaLine}>
+                        <span style={withdrawalMetaKey}>Payout method</span>
+                        <span style={withdrawalMetaVal}>PayPal</span>
+                      </p>
+                      {payoutTo ? (
+                        <p style={withdrawalMetaLine}>
+                          <span style={withdrawalMetaKey}>Destination</span>
+                          <span style={{ ...withdrawalMetaVal, wordBreak: "break-all" }}>{payoutTo}</span>
+                        </p>
+                      ) : null}
+                      <p style={withdrawalMetaLine}>
+                        <span style={withdrawalMetaKey}>Created</span>
+                        <span style={withdrawalMetaVal}>{formatWithdrawalDateTime(w?.created_at)}</span>
+                      </p>
+                      {w?.paid_at ? (
+                        <p style={withdrawalMetaLine}>
+                          <span style={withdrawalMetaKey}>Paid</span>
+                          <span style={withdrawalMetaVal}>{formatWithdrawalDateTime(w.paid_at)}</span>
+                        </p>
+                      ) : null}
+                      {failUser ? (
+                        <p style={withdrawalFailLine}>
+                          <span style={withdrawalMetaKey}>Details</span>
+                          <span style={{ display: "block", marginTop: "0.25rem", wordBreak: "break-word" }}>{failUser}</span>
+                        </p>
+                      ) : null}
+                    </div>
+                    <p style={withdrawalRelativeWhen}>{formatShortWhen(w?.created_at)}</p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -459,19 +511,33 @@ const withdrawalTeaserLoading = {
   fontSize: "0.9rem",
   color: "#64748b",
 };
-const withdrawalTeaserList = { margin: 0, padding: 0, listStyle: "none" };
-const withdrawalTeaserRow = {
-  display: "flex",
-  flexWrap: "wrap",
-  alignItems: "baseline",
-  gap: "0.35rem 0.75rem",
-  padding: "0.55rem 0",
-  fontSize: "0.875rem",
-  color: "#334155",
+const withdrawalTeaserList = { margin: 0, padding: 0, listStyle: "none", maxWidth: "100%" };
+const withdrawalCard = {
+  listStyle: "none",
+  maxWidth: "100%",
+  boxSizing: "border-box",
 };
-const withdrawalTeaserAmount = { fontWeight: 700, fontVariantNumeric: "tabular-nums" };
-const withdrawalTeaserStatus = { fontWeight: 600, color: "#0369a1" };
-const withdrawalTeaserWhen = { fontSize: "0.8rem", color: "#94a3b8", marginLeft: "auto" };
+const withdrawalTeaserAmount = { fontWeight: 800, fontVariantNumeric: "tabular-nums", fontSize: "1.05rem", color: "#0f172a" };
+const withdrawalMetaBlock = { margin: 0, padding: 0 };
+const withdrawalMetaLine = {
+  margin: "0 0 0.4rem",
+  fontSize: "0.82rem",
+  color: "#475569",
+  lineHeight: 1.45,
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 7.5rem) minmax(0, 1fr)",
+  gap: "0.35rem 0.65rem",
+  alignItems: "start",
+};
+const withdrawalMetaKey = { fontWeight: 600, color: "#64748b" };
+const withdrawalMetaVal = { fontWeight: 500, color: "#0f172a", minWidth: 0 };
+const withdrawalFailLine = {
+  margin: "0.35rem 0 0",
+  fontSize: "0.8rem",
+  color: "#b91c1c",
+  lineHeight: 1.45,
+};
+const withdrawalRelativeWhen = { margin: "0.5rem 0 0", fontSize: "0.75rem", color: "#94a3b8" };
 
 const activityHeader = {
   padding: "1rem 1.25rem 0.9rem",
@@ -513,9 +579,9 @@ const rowParty = {
   margin: "0.2rem 0 0",
   fontSize: "0.82rem",
   color: "#64748b",
-  whiteSpace: "nowrap",
+  whiteSpace: "normal",
   overflow: "hidden",
-  textOverflow: "ellipsis",
+  wordBreak: "break-word",
 };
 const rowWhen = { margin: "0.18rem 0 0", fontSize: "0.78rem", color: "#94a3b8" };
 const rowAmount = { margin: 0, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };

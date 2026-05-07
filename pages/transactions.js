@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
+import { findWithdrawalMatchForWithdrawTransaction } from "../lib/withdrawalRequests";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -159,18 +160,19 @@ function classifyTransaction(txn, currentUserId, namesById) {
 
   const sign = direction === "outgoing" ? "-" : direction === "incoming" ? "+" : "";
   const amountLine = `${sign}$${formatMoney(amount)}`;
-  const bucketLabel = category === "funded" || category === "withdrawn" ? "Wallet" : "Transfer";
+  const bucketLabel =
+    category === "withdrawn" ? "PayPal payout" : category === "funded" ? "Wallet" : "Transfer";
   const description =
     category === "sent"
       ? `To ${recipientName}`
       : category === "received"
         ? `From ${senderName}`
         : category === "withdrawn"
-          ? "To bank / external account"
+          ? "Recipient: PayPal"
           : category === "funded"
             ? isPayPalFundContext(txn)
-              ? "From PayPal Sandbox"
-              : "From bank / card"
+              ? "From PayPal"
+              : "Funds added to wallet"
             : "Wallet activity";
 
   return {
@@ -204,6 +206,7 @@ export default function TransactionsPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [rows, setRows] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
+  const [withdrawalRows, setWithdrawalRows] = useState([]);
   const [activeFilter, setActiveFilter] = useState("all");
   const [activeDateFilter, setActiveDateFilter] = useState("all_time");
   const [searchQuery, setSearchQuery] = useState("");
@@ -213,6 +216,7 @@ export default function TransactionsPage() {
     if (!user?.id) {
       setRows([]);
       setProfilesMap({});
+      setWithdrawalRows([]);
       setLoading(false);
       return;
     }
@@ -221,6 +225,7 @@ export default function TransactionsPage() {
     const run = async () => {
       setLoading(true);
       setErrorMsg("");
+      setWithdrawalRows([]);
       const { data: txns, error: txError } = await supabase
         .from("transactions")
         .select("*")
@@ -232,6 +237,7 @@ export default function TransactionsPage() {
         console.error("[transactions] fetch failed:", txError);
         setRows([]);
         setProfilesMap({});
+        setWithdrawalRows([]);
         setErrorMsg("Could not load your transactions right now.");
         setLoading(false);
         return;
@@ -239,6 +245,14 @@ export default function TransactionsPage() {
 
       const txnRows = txns || [];
       setRows(txnRows);
+
+      const { data: wrData } = await supabase
+        .from("withdrawal_requests")
+        .select("id, user_id, amount, payout_email, payout_destination, status, paid_at, failure_reason, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(80);
+      if (!cancelled) setWithdrawalRows(Array.isArray(wrData) ? wrData : []);
 
       const idSet = new Set();
       txnRows.forEach((txn) => {
@@ -282,8 +296,18 @@ export default function TransactionsPage() {
 
   const enrichedRows = useMemo(() => {
     if (!user?.id) return [];
-    return rows.map((txn) => classifyTransaction(txn, user.id, profilesMap));
-  }, [rows, user?.id, profilesMap]);
+    return rows.map((txn) => {
+      const base = classifyTransaction(txn, user.id, profilesMap);
+      if (base.category !== "withdrawn") return base;
+      const wrMatch = findWithdrawalMatchForWithdrawTransaction(txn, withdrawalRows, user.id);
+      const email = wrMatch ? String(wrMatch.payout_email || wrMatch.payout_destination || "").trim() : "";
+      return {
+        ...base,
+        withdrawalMatch: wrMatch,
+        description: email ? `Sent to PayPal: ${email}` : "Recipient: PayPal",
+      };
+    });
+  }, [rows, user?.id, profilesMap, withdrawalRows]);
 
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -518,9 +542,9 @@ const rowDescription = {
   margin: "0.3rem 0 0",
   fontSize: "0.85rem",
   color: "#64748b",
-  whiteSpace: "nowrap",
+  whiteSpace: "normal",
   overflow: "hidden",
-  textOverflow: "ellipsis",
+  wordBreak: "break-word",
 };
 const rowDate = { margin: "0.25rem 0 0", fontSize: "0.77rem", color: "#94a3b8" };
 const amountBase = { fontWeight: 700, fontVariantNumeric: "tabular-nums", fontSize: "1rem", whiteSpace: "nowrap" };

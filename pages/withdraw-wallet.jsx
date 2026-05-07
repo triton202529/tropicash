@@ -10,6 +10,9 @@ import { evaluateTrustCheck } from "../lib/trustLayer";
 import { fetchDefaultPayoutMethod, formatPayoutDestinationDisplay } from "../lib/payoutMethods";
 import { notifyAdminNewWithdrawalRequest, fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
 
+const MIN_WITHDRAWAL_AMOUNT = 1;
+const MAX_WITHDRAWAL_AMOUNT = 250;
+
 function messageForRpcError(err) {
   const msg = String(err?.message || "");
   if (msg.includes("insufficient_funds") || msg.includes("Insufficient funds")) return "Insufficient funds.";
@@ -234,6 +237,12 @@ export default function WithdrawWalletPage() {
       return;
     }
 
+    if (amt < MIN_WITHDRAWAL_AMOUNT || amt > MAX_WITHDRAWAL_AMOUNT) {
+      setErrorMsg(`Withdrawals must be between $${formatMoney(MIN_WITHDRAWAL_AMOUNT)} and $${formatMoney(MAX_WITHDRAWAL_AMOUNT)}.`);
+      setLoadingAction(false);
+      return;
+    }
+
     if (amt > walletBalance) {
       setErrorMsg("Insufficient funds.");
       setLoadingAction(false);
@@ -310,7 +319,10 @@ export default function WithdrawWalletPage() {
   };
 
   const parsedAmount = Number(amount);
-  const amountLooksValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const amountLooksValid =
+    Number.isFinite(parsedAmount) &&
+    parsedAmount >= MIN_WITHDRAWAL_AMOUNT &&
+    parsedAmount <= MAX_WITHDRAWAL_AMOUNT;
   const formDisabled = loadingAction || !!successBanner;
   const hasDefaultPayout = !!defaultPayoutRow;
   const normalizedPayoutEmail = String(profile?.payout_email || "").trim();
@@ -333,7 +345,7 @@ export default function WithdrawWalletPage() {
 
   const confirmCopy = amountLooksValid
     ? `You are about to send $${formatMoney(parsedAmount)} to your PayPal account (${normalizedPayoutEmail}). This action cannot be undone.`
-    : "Enter a valid amount to continue.";
+    : `Withdrawals must be between $${formatMoney(MIN_WITHDRAWAL_AMOUNT)} and $${formatMoney(MAX_WITHDRAWAL_AMOUNT)}.`;
 
   const runConfirmedWithdrawal = () => {
     setConfirmOpen(false);
@@ -404,6 +416,25 @@ export default function WithdrawWalletPage() {
         </div>
 
         <SoftEnforcementNotice profile={profile} />
+
+        {Array.isArray(recentWithdrawals) &&
+        recentWithdrawals.some((rw) => ["pending", "processing"].includes(String(rw?.status || "").toLowerCase())) ? (
+          <div
+            role="status"
+            style={{
+              margin: "0.9rem 0 1.1rem",
+              padding: "0.85rem 1.05rem",
+              borderRadius: "12px",
+              border: "1px solid rgba(251, 191, 36, 0.5)",
+              background: "#fffbeb",
+              color: "#92400e",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, lineHeight: 1.45 }}>
+              You already have a withdrawal being processed. Please wait before submitting another.
+            </p>
+          </div>
+        ) : null}
 
         {payoutCheckLoading ? (
           <p style={{ marginBottom: "1rem", fontSize: "0.9rem", color: "#94a3b8" }}>Checking payout method…</p>

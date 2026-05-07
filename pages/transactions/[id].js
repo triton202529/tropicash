@@ -4,6 +4,12 @@ import { useRouter } from "next/router";
 import Navbar from "../../components/Navbar";
 import { supabase } from "../../lib/supabaseClient";
 import { useUser } from "../../lib/userContext";
+import {
+  findWithdrawalMatchForWithdrawTransaction,
+  formatWithdrawalFailureForUser,
+  withdrawalStatusBadgeStyle,
+  withdrawalStatusUserLine,
+} from "../../lib/withdrawalRequests";
 
 function formatMoney(value) {
   const amount = Number(value);
@@ -83,7 +89,7 @@ function classifyDetail(txn, userId, namesById) {
   } else if (normalized === "fund") {
     label = fundingRowLabel(txn);
     direction = "incoming";
-    senderName = "PayPal Sandbox";
+    senderName = isPayPalFundContext(txn) ? "PayPal" : "Wallet funding";
     recipientName = "You";
   } else if ((normalized === "send" && isSender && !isRecipient) || (isSender && !isRecipient)) {
     label = "Sent";
@@ -131,6 +137,7 @@ export default function TransactionDetailPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [transaction, setTransaction] = useState(null);
   const [nameMap, setNameMap] = useState({});
+  const [withdrawalRows, setWithdrawalRows] = useState([]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -153,6 +160,7 @@ export default function TransactionDetailPage() {
     const run = async () => {
       setLoading(true);
       setErrorMsg("");
+      setWithdrawalRows([]);
 
       const { data: txn, error: txError } = await supabase
         .from("transactions")
@@ -185,6 +193,19 @@ export default function TransactionDetailPage() {
       }
 
       setTransaction(txn);
+
+      const normType = normalizeType(txn.type);
+      if (normType === "withdraw") {
+        const { data: wrData } = await supabase
+          .from("withdrawal_requests")
+          .select("id, user_id, amount, payout_email, payout_destination, status, paid_at, failure_reason, created_at, external_reference")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(80);
+        if (!cancelled) setWithdrawalRows(Array.isArray(wrData) ? wrData : []);
+      } else if (!cancelled) {
+        setWithdrawalRows([]);
+      }
 
       const profileIds = [txn.sender_id, txn.recipient_id].filter(Boolean);
       if (profileIds.length) {
@@ -231,6 +252,13 @@ export default function TransactionDetailPage() {
     }
     return classifyDetail(transaction, user.id, nameMap);
   }, [transaction, user?.id, nameMap]);
+
+  const withdrawalMatch = useMemo(() => {
+    if (!transaction || !user?.id) return null;
+    return findWithdrawalMatchForWithdrawTransaction(transaction, withdrawalRows, user.id);
+  }, [transaction, withdrawalRows, user?.id]);
+
+  const isWithdrawDetail = transaction && normalizeType(transaction.type) === "withdraw";
 
   const handleCopyTxId = async () => {
     if (!transaction?.id) return;
@@ -297,6 +325,14 @@ export default function TransactionDetailPage() {
               <DetailRow label="Recipient" value={detail.recipientName || "—"} />
             </div>
 
+            {isWithdrawDetail ? (
+              <>
+                <div style={sectionDivider} />
+                <p style={sectionHeading}>Payout status</p>
+                <WithdrawalLifecycle withdrawal={withdrawalMatch} />
+              </>
+            ) : null}
+
             <div style={sectionDivider} />
             <p style={sectionHeading}>Reference</p>
             <div style={metaGrid}>
@@ -322,6 +358,81 @@ export default function TransactionDetailPage() {
   );
 }
 
+function WithdrawalLifecycle({ withdrawal }) {
+  if (!withdrawal) {
+    return (
+      <p style={{ margin: 0, fontSize: "0.88rem", color: "#64748b", lineHeight: 1.5 }}>
+        Withdrawal request details will appear here when linked to your payout queue. Amount and date already match your
+        wallet debit.
+      </p>
+    );
+  }
+  const st = String(withdrawal.status || "").toLowerCase();
+  const payoutEmail = String(withdrawal.payout_email || withdrawal.payout_destination || "").trim();
+  const failText = st === "failed" ? formatWithdrawalFailureForUser(withdrawal.failure_reason) : "";
+
+  const steps = [
+    { key: "requested", label: "Requested", done: true },
+    { key: "processing", label: "Processing", done: st === "processing" || st === "paid" || st === "failed" || st === "rejected" },
+    { key: "paid", label: "Paid", done: st === "paid" },
+    { key: "failed", label: "Failed / rejected", done: st === "failed" || st === "rejected" },
+  ];
+
+  return (
+    <div style={{ maxWidth: "100%", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+        <span style={withdrawalStatusBadgeStyle(withdrawal.status)}>{withdrawalStatusUserLine(withdrawal.status)}</span>
+      </div>
+      <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
+        {steps.map((s) => (
+          <li
+            key={s.key}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.5rem",
+              fontSize: "0.88rem",
+              color: s.done ? "#0f172a" : "#94a3b8",
+              fontWeight: s.done ? 600 : 500,
+            }}
+          >
+            <span style={{ flex: "0 0 auto", width: "1.1rem" }}>{s.done ? "✓" : "○"}</span>
+            <span style={{ minWidth: 0 }}>{s.label}</span>
+          </li>
+        ))}
+      </ol>
+      {st === "paid" ? (
+        <div style={{ marginTop: "1rem", padding: "0.75rem 0.85rem", borderRadius: "10px", border: "1px solid #a7f3d0", background: "#ecfdf5" }}>
+          <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#047857" }}>Sent to your PayPal account</p>
+          {withdrawal.paid_at ? (
+            <p style={{ margin: "0.45rem 0 0", fontSize: "0.84rem", color: "#166534" }}>Paid {formatDateTime(withdrawal.paid_at)}</p>
+          ) : null}
+          {withdrawal.external_reference ? (
+            <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "#15803d", wordBreak: "break-all" }}>
+              Reference: {String(withdrawal.external_reference)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {payoutEmail ? (
+        <p style={{ margin: "0.75rem 0 0", fontSize: "0.84rem", color: "#475569", wordBreak: "break-all" }}>
+          Sent to PayPal: <strong style={{ fontWeight: 600 }}>{payoutEmail}</strong>
+        </p>
+      ) : null}
+      {(st === "failed" || st === "rejected") && (failText || st === "rejected") ? (
+        <div style={{ marginTop: "0.85rem", padding: "0.75rem 0.85rem", borderRadius: "10px", border: "1px solid #fecaca", background: "#fef2f2" }}>
+          <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {st === "rejected" ? "Rejection" : "Failure details"}
+          </p>
+          <p style={{ margin: "0.4rem 0 0", fontSize: "0.84rem", color: "#7f1d1d", lineHeight: 1.45, wordBreak: "break-word" }}>
+            {failText || withdrawalStatusUserLine("rejected")}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DetailRow({ label, value, mono = false, extraAction = null }) {
   return (
     <div style={detailRow}>
@@ -342,6 +453,7 @@ const pageShell = {
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
+  overflowX: "hidden",
 };
 
 const card = {
