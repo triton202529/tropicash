@@ -310,6 +310,7 @@ export default function WalletPage() {
               {withdrawalPreview.map((w, i) => {
                 const st = String(w?.status || "").toLowerCase();
                 const payoutTo = String(w?.payout_email || w?.payout_destination || "").trim();
+                const methodLabel = String(w?.payout_label || "").trim() || "—";
                 const failUser = st === "failed" ? formatWithdrawalFailureForUser(w?.failure_reason) : "";
                 return (
                   <li
@@ -337,7 +338,7 @@ export default function WalletPage() {
                     <div style={withdrawalMetaBlock}>
                       <p style={withdrawalMetaLine}>
                         <span style={withdrawalMetaKey}>Payout method</span>
-                        <span style={withdrawalMetaVal}>PayPal</span>
+                        <span style={withdrawalMetaVal}>{methodLabel}</span>
                       </p>
                       {payoutTo ? (
                         <p style={withdrawalMetaLine}>

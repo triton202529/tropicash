@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
-import { findWithdrawalMatchForWithdrawTransaction } from "../lib/withdrawalRequests";
+import { findWithdrawalMatchForWithdrawTransaction, withdrawalStatusUserLine } from "../lib/withdrawalRequests";
 import {
   formatPayPalEnvironmentBadge,
   fundingMethodLabel,
@@ -35,15 +35,33 @@ function formatMoney(value) {
   });
 }
 
-function formatWhen(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
+const normalizeUtcDate = (value) => {
+  if (!value) return null;
+  const s = String(value);
+  return s.endsWith("Z") ? s : `${s}Z`;
+};
+
+const getTransactionDate = (tx) => {
+  if (!tx) return null;
+  return tx.created_at || tx.transaction_date || tx.inserted_at || tx.updated_at || null;
+};
+
+const formatTransactionDate = (value) => {
+  if (!value) return "Unknown date";
+  const normalized = normalizeUtcDate(value);
+  if (!normalized) return "Unknown date";
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return "Unknown date";
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Antigua",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+};
 
 function normalizeStatus(value) {
   const status = String(value || "completed").toLowerCase();
@@ -80,8 +98,9 @@ function fundingRowLabel() {
 
 function inDateRange(createdAt, filterId) {
   if (filterId === "all_time") return true;
-  const target = new Date(createdAt);
-  if (Number.isNaN(target.getTime())) return false;
+  const normalized = normalizeUtcDate(String(createdAt || ""));
+  const target = normalized ? new Date(normalized) : null;
+  if (!target || Number.isNaN(target.getTime())) return false;
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -101,11 +120,6 @@ function inDateRange(createdAt, filterId) {
     return target >= monthStart;
   }
   return true;
-}
-
-function startOfDay(dateValue) {
-  const d = new Date(dateValue);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 function displayName(profileRow, fallbackId) {
@@ -197,7 +211,7 @@ function classifyTransaction(txn, currentUserId, namesById) {
     bucketLabel,
     direction,
     amountLine,
-    dateLine: formatWhen(txn.created_at),
+    dateLine: formatTransactionDate(getTransactionDate(txn)),
     statusLine: txn.status ? String(txn.status) : "completed",
     description,
     fundingEnvBadge,
@@ -310,15 +324,26 @@ export default function TransactionsPage() {
 
   const enrichedRows = useMemo(() => {
     if (!user?.id) return [];
-    return rows.map((txn) => {
+    const sortedTransactions = [...rows].sort((a, b) => {
+      const rawA = getTransactionDate(a);
+      const rawB = getTransactionDate(b);
+      const normA = rawA ? normalizeUtcDate(rawA) : null;
+      const normB = rawB ? normalizeUtcDate(rawB) : null;
+      const aTime = normA ? new Date(normA).getTime() : Number.NEGATIVE_INFINITY;
+      const bTime = normB ? new Date(normB).getTime() : Number.NEGATIVE_INFINITY;
+      return bTime - aTime;
+    });
+    return sortedTransactions.map((txn) => {
       const base = classifyTransaction(txn, user.id, profilesMap);
       if (base.category !== "withdrawn") return base;
       const wrMatch = findWithdrawalMatchForWithdrawTransaction(txn, withdrawalRows, user.id);
       const email = wrMatch ? String(wrMatch.payout_email || wrMatch.payout_destination || "").trim() : "";
+      const stLine = wrMatch ? withdrawalStatusUserLine(wrMatch.status) : "";
+      const payoutHint = email ? `Destination on file: ${email}` : "Payout request";
       return {
         ...base,
         withdrawalMatch: wrMatch,
-        description: email ? `Sent to PayPal: ${email}` : "Recipient: PayPal",
+        description: wrMatch ? `${stLine} · ${payoutHint}` : "Withdrawal request",
       };
     });
   }, [rows, user?.id, profilesMap, withdrawalRows]);
@@ -327,7 +352,7 @@ export default function TransactionsPage() {
     const query = searchQuery.trim().toLowerCase();
     return enrichedRows.filter((row) => {
       const matchesCategory = activeFilter === "all" ? true : row.category === activeFilter;
-      const matchesDate = inDateRange(row.created_at, activeDateFilter);
+      const matchesDate = inDateRange(getTransactionDate(row), activeDateFilter);
       const payPalHaystack =
         row.category === "funded" || isPayPalFundContext(row)
           ? "paypal pay pal sandbox fund_wallet funded funded (paypal)"

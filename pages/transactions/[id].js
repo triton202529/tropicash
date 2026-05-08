@@ -393,12 +393,16 @@ function WithdrawalLifecycle({ withdrawal }) {
   const st = String(withdrawal.status || "").toLowerCase();
   const payoutEmail = String(withdrawal.payout_email || withdrawal.payout_destination || "").trim();
   const failText = st === "failed" ? formatWithdrawalFailureForUser(withdrawal.failure_reason) : "";
+  const rejectText =
+    st === "rejected"
+      ? String(withdrawal.rejection_reason || withdrawal.admin_note || "").trim()
+      : "";
 
   const steps = [
     { key: "requested", label: "Requested", done: true },
     { key: "processing", label: "Processing", done: st === "processing" || st === "paid" || st === "failed" || st === "rejected" },
     { key: "paid", label: "Paid", done: st === "paid" },
-    { key: "failed", label: "Failed / rejected", done: st === "failed" || st === "rejected" },
+    { key: "closed", label: "Failed or rejected", done: st === "failed" || st === "rejected" },
   ];
 
   return (
@@ -426,9 +430,16 @@ function WithdrawalLifecycle({ withdrawal }) {
       </ol>
       {st === "paid" ? (
         <div style={{ marginTop: "1rem", padding: "0.75rem 0.85rem", borderRadius: "10px", border: "1px solid #a7f3d0", background: "#ecfdf5" }}>
-          <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#047857" }}>Sent to your PayPal account</p>
+          <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "#047857" }}>Payout marked paid</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.82rem", color: "#166534", lineHeight: 1.45 }}>
+            Tropicash recorded this payout as complete. If you do not see the funds yet, check the account or method you
+            provided for withdrawals.
+          </p>
           {withdrawal.paid_at ? (
-            <p style={{ margin: "0.45rem 0 0", fontSize: "0.84rem", color: "#166534" }}>Paid {formatDateTime(withdrawal.paid_at)}</p>
+            <p style={{ margin: "0.45rem 0 0", fontSize: "0.84rem", color: "#166534" }}>Marked paid {formatDateTime(withdrawal.paid_at)}</p>
+          ) : null}
+          {withdrawal.paid_via ? (
+            <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "#15803d" }}>Paid via: {String(withdrawal.paid_via)}</p>
           ) : null}
           {withdrawal.external_reference ? (
             <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "#15803d", wordBreak: "break-all" }}>
@@ -439,17 +450,21 @@ function WithdrawalLifecycle({ withdrawal }) {
       ) : null}
       {payoutEmail ? (
         <p style={{ margin: "0.75rem 0 0", fontSize: "0.84rem", color: "#475569", wordBreak: "break-all" }}>
-          Sent to PayPal: <strong style={{ fontWeight: 600 }}>{payoutEmail}</strong>
+          Payout destination on file: <strong style={{ fontWeight: 600 }}>{payoutEmail}</strong>
         </p>
       ) : null}
-      {(st === "failed" || st === "rejected") && (failText || st === "rejected") ? (
+      {(st === "failed" && failText) || (st === "rejected" && rejectText) ? (
         <div style={{ marginTop: "0.85rem", padding: "0.75rem 0.85rem", borderRadius: "10px", border: "1px solid #fecaca", background: "#fef2f2" }}>
           <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             {st === "rejected" ? "Rejection" : "Failure details"}
           </p>
           <p style={{ margin: "0.4rem 0 0", fontSize: "0.84rem", color: "#7f1d1d", lineHeight: 1.45, wordBreak: "break-word" }}>
-            {failText || withdrawalStatusUserLine("rejected")}
+            {st === "failed" ? failText : rejectText}
           </p>
+        </div>
+      ) : st === "rejected" && !rejectText ? (
+        <div style={{ marginTop: "0.85rem", padding: "0.75rem 0.85rem", borderRadius: "10px", border: "1px solid #fecaca", background: "#fef2f2" }}>
+          <p style={{ margin: 0, fontSize: "0.84rem", color: "#7f1d1d", lineHeight: 1.45 }}>This withdrawal was rejected. Contact support if you need more detail.</p>
         </div>
       ) : null}
     </div>

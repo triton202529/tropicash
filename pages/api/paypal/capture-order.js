@@ -7,6 +7,17 @@ import {
   paypalCaptureIdFromResult,
   serializeSupabaseError,
 } from "../../../lib/fundingIdempotency";
+import {
+  logConcurrentFunding,
+  logDuplicateFundingBlocked,
+  logFundingCreditFailed,
+  logFundingInvalidCaptureAmount,
+  logFundingNotificationDupCheckFailed,
+  logFundingRetryForbidden,
+  logFundingSuccessFraudSignals,
+  logPaypalCaptureFailed,
+  logPaypalCaptureIncomplete,
+} from "../../../lib/fundingFraudServer";
 
 const DEFAULT_SUPABASE_URL = "https://opbhcndlibbcsmoaeymq.supabase.co";
 const DEFAULT_SUPABASE_ANON_KEY =
@@ -80,6 +91,10 @@ export default async function handler(req, res) {
   }
   const userId = user.id;
 
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
   let body = req.body;
   if (typeof body === "string") {
     try {
@@ -98,6 +113,11 @@ export default async function handler(req, res) {
   try {
     result = await capturePayPalOrder(orderID);
   } catch (err) {
+    await logPaypalCaptureFailed(supabaseAdmin, {
+      userId,
+      orderID,
+      message: err?.message,
+    });
     console.error("[paypal/capture-order] PayPal capture failed:", err);
     console.error("[FUNDING_STATUS_UPDATE] status=failed phase=capture", { orderID });
     return res.status(502).json({
@@ -106,6 +126,11 @@ export default async function handler(req, res) {
   }
 
   if (result.status !== "COMPLETED") {
+    await logPaypalCaptureIncomplete(supabaseAdmin, {
+      userId,
+      orderID,
+      paypalStatus: result.status,
+    });
     console.error("[paypal/capture-order] Unexpected PayPal status:", result.status);
     console.error("[FUNDING_STATUS_UPDATE] status=failed paypalStatus", {
       orderID,
@@ -121,6 +146,7 @@ export default async function handler(req, res) {
     result.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
   const amountNum = amountStr != null ? Number(String(amountStr)) : NaN;
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    await logFundingInvalidCaptureAmount(supabaseAdmin, { userId, orderID });
     console.error("[paypal/capture-order] Missing or invalid capture amount");
     return res.status(502).json({ error: "Could not read captured amount from PayPal" });
   }
@@ -139,10 +165,6 @@ export default async function handler(req, res) {
 
   const providerCaptureId = paypalCaptureIdFromResult(result);
 
-  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
   const claim = await claimFundingProcessingSlot(supabaseAdmin, {
     provider: FUNDING_PROVIDER_PAYPAL,
     providerOrderId: orderID,
@@ -160,6 +182,12 @@ export default async function handler(req, res) {
       console.error("[FUNDING_DUPLICATE_BLOCKED] user_mismatch", { orderID, userId });
       return res.status(403).json({ error: "This order is not associated with your account." });
     }
+    await logDuplicateFundingBlocked(supabaseAdmin, {
+      userId,
+      orderID,
+      amountNum,
+      source: "idempotency",
+    });
     console.log("[FUNDING_DUPLICATE_BLOCKED]", { orderID, userId, source: "idempotency" });
     console.log("[FUNDING_STATUS_UPDATE] status=completed duplicate=idempotency", {
       orderID,
@@ -174,6 +202,7 @@ export default async function handler(req, res) {
   }
 
   if (claim.kind === "already_processing") {
+    await logConcurrentFunding(supabaseAdmin, { userId, orderID, amountNum });
     console.log("[FUNDING_DUPLICATE_BLOCKED]", { orderID, userId, source: "in_flight" });
     console.log("[FUNDING_STATUS_UPDATE] status=processing conflict=already_processing", {
       orderID,
@@ -186,6 +215,7 @@ export default async function handler(req, res) {
   }
 
   if (claim.kind === "retry_forbidden") {
+    await logFundingRetryForbidden(supabaseAdmin, { userId, orderID });
     return res.status(403).json({
       error: "This order cannot be retried for this account.",
       code: "RETRY_FORBIDDEN",
@@ -203,6 +233,11 @@ export default async function handler(req, res) {
     .limit(1);
 
   if (dupErr) {
+    await logFundingNotificationDupCheckFailed(supabaseAdmin, {
+      userId,
+      orderID,
+      amountNum,
+    });
     console.error("[paypal/capture-order] duplicate check failed:", dupErr);
     await patchFundingIdempotencyRow(supabaseAdmin, idempotencyRowId, {
       status: "failed",
@@ -215,6 +250,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Could not verify funding status" });
   }
   if (dupRows && dupRows.length > 0) {
+    await logDuplicateFundingBlocked(supabaseAdmin, {
+      userId,
+      orderID,
+      amountNum,
+      source: "notification_fallback",
+    });
     console.log("[FUNDING_DUPLICATE_BLOCKED]", { orderID, userId, source: "notification_fallback" });
     await patchFundingIdempotencyRow(supabaseAdmin, idempotencyRowId, {
       status: "completed",
@@ -240,6 +281,12 @@ export default async function handler(req, res) {
     p_amount: amountNum,
   });
   if (fundError) {
+    await logFundingCreditFailed(supabaseAdmin, {
+      userId,
+      orderID,
+      amountNum,
+      fundWalletError: serializeSupabaseError(fundError),
+    });
     console.error("[paypal/capture-order] fund_wallet RPC failed:", fundError);
     console.error("[FUNDING_STATUS_UPDATE] status=failed phase=fund_wallet_rpc", { orderID, userId });
     await patchFundingIdempotencyRow(supabaseAdmin, idempotencyRowId, {
@@ -280,6 +327,7 @@ export default async function handler(req, res) {
     provider_capture_id: providerCaptureId,
     raw_response: result,
   });
+  await logFundingSuccessFraudSignals(supabaseAdmin, { userId, amountNum, orderID });
   console.log("[FUNDING_STATUS_UPDATE] status=completed", { orderID, userId, amount: amountNum });
 
   return res.status(200).json({

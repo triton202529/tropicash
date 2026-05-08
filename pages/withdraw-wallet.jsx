@@ -9,6 +9,8 @@ import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
 import { fetchDefaultPayoutMethod, formatPayoutDestinationDisplay } from "../lib/payoutMethods";
 import { notifyAdminNewWithdrawalRequest, fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
+import { buildWithdrawalPhase1Signals, emailDomainOnly } from "../lib/fraudRules";
+import { insertPhase1FraudLogs } from "../lib/fraudPhase1Log";
 
 const MIN_WITHDRAWAL_AMOUNT = 1;
 const MAX_WITHDRAWAL_AMOUNT = 250;
@@ -42,7 +44,7 @@ function formatWhen(iso) {
 
 function withdrawalStatusLabel(status) {
   const v = String(status || "").toLowerCase();
-  if (v === "pending") return "Pending";
+  if (v === "pending") return "Pending payout";
   if (v === "processing") return "Processing";
   if (v === "paid") return "Paid";
   if (v === "rejected") return "Rejected";
@@ -280,6 +282,49 @@ export default function WithdrawWalletPage() {
       return;
     }
 
+    const dayAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const thirtyMinIso = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+    const [{ count: withdrawalCount24h }, { data: recentFundTxns }] = await Promise.all([
+      supabase
+        .from("withdrawal_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", dayAgoIso),
+      supabase
+        .from("transactions")
+        .select("id, created_at, amount")
+        .in("type", ["fund", "fund_wallet"])
+        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+        .gte("created_at", thirtyMinIso)
+        .limit(10),
+    ]);
+
+    try {
+      const phase1Signals = buildWithdrawalPhase1Signals({
+        amount: amt,
+        withdrawalCount24h: withdrawalCount24h ?? 0,
+        accountCreatedAt: user.created_at ?? null,
+        profileUpdatedAt: profile?.updated_at ?? null,
+        recentFundTxns: recentFundTxns || [],
+        payoutEmailDomain: emailDomainOnly(payoutEmail),
+      });
+      await insertPhase1FraudLogs(
+        supabase,
+        phase1Signals.map((s) => ({
+          userId: user.id,
+          transactionType: "withdraw",
+          eventType: s.eventType,
+          severity: s.severity,
+          description: s.description,
+          amount: s.amount,
+          metadata: s.metadata,
+        })),
+      );
+    } catch (phase1Err) {
+      console.error("[withdraw-wallet] phase1 fraud logs failed:", phase1Err);
+    }
+
     await fetchWalletBalance();
 
     try {
@@ -411,7 +456,9 @@ export default function WithdrawWalletPage() {
             How withdrawals work
           </p>
           <p style={{ margin: 0, fontSize: "0.86rem", color: "#475569", lineHeight: 1.55 }}>
-            Withdrawals are sent to your PayPal account. You can then transfer funds to your bank from PayPal.
+            A withdrawal debits your Tropicash wallet and creates a payout request. Our team reviews each request and sends
+            funds manually using the payout details you provide (for example PayPal or bank instructions). You will be
+            notified as the status changes.
           </p>
         </div>
 
@@ -431,7 +478,7 @@ export default function WithdrawWalletPage() {
             }}
           >
             <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, lineHeight: 1.45 }}>
-              You already have a withdrawal being processed. Please wait before submitting another.
+              You already have a withdrawal in progress. Please wait before submitting another.
             </p>
           </div>
         ) : null}
@@ -512,7 +559,7 @@ export default function WithdrawWalletPage() {
               Add a payout email before requesting a withdrawal.
             </p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "#94a3b8", lineHeight: 1.45 }}>
-              Withdrawals are currently sent through PayPal. Bank payouts will be added later.
+              Add the email or instructions where you want to receive funds after manual review.
             </p>
             <Link
               href="/profile"
@@ -818,15 +865,15 @@ export default function WithdrawWalletPage() {
                 const st = String(rw?.status || "").toLowerCase();
                 const statusHelp =
                   st === "pending"
-                    ? "Your request is waiting to be processed."
+                    ? "Pending payout — waiting for team review."
                     : st === "processing"
-                      ? "Your payout is being processed."
+                      ? "Processing — your payout is being prepared or paid outside the app."
                       : st === "paid"
-                        ? "Your payout has been sent to your PayPal account."
+                        ? "Paid — this request was marked complete by Tropicash."
                         : st === "failed"
                           ? "Your payout failed. Please contact support."
                           : st === "rejected"
-                            ? "Your request was rejected. Please contact support."
+                            ? "Rejected — see your notifications or contact support."
                             : "";
                 return (
                   <li
@@ -865,6 +912,11 @@ export default function WithdrawWalletPage() {
                     {extRef ? (
                       <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#64748b", wordBreak: "break-word" }}>
                         Reference: {extRef}
+                      </p>
+                    ) : null}
+                    {st === "rejected" && rw?.rejection_reason != null && String(rw.rejection_reason).trim() ? (
+                      <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#b91c1c", wordBreak: "break-word" }}>
+                        Reason: {String(rw.rejection_reason).trim()}
                       </p>
                     ) : null}
                   </li>

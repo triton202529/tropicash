@@ -195,6 +195,19 @@ function payoutLabelCell(r) {
 
 const PAID_VIA_OPTIONS = ["PayPal", "Bank transfer", "Cash", "Other"];
 
+/** When false (default), hide PayPal Payouts API actions; ops record payouts manually only. */
+const AUTOMATED_PAYPAL_PAYOUT_UI = process.env.NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT === "true";
+
+function adminStatusDisplay(status) {
+  const v = String(status || "").toLowerCase();
+  if (v === "pending") return "Pending";
+  if (v === "processing") return "Processing";
+  if (v === "paid") return "Paid";
+  if (v === "rejected") return "Rejected";
+  if (v === "failed") return "Failed";
+  return v ? String(status) : "—";
+}
+
 function WithdrawalDetail({ label, children }) {
   return (
     <div style={{ minWidth: 0 }}>
@@ -454,7 +467,14 @@ export default function AdminWithdrawalsPage() {
     setActionBusyId(id);
     setFetchError(null);
     setFetchErrorDetails(null);
-    const { error } = await supabase.from("withdrawal_requests").update(patch).eq("id", id);
+    const nowIso = new Date().toISOString();
+    const mergedPatch = {
+      ...patch,
+      updated_at: nowIso,
+      processed_at: nowIso,
+      processed_by: user?.id ?? null,
+    };
+    const { error } = await supabase.from("withdrawal_requests").update(mergedPatch).eq("id", id);
     if (error) {
       console.error("[admin/withdrawals] update failed:", error);
       setFetchError(error.message || "Update failed.");
@@ -473,6 +493,9 @@ export default function AdminWithdrawalsPage() {
           userId: row.user_id,
           amount: Number(row.amount),
           kind: notifyKind,
+          paidVia: mergedPatch.paid_via != null ? String(mergedPatch.paid_via) : null,
+          externalReference: mergedPatch.external_reference != null ? String(mergedPatch.external_reference) : null,
+          rejectionReason: mergedPatch.rejection_reason != null ? String(mergedPatch.rejection_reason) : null,
         });
       } catch (notifErr) {
         console.error("[admin/withdrawals] user notification failed (non-blocking):", notifErr);
@@ -655,6 +678,7 @@ export default function AdminWithdrawalsPage() {
       {
         status: "rejected",
         admin_note: note,
+        rejection_reason: note,
         paid_at: null,
         paid_via: null,
         external_reference: null,
@@ -731,14 +755,18 @@ export default function AdminWithdrawalsPage() {
         </div>
 
         <p style={{ margin: "0 0 1.25rem", fontSize: "0.875rem", color: "#64748b", lineHeight: 1.55, maxWidth: "42rem" }}>
-          Pending withdrawals must be sent using the payout system before they are marked as paid.
+          Users submit payout requests; their wallet is debited when the request is created. Pay them manually outside
+          Tropicash, then mark the request <strong>processing</strong> while you work on it and <strong>paid</strong> when
+          complete (with paid via + external reference). Reject if you will not pay out.
         </p>
 
-        <div style={{ ...cardBase, padding: "0.75rem 1rem", marginBottom: "1.25rem", background: "#f8fafc" }}>
-          <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.5 }}>
-            <strong>Confirm your PayPal mode before sending live payouts.</strong> If you are testing, ensure PayPal is set to sandbox.
-          </p>
-        </div>
+        {AUTOMATED_PAYPAL_PAYOUT_UI ? (
+          <div style={{ ...cardBase, padding: "0.75rem 1rem", marginBottom: "1.25rem", background: "#f8fafc" }}>
+            <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.5 }}>
+              <strong>Automated PayPal payouts are enabled.</strong> Confirm sandbox vs live before sending batches.
+            </p>
+          </div>
+        ) : null}
 
         <div style={{ ...cardBase, padding: "0.85rem 1rem", marginBottom: "1.25rem" }}>
           <button type="button" onClick={() => void fetchRows()} disabled={dataLoading} style={{ ...btnSm, marginTop: 0 }}>
@@ -803,9 +831,10 @@ export default function AdminWithdrawalsPage() {
               const hasBatch = !!(r?.processor_batch_id && String(r.processor_batch_id).trim());
               const payoutEmail = String(r?.payout_email || r?.payout_destination || "").trim();
               const hasPayoutEmail = payoutEmail.length > 0;
-              const canSendPayout = st === "pending" && hasPayoutEmail && !hasBatch;
-              const canCheckStatus = st === "processing" && hasBatch;
-              const canRetryPayout = st === "failed";
+              const canSendPayout =
+                AUTOMATED_PAYPAL_PAYOUT_UI && st === "pending" && hasPayoutEmail && !hasBatch;
+              const canCheckStatus = AUTOMATED_PAYPAL_PAYOUT_UI && st === "processing" && hasBatch;
+              const canRetryPayout = AUTOMATED_PAYPAL_PAYOUT_UI && st === "failed";
               const canRecordManual = st !== "paid" && st !== "rejected";
               const canMarkProcessing = st === "pending";
               const p = profilesMap[r.user_id];
@@ -876,9 +905,14 @@ export default function AdminWithdrawalsPage() {
                         <span style={{ display: "inline-block", marginRight: "0.5rem" }}>
                           Failed: <strong style={{ color: "#0f172a" }}>{userCounts.failed}</strong>
                         </span>
+                        {p?.email ? (
+                          <span style={{ display: "inline-block", marginRight: "0.5rem", wordBreak: "break-all" }}>
+                            Email: <strong style={{ color: "#0f172a", fontWeight: 600 }}>{String(p.email).trim()}</strong>
+                          </span>
+                        ) : null}
                         {payoutEmail ? (
                           <span style={{ display: "inline-block", wordBreak: "break-all" }}>
-                            PayPal: <strong style={{ color: "#0f172a", fontWeight: 600 }}>{payoutEmail}</strong>
+                            Payout destination: <strong style={{ color: "#0f172a", fontWeight: 600 }}>{payoutEmail}</strong>
                           </span>
                         ) : null}
                       </div>
@@ -896,7 +930,7 @@ export default function AdminWithdrawalsPage() {
                       <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap" }}>
                         ${formatMoney(r?.amount)}
                       </span>
-                      <span style={statusBadgeStyle(r?.status)}>{st || "—"}</span>
+                      <span style={statusBadgeStyle(r?.status)}>{adminStatusDisplay(r?.status)}</span>
                     </div>
                   </div>
 
@@ -904,7 +938,8 @@ export default function AdminWithdrawalsPage() {
                     <WithdrawalDetail label="Request ID">{shortUuid(r.id)}</WithdrawalDetail>
                     <WithdrawalDetail label="User ID">{shortUuid(r.user_id)}</WithdrawalDetail>
                     <WithdrawalDetail label="Payout method">{payoutLabelCell(r)}</WithdrawalDetail>
-                    {payoutEmail ? <WithdrawalDetail label="Payout email / destination">{payoutEmail}</WithdrawalDetail> : null}
+                    {p?.email ? <WithdrawalDetail label="User email">{String(p.email).trim()}</WithdrawalDetail> : null}
+                    {payoutEmail ? <WithdrawalDetail label="Payout destination">{payoutEmail}</WithdrawalDetail> : null}
                     {proc ? <WithdrawalDetail label="Processor">{proc}</WithdrawalDetail> : null}
                     {procStatus ? <WithdrawalDetail label="Processor status">{procStatus}</WithdrawalDetail> : null}
                     {hasBatch ? (
@@ -914,6 +949,10 @@ export default function AdminWithdrawalsPage() {
                     {paidAt ? <WithdrawalDetail label="Paid date">{formatWhen(paidAt)}</WithdrawalDetail> : null}
                     {paidVia ? <WithdrawalDetail label="Paid via">{paidVia}</WithdrawalDetail> : null}
                     {extRef ? <WithdrawalDetail label="Reference">{extRef}</WithdrawalDetail> : null}
+                    {st === "rejected" && r?.rejection_reason != null && String(r.rejection_reason).trim() ? (
+                      <WithdrawalDetail label="Rejection reason">{String(r.rejection_reason).trim()}</WithdrawalDetail>
+                    ) : null}
+                    {r?.processed_at ? <WithdrawalDetail label="Last processed">{formatWhen(r.processed_at)}</WithdrawalDetail> : null}
                   </div>
 
                   {failureReasonRaw.trim() ? <WithdrawalFailurePanel failureReason={failureReasonRaw} /> : null}

@@ -31,6 +31,18 @@ function normalizeFlags(flags) {
   return [];
 }
 
+function metadataPreview(meta) {
+  if (meta == null) return "—";
+  if (typeof meta === "object" && !Array.isArray(meta) && Object.keys(meta).length === 0) return "—";
+  try {
+    const s = JSON.stringify(meta);
+    if (s.length <= 220) return s;
+    return `${s.slice(0, 217)}…`;
+  } catch {
+    return "—";
+  }
+}
+
 function userLabel(profile, userId) {
   if (profile?.full_name?.trim()) return profile.full_name.trim();
   if (profile?.email?.trim()) return profile.email.trim();
@@ -539,6 +551,14 @@ export default function AdminFraudDashboardPage() {
       const flagsJoined = flagList.join(" ");
       const st = normalizeStatus(r.status);
       const note = String(r.review_note || "").toLowerCase();
+      const eventType = String(r.event_type || "").toLowerCase();
+      const desc = String(r.description || "").toLowerCase();
+      let metaStr = "";
+      try {
+        metaStr = JSON.stringify(r.metadata ?? {}).toLowerCase();
+      } catch {
+        metaStr = "";
+      }
 
       return (
         uid.includes(q) ||
@@ -549,7 +569,10 @@ export default function AdminFraudDashboardPage() {
         flagsJoined.includes(q) ||
         flagList.some((f) => f.includes(q)) ||
         st.includes(q) ||
-        note.includes(q)
+        note.includes(q) ||
+        eventType.includes(q) ||
+        desc.includes(q) ||
+        (metaStr && metaStr.includes(q))
       );
     });
   }, [logs, riskFilter, typeFilter, statusFilter, search, profilesMap]);
@@ -876,7 +899,7 @@ export default function AdminFraudDashboardPage() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="User, email, flags, type, status, note, txn id…"
+                placeholder="User, email, event type, description, flags, status…"
                 style={inputBase}
               />
             </div>
@@ -986,10 +1009,13 @@ export default function AdminFraudDashboardPage() {
                     {[
                       "User",
                       "Type",
+                      "Event",
                       "Amount",
                       "Score",
                       "Level",
                       "Flags",
+                      "Description",
+                      "Metadata",
                       "Related txn",
                       "Created",
                       "Status",
@@ -1054,6 +1080,19 @@ export default function AdminFraudDashboardPage() {
                         <td
                           style={{
                             padding: "0.65rem 0.75rem",
+                            maxWidth: "140px",
+                            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                            fontSize: "0.72rem",
+                            fontWeight: 600,
+                            color: "#334155",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {r.event_type || "—"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.65rem 0.75rem",
                             fontVariantNumeric: "tabular-nums",
                             fontWeight: 600,
                             color: "#0f172a",
@@ -1083,6 +1122,33 @@ export default function AdminFraudDashboardPage() {
                               </span>
                             ))
                           )}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.65rem 0.75rem",
+                            maxWidth: "200px",
+                            fontSize: "0.78rem",
+                            color: "#475569",
+                            lineHeight: 1.35,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {r.description || "—"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.65rem 0.75rem",
+                            maxWidth: "200px",
+                            fontSize: "0.72rem",
+                            color: "#64748b",
+                            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                            lineHeight: 1.35,
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                          title={metadataPreview(r.metadata)}
+                        >
+                          {metadataPreview(r.metadata)}
                         </td>
                         <td style={{ padding: "0.65rem 0.75rem", maxWidth: "120px" }}>
                           {r.related_transaction_id ? (
