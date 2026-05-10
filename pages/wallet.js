@@ -260,6 +260,32 @@ export default function WalletPage() {
           <SoftLaunchNotice />
         </div>
 
+        <div
+          className="mb-5 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 to-white px-4 py-3.5 shadow-sm sm:px-5"
+          role="region"
+          aria-label="Tester welcome"
+        >
+          <p className="m-0 text-xs font-bold uppercase tracking-wide text-emerald-900">Welcome to Tropicash testing</p>
+          <ul className="mb-0 mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700 sm:text-[0.9375rem]">
+            <li>Tropicash is in <strong className="font-semibold text-slate-900">controlled testing</strong>.</li>
+            <li>
+              Please use <strong className="font-semibold text-slate-900">small amounts</strong> first while we
+              validate flows.
+            </li>
+            <li>
+              <strong className="font-semibold text-slate-900">Report missing funds immediately</strong> via{" "}
+              <Link href="/support" className="font-semibold text-sky-700 underline decoration-sky-600/50 hover:text-sky-800">
+                Help &amp; support
+              </Link>
+              .
+            </li>
+            <li>
+              <strong className="font-semibold text-slate-900">Withdrawals</strong> may be manually reviewed before
+              payout is completed.
+            </li>
+          </ul>
+        </div>
+
         <div style={balanceCard}>
           <p style={balanceLabel}>Available balance</p>
           <p style={balanceValue}>${formatMoney(balance)}</p>

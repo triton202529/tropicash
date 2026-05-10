@@ -401,6 +401,11 @@ export default function AdminIndexPage() {
               Withdrawals queue
             </Link>
           </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/feedback" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Tester feedback
+            </Link>
+          </li>
         </ul>
 
         <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>

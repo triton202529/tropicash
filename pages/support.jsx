@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
+import { supabase } from "../lib/supabaseClient";
+import { useUser } from "../lib/userContext";
 
 const ISSUE_TYPES = [
   { value: "", label: "What do you need help with?" },
@@ -14,24 +16,83 @@ const ISSUE_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const RATING_OPTIONS = [
+  { value: "", label: "Optional — overall experience (1–5)" },
+  { value: "1", label: "1 — Poor" },
+  { value: "2", label: "2" },
+  { value: "3", label: "3 — OK" },
+  { value: "4", label: "4" },
+  { value: "5", label: "5 — Excellent" },
+];
+
 const sectionCard = "tropicash-surface rounded-xl p-4 sm:p-5";
 
 export default function SupportPage() {
+  const { user } = useUser();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [issueType, setIssueType] = useState("");
   const [message, setMessage] = useState("");
+  const [rating, setRating] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
+    if (!user?.id) {
+      setFormError("Please sign in to submit feedback so we can follow up with your account.");
+      return;
+    }
     if (!issueType) {
       setFormError("Please choose an issue type so we can route your request.");
       return;
     }
-    setSubmitted(true);
+    const msgTrim = String(message || "").trim();
+    if (msgTrim.length < 3) {
+      setFormError("Please enter a message (at least a few characters).");
+      return;
+    }
+
+    let ratingNum = null;
+    if (rating !== "") {
+      const n = Number.parseInt(rating, 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 5) ratingNum = n;
+    }
+
+    const header = [];
+    if (name.trim()) header.push(`Name: ${name.trim()}`);
+    if (email.trim()) header.push(`Email: ${email.trim()}`);
+    const body = header.length ? `${header.join("\n")}\n\n${msgTrim}` : msgTrim;
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("tester_feedback").insert({
+        user_id: user.id,
+        issue_type: issueType,
+        message: body,
+        rating: ratingNum,
+        status: "open",
+      });
+      if (error) {
+        console.error("[support] tester_feedback insert", error);
+        setFormError(error.message || "Could not save feedback. Try again or email support.");
+        setSubmitting(false);
+        return;
+      }
+      setSubmitted(true);
+      setName("");
+      setEmail("");
+      setIssueType("");
+      setMessage("");
+      setRating("");
+    } catch (err) {
+      console.error(err);
+      setFormError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -104,21 +165,33 @@ export default function SupportPage() {
           </div>
 
           <div className={`${sectionCard} mb-8`}>
-            <h2 className="mb-4 text-lg font-bold text-slate-800">Contact form</h2>
+            <h2 className="mb-1 text-lg font-bold text-slate-800">Tester feedback</h2>
+            <p className="mb-4 text-sm leading-relaxed text-slate-600">
+              Signed-in testers can send structured feedback here. It is stored in Tropicash for the product team (in
+              addition to email if you need a faster reply).
+            </p>
+            {!user?.id ? (
+              <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-slate-800">
+                <Link href="/auth" className="font-semibold text-blue-700 hover:underline">
+                  Sign in
+                </Link>{" "}
+                to submit feedback through the app.
+              </div>
+            ) : null}
             {submitted ? (
               <div
                 role="status"
                 className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900 sm:text-base"
               >
-                Thank you—your message has been recorded. Our team reviews support requests regularly. For the fastest
-                help with urgent or money-related issues, also email{" "}
+                Thank you — your feedback has been saved. Our team reviews submissions regularly. For urgent or
+                money-related issues, also email{" "}
                 <a href="mailto:support@tropicash.com" className="font-semibold underline">
                   support@tropicash.com
                 </a>
                 .
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
                 {formError ? (
                   <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">
                     {formError}
@@ -126,7 +199,7 @@ export default function SupportPage() {
                 ) : null}
                 <div>
                   <label htmlFor="support-name" className="mb-1 block text-sm font-semibold text-slate-700">
-                    Name
+                    Name <span className="font-normal text-slate-500">(optional)</span>
                   </label>
                   <input
                     id="support-name"
@@ -139,7 +212,7 @@ export default function SupportPage() {
                 </div>
                 <div>
                   <label htmlFor="support-email" className="mb-1 block text-sm font-semibold text-slate-700">
-                    Email
+                    Contact email <span className="font-normal text-slate-500">(optional)</span>
                   </label>
                   <input
                     id="support-email"
@@ -168,6 +241,23 @@ export default function SupportPage() {
                   </select>
                 </div>
                 <div>
+                  <label htmlFor="support-rating" className="mb-1 block text-sm font-semibold text-slate-700">
+                    Rating
+                  </label>
+                  <select
+                    id="support-rating"
+                    value={rating}
+                    onChange={(e) => setRating(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none ring-blue-500/20 focus:border-blue-500 focus:ring-2"
+                  >
+                    {RATING_OPTIONS.map((opt) => (
+                      <option key={opt.value || "empty"} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label htmlFor="support-message" className="mb-1 block text-sm font-semibold text-slate-700">
                     Message
                   </label>
@@ -182,9 +272,10 @@ export default function SupportPage() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 sm:text-base"
+                  disabled={submitting || !user?.id}
+                  className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
                 >
-                  Submit
+                  {submitting ? "Submitting…" : "Submit feedback"}
                 </button>
               </form>
             )}

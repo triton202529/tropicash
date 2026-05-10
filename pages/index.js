@@ -81,6 +81,13 @@ export default function Home() {
               Go to Wallet
             </Link>
           </div>
+          <p className="mt-6 max-w-md text-center text-sm leading-relaxed text-slate-600">
+            Helping us test? Send structured feedback from{" "}
+            <Link href="/support" className="font-semibold text-blue-700 hover:underline">
+              Support
+            </Link>{" "}
+            after you sign in.
+          </p>
         </section>
 
         {/* Features */}

@@ -145,6 +145,9 @@ export default function Navbar() {
                         >
                           Withdrawals
                         </button>
+                        <button type="button" onClick={() => router.push("/admin/feedback")} className={dropdownItemClass}>
+                          Tester feedback
+                        </button>
                       </>
                     ) : null}
                     <button type="button" onClick={handleLogout} className={dropdownItemClass}>
