@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import Navbar from "../components/Navbar";
+import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import { findWithdrawalMatchForWithdrawTransaction, withdrawalStatusUserLine } from "../lib/withdrawalRequests";
@@ -409,7 +410,7 @@ export default function TransactionsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, PayPal, or transaction ID"
+            placeholder="Search by name, payment method, or transaction ID"
             style={searchInput}
           />
         </div>

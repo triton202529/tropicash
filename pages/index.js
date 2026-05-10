@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import SoftLaunchNotice from "@/components/SoftLaunchNotice";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,6 +68,10 @@ export default function Home() {
             Send, receive, and manage money across the Caribbean. Fund your wallet, make transfers, request withdrawals,
             and track everything from one secure place.
           </p>
+
+          <div className="mb-6 w-full max-w-md">
+            <SoftLaunchNotice />
+          </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
             <Link href="/auth" className={ctaPrimaryClass}>
@@ -135,6 +140,12 @@ export default function Home() {
           </Link>
           <Link href="/security" className="font-semibold text-blue-700 hover:underline">
             Security Center
+          </Link>
+          <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">
+            Privacy
+          </Link>
+          <Link href="/terms" className="font-semibold text-blue-700 hover:underline">
+            Terms
           </Link>
         </div>
         <span>© {new Date().getFullYear()} Tropicash · Powered by Next.js & Supabase</span>

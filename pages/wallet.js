@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
+import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import {
   fetchUserWithdrawalRequests,
@@ -255,6 +256,10 @@ export default function WalletPage() {
           <SoftEnforcementNotice profile={profile} />
         </div>
 
+        <div className="mb-5">
+          <SoftLaunchNotice />
+        </div>
+
         <div style={balanceCard}>
           <p style={balanceLabel}>Available balance</p>
           <p style={balanceValue}>${formatMoney(balance)}</p>
@@ -288,6 +293,12 @@ export default function WalletPage() {
           </Link>
           <Link href="/security" className={pillLinkClass}>
             Security Center <span aria-hidden="true">→</span>
+          </Link>
+          <Link href="/privacy" className={pillLinkClass}>
+            Privacy <span aria-hidden="true">→</span>
+          </Link>
+          <Link href="/terms" className={pillLinkClass}>
+            Terms <span aria-hidden="true">→</span>
           </Link>
         </nav>
 

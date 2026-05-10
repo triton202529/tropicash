@@ -3,6 +3,7 @@ import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
+import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
@@ -358,7 +359,9 @@ export default function FundWalletPage() {
             rememberFundingPaymentSource(receiptOrderId, paymentMethod);
           }
 
-          console.log("[FUNDING_PROCESS]", { orderID: receiptOrderId, duplicate: !!payload.duplicate });
+          if (process.env.NODE_ENV !== "production") {
+            console.log("[FUNDING_PROCESS]", { orderID: receiptOrderId, duplicate: !!payload.duplicate });
+          }
           await fetchWalletBalance();
 
           try {
@@ -565,6 +568,32 @@ export default function FundWalletPage() {
 
         <SoftEnforcementNotice profile={profile} />
 
+        <div style={{ marginBottom: "1.25rem" }}>
+          <SoftLaunchNotice />
+        </div>
+
+        <div
+          style={{
+            marginBottom: "1.25rem",
+            padding: "1rem 1.1rem",
+            borderRadius: "12px",
+            border: "1px solid #e2e8f0",
+            background: "rgba(255, 255, 255, 0.92)",
+          }}
+        >
+          <p style={{ margin: "0 0 0.4rem", fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>How funding appears</p>
+          <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#475569", lineHeight: 1.55 }}>
+            Successful adds may show in history as <strong style={{ fontWeight: 600 }}>PayPal</strong> or{" "}
+            <strong style={{ fontWeight: 600 }}>Card</strong> depending on how you paid. If the app is in test mode, a
+            small <strong style={{ fontWeight: 600 }}>Sandbox</strong> or <strong style={{ fontWeight: 600 }}>Live</strong>{" "}
+            label may appear next to funding—this only indicates the processing environment, not a separate charge from
+            Tropicash.
+          </p>
+          <p style={{ margin: 0, fontSize: "0.78rem", color: "#94a3b8", lineHeight: 1.45 }}>
+            If something fails, you will see a short user-friendly message here—not technical debug output.
+          </p>
+        </div>
+
         <div
           style={{
             background:
@@ -686,7 +715,7 @@ export default function FundWalletPage() {
                 </p>
               </div>
               <div>
-                <p style={{ ...receiptRowLabel, margin: 0 }}>Environment</p>
+                <p style={{ ...receiptRowLabel, margin: 0 }}>Payment mode</p>
                 <p style={{ ...receiptRowValue, margin: 0 }}>
                   <span
                     style={{
@@ -716,7 +745,7 @@ export default function FundWalletPage() {
               </div>
               {successReceipt.orderId ? (
                 <div>
-                  <p style={{ ...receiptRowLabel, margin: 0 }}>Reference (PayPal order ID)</p>
+                  <p style={{ ...receiptRowLabel, margin: 0 }}>Reference (for support)</p>
                   <p
                     style={{
                       ...receiptRowValue,
@@ -732,7 +761,7 @@ export default function FundWalletPage() {
                 </div>
               ) : (
                 <div>
-                  <p style={{ ...receiptRowLabel, margin: 0 }}>Reference (PayPal order ID)</p>
+                  <p style={{ ...receiptRowLabel, margin: 0 }}>Reference (for support)</p>
                   <p style={{ ...receiptRowValue, margin: 0, color: "#64748b" }}>—</p>
                 </div>
               )}
@@ -896,10 +925,15 @@ export default function FundWalletPage() {
                     lineHeight: 1.5,
                   }}
                 >
-                  PayPal is not set up yet. Add{" "}
-                  <code style={{ fontSize: "0.8em" }}>NEXT_PUBLIC_PAYPAL_CLIENT_ID</code> and
-                  server keys to <code style={{ fontSize: "0.8em" }}>.env.local</code>, then
-                  restart the dev server.
+                  {process.env.NODE_ENV === "development" ? (
+                    <>
+                      PayPal is not set up yet. Add{" "}
+                      <code style={{ fontSize: "0.8em" }}>NEXT_PUBLIC_PAYPAL_CLIENT_ID</code> and server keys to{" "}
+                      <code style={{ fontSize: "0.8em" }}>.env.local</code>, then restart the dev server.
+                    </>
+                  ) : (
+                    <>Wallet funding is temporarily unavailable. Please try again later or contact support.</>
+                  )}
                 </p>
               ) : null}
 

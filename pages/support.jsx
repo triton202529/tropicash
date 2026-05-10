@@ -2,14 +2,15 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import SoftLaunchNotice from "../components/SoftLaunchNotice";
 
 const ISSUE_TYPES = [
-  { value: "", label: "Select issue type…" },
-  { value: "funding", label: "Wallet funding issues" },
-  { value: "sending", label: "Sending money issues" },
-  { value: "withdrawal", label: "Withdrawal delays" },
-  { value: "account", label: "Account / security issues" },
-  { value: "fraud", label: "Fraud or suspicious activity" },
+  { value: "", label: "What do you need help with?" },
+  { value: "funding", label: "Funding issue" },
+  { value: "sending", label: "Sending issue" },
+  { value: "withdrawal", label: "Withdrawal issue" },
+  { value: "account", label: "Account / security issue" },
+  { value: "fraud", label: "Fraud / suspicious activity" },
   { value: "other", label: "Other" },
 ];
 
@@ -21,9 +22,15 @@ export default function SupportPage() {
   const [issueType, setIssueType] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setFormError("");
+    if (!issueType) {
+      setFormError("Please choose an issue type so we can route your request.");
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -32,6 +39,9 @@ export default function SupportPage() {
       <Navbar />
       <div className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-2xl">
+          <div className="mb-6">
+            <SoftLaunchNotice />
+          </div>
           <div className="mb-8 flex flex-col items-center text-center">
             <Image
               src="/tropicash-logo-dark.png"
@@ -61,39 +71,35 @@ export default function SupportPage() {
             through official channels.
           </div>
 
+          <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-800 sm:text-base">
+            <strong className="font-semibold text-slate-900">If money is involved:</strong> If this issue involves
+            missing funds, failed funding, or a withdrawal problem, please include the{" "}
+            <strong className="font-semibold">transaction amount</strong>, <strong className="font-semibold">date</strong>
+            , and <strong className="font-semibold">reference</strong> (for example order ID or transaction ID from your
+            history) if you have one. That helps us find your activity quickly.
+          </div>
+
           <div className="mb-8 space-y-4">
             <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Common topics</h2>
             <div className={sectionCard}>
-              <h3 className="mb-1 font-semibold text-slate-900">Wallet funding issues</h3>
-              <p className="text-sm leading-relaxed text-slate-600">
-                Problems adding money with PayPal, delays seeing funds, or receipt mismatches. Include approximate time
-                and amount in your message.
-              </p>
-            </div>
-            <div className={sectionCard}>
-              <h3 className="mb-1 font-semibold text-slate-900">Sending money issues</h3>
-              <p className="text-sm leading-relaxed text-slate-600">
-                Transfers that did not complete, wrong recipient details, or errors when sending from your wallet.
-              </p>
-            </div>
-            <div className={sectionCard}>
-              <h3 className="mb-1 font-semibold text-slate-900">Withdrawal delays</h3>
-              <p className="text-sm leading-relaxed text-slate-600">
-                Manual withdrawals during beta can take time. Share your request date and payout method if applicable.
-              </p>
-            </div>
-            <div className={sectionCard}>
-              <h3 className="mb-1 font-semibold text-slate-900">Account / security issues</h3>
-              <p className="text-sm leading-relaxed text-slate-600">
-                Login problems, profile updates, device access, or concerns about your account safety.
-              </p>
-            </div>
-            <div className={sectionCard}>
-              <h3 className="mb-1 font-semibold text-slate-900">Fraud or suspicious activity</h3>
-              <p className="text-sm leading-relaxed text-slate-600">
-                Report scams, unauthorized transactions, or messages impersonating Tropicash. We take these reports
-                seriously.
-              </p>
+              <h3 className="mb-2 font-semibold text-slate-900">Quick guide</h3>
+              <ul className="m-0 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-600 sm:text-[0.9375rem]">
+                <li>
+                  <strong className="text-slate-800">Funding:</strong> PayPal or card (via PayPal), delays, or wrong
+                  amount credited.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Sending:</strong> Transfers that failed or wrong recipient.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Withdrawals:</strong> Payout requests are reviewed; status updates
+                  appear in the app.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Account / fraud:</strong> Login, security, scams, or suspicious
+                  messages.
+                </li>
+              </ul>
             </div>
           </div>
 
@@ -104,15 +110,20 @@ export default function SupportPage() {
                 role="status"
                 className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900 sm:text-base"
               >
-                Thank you—your message has been noted. In production, this will be sent to our team. For now, please
-                also email{" "}
+                Thank you—your message has been recorded. Our team reviews support requests regularly. For the fastest
+                help with urgent or money-related issues, also email{" "}
                 <a href="mailto:support@tropicash.com" className="font-semibold underline">
                   support@tropicash.com
-                </a>{" "}
-                if you need a quick response.
+                </a>
+                .
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {formError ? (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">
+                    {formError}
+                  </p>
+                ) : null}
                 <div>
                   <label htmlFor="support-name" className="mb-1 block text-sm font-semibold text-slate-700">
                     Name
@@ -179,9 +190,21 @@ export default function SupportPage() {
             )}
           </div>
 
-          <p className="text-center text-sm text-slate-500">
+          <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-sm text-slate-500">
             <Link href="/" className="font-semibold text-blue-700 hover:underline">
               ← Back to home
+            </Link>
+            <span className="hidden text-slate-300 sm:inline" aria-hidden>
+              |
+            </span>
+            <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">
+              Privacy
+            </Link>
+            <span className="text-slate-300" aria-hidden>
+              |
+            </span>
+            <Link href="/terms" className="font-semibold text-blue-700 hover:underline">
+              Terms
             </Link>
           </p>
         </div>

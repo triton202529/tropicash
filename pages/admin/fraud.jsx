@@ -859,6 +859,21 @@ export default function AdminFraudDashboardPage() {
           </div>
         </div>
 
+        <div
+          style={{
+            ...cardBase,
+            padding: "0.85rem 1rem",
+            marginBottom: "1.25rem",
+            background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.8rem", color: "#475569", lineHeight: 1.5 }}>
+            <strong style={{ color: "#0f172a" }}>Quick actions:</strong> Use the review note field and{" "}
+            <strong>Save note</strong>, then <strong>Mark reviewed</strong> or <strong>Escalate</strong> per row.{" "}
+            <strong>Reopen</strong> returns a log to open. Automated risk scoring is unchanged.
+          </p>
+        </div>
+
         <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
           <h2
             style={{
@@ -1202,7 +1217,7 @@ export default function AdminFraudDashboardPage() {
                               cursor: busy ? "not-allowed" : "pointer",
                             }}
                           >
-                            {noteBusy ? "Saving…" : "Save"}
+                            {noteBusy ? "Saving…" : "Save note"}
                           </button>
                         </td>
                         <td style={{ padding: "0.65rem 0.75rem", minWidth: "200px" }}>

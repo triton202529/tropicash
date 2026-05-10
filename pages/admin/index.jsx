@@ -5,6 +5,7 @@ import { isAdminUser } from "../../lib/adminAccess";
 import Navbar from "../../components/Navbar";
 import { supabase } from "../../lib/supabaseClient";
 import { updateSmartAlertStatus } from "../../lib/smartAlerts";
+import { fetchAdminOperationalSnapshot } from "../../lib/adminOperationalOverview";
 
 const pageWrap = {
   padding: "2rem 1.25rem 3rem",
@@ -117,6 +118,35 @@ export default function AdminIndexPage() {
   const [alertsError, setAlertsError] = useState(null);
   const [alertBusyId, setAlertBusyId] = useState(null);
 
+  const [opsLoading, setOpsLoading] = useState(false);
+  const [opsError, setOpsError] = useState(null);
+  const [opsKpi, setOpsKpi] = useState(null);
+  const [opsActivity, setOpsActivity] = useState([]);
+
+  const loadOperational = useCallback(async () => {
+    if (!user?.id || !isAdminUser(user, profile)) return;
+    setOpsLoading(true);
+    setOpsError(null);
+    try {
+      const snap = await fetchAdminOperationalSnapshot(supabase);
+      if (snap.error) {
+        setOpsError(snap.error);
+        setOpsKpi(null);
+        setOpsActivity([]);
+      } else {
+        setOpsKpi(snap.kpi);
+        setOpsActivity(snap.activity || []);
+      }
+    } catch (e) {
+      console.error(e);
+      setOpsError(e?.message || "Failed to load operational metrics.");
+      setOpsKpi(null);
+      setOpsActivity([]);
+    } finally {
+      setOpsLoading(false);
+    }
+  }, [user?.id, user, profile]);
+
   const loadAlerts = useCallback(async () => {
     if (!user?.id || !isAdminUser(user, profile)) return;
     setAlertsLoading(true);
@@ -176,13 +206,13 @@ export default function AdminIndexPage() {
     if (authLoading || !user || !isAdminUser(user, profile)) return;
     let cancelled = false;
     (async () => {
-      await loadAlerts();
+      await Promise.all([loadAlerts(), loadOperational()]);
       if (cancelled) return;
     })();
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, profile, loadAlerts]);
+  }, [authLoading, user, profile, loadAlerts, loadOperational]);
 
   useEffect(() => {
     if (authLoading || !user?.id || !isAdminUser(user, profile)) return;
@@ -237,6 +267,31 @@ export default function AdminIndexPage() {
     ],
     [openAlertCount, highOpenCount, recentAlerts.length, alertsLoading]
   );
+
+  const opsKpiCards = useMemo(() => {
+    if (!opsKpi) {
+      return [
+        { label: "Pending withdrawals", value: "—" },
+        { label: "Processing withdrawals", value: "—" },
+        { label: "Fraud reviews open", value: "—" },
+        { label: "Failed funding (24h)", value: "—" },
+        { label: "Volume today (txns)", value: "—" },
+        { label: "Transactions today", value: "—" },
+        { label: "Support queue", value: "—" },
+      ];
+    }
+    const fmt = (n) =>
+      Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return [
+      { label: "Pending withdrawals", value: String(opsKpi.pendingWithdrawals) },
+      { label: "Processing withdrawals", value: String(opsKpi.processingWithdrawals) },
+      { label: "Fraud reviews open", value: String(opsKpi.fraudOpen) },
+      { label: "Failed funding (24h)", value: String(opsKpi.failedFunding24h) },
+      { label: "Volume today (txns)", value: `$${fmt(opsKpi.volumeToday)}` },
+      { label: "Transactions today", value: String(opsKpi.transactionsToday) },
+      { label: "Support queue", value: "Planned" },
+    ];
+  }, [opsKpi]);
 
   if (authLoading) {
     return (
@@ -341,7 +396,253 @@ export default function AdminIndexPage() {
               User risk system
             </Link>
           </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/withdrawals" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Withdrawals queue
+            </Link>
+          </li>
         </ul>
+
+        <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+              }}
+            >
+              Operations overview
+            </h2>
+            <button
+              type="button"
+              onClick={() => void loadOperational()}
+              disabled={opsLoading}
+              style={{
+                ...btnXs,
+                opacity: opsLoading ? 0.65 : 1,
+                cursor: opsLoading ? "not-allowed" : "pointer",
+              }}
+            >
+              Refresh metrics
+            </button>
+          </div>
+          {opsError ? (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "#b91c1c" }}>{opsError}</p>
+          ) : (
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+              Local-day aggregates for funding visibility and transaction volume (read-only). Volume sums up to 5,000
+              transactions per day if the table is very busy.
+            </p>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 130px), 1fr))",
+              gap: "0.65rem",
+              marginTop: "0.85rem",
+            }}
+          >
+            {opsKpiCards.map((c) => (
+              <div key={c.label} style={{ border: "1px solid #f1f5f9", borderRadius: "10px", padding: "0.65rem 0.75rem" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.62rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {c.label}
+                </p>
+                <p
+                  style={{
+                    margin: "0.35rem 0 0",
+                    fontSize: "1.05rem",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    fontVariantNumeric: "tabular-nums",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {opsLoading && !opsKpi ? "…" : c.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {opsKpi?.fundingFailureBuckets ? (
+          <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+            <h2
+              style={{
+                margin: "0 0 0.65rem",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+              }}
+            >
+              Failed funding signals (24h)
+            </h2>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+              Counts from <code style={{ fontSize: "0.72rem" }}>fraud_logs</code> event types (duplicate block, capture
+              issues, wallet credit failures).
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+                gap: "0.65rem",
+              }}
+            >
+              {[
+                { label: "Duplicate blocked", value: opsKpi.fundingFailureBuckets.duplicate24h },
+                { label: "Capture / amount issues", value: opsKpi.fundingFailureBuckets.captureFailures24h },
+                { label: "Wallet credit failed", value: opsKpi.fundingFailureBuckets.walletCreditFailures24h },
+              ].map((c) => (
+                <div key={c.label} style={{ border: "1px solid #fef3c7", borderRadius: "10px", padding: "0.65rem 0.75rem", background: "#fffbeb" }}>
+                  <p style={{ margin: 0, fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", color: "#92400e" }}>{c.label}</p>
+                  <p style={{ margin: "0.35rem 0 0", fontSize: "1.1rem", fontWeight: 800, color: "#0f172a" }}>{String(c.value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {opsKpi?.reconciliation ? (
+          <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+            <h2
+              style={{
+                margin: "0 0 0.65rem",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+              }}
+            >
+              {"Today's reconciliation (read-only)"}
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              {[
+                { label: "Funded (fund_wallet)", amount: opsKpi.reconciliation.fundedToday },
+                { label: "Withdrawn (withdraw_wallet)", amount: opsKpi.reconciliation.withdrawnToday },
+                { label: "Sent (send_money)", amount: opsKpi.reconciliation.sentToday },
+              ].map((row) => (
+                <div key={row.label} style={{ border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.75rem 0.85rem" }}>
+                  <p style={{ margin: 0, fontSize: "0.68rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>{row.label}</p>
+                  <p style={{ margin: "0.4rem 0 0", fontSize: "1.2rem", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                    $
+                    {Number(row.amount || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+          <h2
+            style={{
+              margin: "0 0 0.65rem",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#94a3b8",
+            }}
+          >
+            Recent activity
+          </h2>
+          <p style={{ margin: "0 0 0.85rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+            Newest first — funding and wallet debits, fraud logs, withdrawal / payout queue updates.
+          </p>
+          {opsLoading && opsActivity.length === 0 ? (
+            <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>Loading activity…</p>
+          ) : opsActivity.length === 0 ? (
+            <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>No recent items.</p>
+          ) : (
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
+              {opsActivity.map((item) => {
+                const kindColors = {
+                  fund: { bg: "#ecfdf5", border: "#a7f3d0", fg: "#065f46" },
+                  withdraw: { bg: "#fff1f2", border: "#fecdd3", fg: "#9f1239" },
+                  fraud: { bg: "#fffbeb", border: "#fcd34d", fg: "#92400e" },
+                  payout: { bg: "#eff6ff", border: "#bfdbfe", fg: "#1e40af" },
+                };
+                const pal = kindColors[item.kind] || { bg: "#f8fafc", border: "#e2e8f0", fg: "#334155" };
+                const inner = (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: "1 1 12rem" }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          fontSize: "0.62rem",
+                          fontWeight: 800,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          color: pal.fg,
+                          marginBottom: "0.2rem",
+                        }}
+                      >
+                        {item.kind}
+                      </span>
+                      <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: "0.88rem" }}>{item.title}</p>
+                      <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "#475569", lineHeight: 1.4, wordBreak: "break-word" }}>
+                        {item.detail}
+                      </p>
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", whiteSpace: "nowrap" }}>{formatWhen(item.at)}</div>
+                  </div>
+                );
+                return (
+                  <li
+                    key={item.id}
+                    style={{
+                      border: `1px solid ${pal.border}`,
+                      background: pal.bg,
+                      borderRadius: "10px",
+                      padding: "0.65rem 0.75rem",
+                    }}
+                  >
+                    {item.href ? (
+                      <Link href={item.href} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                        {inner}
+                      </Link>
+                    ) : (
+                      inner
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
 
         <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
@@ -363,12 +664,12 @@ export default function AdminIndexPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => loadAlerts()}
-                disabled={alertsLoading}
+                onClick={() => void Promise.all([loadAlerts(), loadOperational()])}
+                disabled={alertsLoading || opsLoading}
                 style={{
                   ...btnXs,
-                  opacity: alertsLoading ? 0.65 : 1,
-                  cursor: alertsLoading ? "not-allowed" : "pointer",
+                  opacity: alertsLoading || opsLoading ? 0.65 : 1,
+                  cursor: alertsLoading || opsLoading ? "not-allowed" : "pointer",
                 }}
               >
                 Refresh

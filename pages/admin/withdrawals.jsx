@@ -195,8 +195,7 @@ function payoutLabelCell(r) {
 
 const PAID_VIA_OPTIONS = ["PayPal", "Bank transfer", "Cash", "Other"];
 
-/** When false (default), hide PayPal Payouts API actions; ops record payouts manually only. */
-const AUTOMATED_PAYPAL_PAYOUT_UI = process.env.NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT === "true";
+const automatedPayoutsEnabled = process.env.NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT === "true";
 
 function adminStatusDisplay(status) {
   const v = String(status || "").toLowerCase();
@@ -206,6 +205,35 @@ function adminStatusDisplay(status) {
   if (v === "rejected") return "Rejected";
   if (v === "failed") return "Failed";
   return v ? String(status) : "—";
+}
+
+const STALE_PENDING_MS = 24 * 60 * 60 * 1000;
+const LARGE_WITHDRAWAL_USD = 200;
+
+/** Visual hints only — does not change workflow. */
+function withdrawalUrgencyChips(row, queueByUser) {
+  const st = String(row?.status || "").toLowerCase();
+  const chips = [];
+  if (st === "pending" && row?.created_at) {
+    const t = new Date(row.created_at).getTime();
+    if (!Number.isNaN(t) && Date.now() - t > STALE_PENDING_MS) {
+      chips.push({ key: "stale", label: ">24h pending", style: { background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca" } });
+    }
+  }
+  const amt = Number(row?.amount);
+  if (Number.isFinite(amt) && amt >= LARGE_WITHDRAWAL_USD) {
+    chips.push({ key: "large", label: "Large amount", style: { background: "#fffbeb", color: "#92400e", border: "1px solid #fcd34d" } });
+  }
+  const uid = row?.user_id;
+  const q = uid ? queueByUser[uid]?.pending ?? 0 : 0;
+  if (uid && q >= 2) {
+    chips.push({
+      key: "repeat",
+      label: "Multiple in queue",
+      style: { background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1" },
+    });
+  }
+  return chips;
 }
 
 function WithdrawalDetail({ label, children }) {
@@ -373,8 +401,6 @@ export default function AdminWithdrawalsPage() {
       .from("withdrawal_requests")
       .select("*")
       .order("created_at", { ascending: false });
-
-    console.log("[ADMIN_WITHDRAWALS_FETCH]", { data, error });
 
     if (error) {
       console.error("[admin/withdrawals] fetch:", error);
@@ -546,6 +572,7 @@ export default function AdminWithdrawalsPage() {
   };
 
   const postAdminPayout = async (id, { retry }) => {
+    if (!automatedPayoutsEnabled) return false;
     const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
     if (sessErr || !sessionData?.session?.access_token) {
       setFetchError("Could not read your session. Sign in again.");
@@ -582,6 +609,7 @@ export default function AdminWithdrawalsPage() {
   };
 
   const handleSendPayout = async (r) => {
+    if (!automatedPayoutsEnabled) return;
     const id = r?.id;
     if (!id) return;
     const ok = window.confirm(
@@ -606,6 +634,7 @@ export default function AdminWithdrawalsPage() {
   };
 
   const handleRetryPayout = async (r) => {
+    if (!automatedPayoutsEnabled) return;
     const id = r?.id;
     if (!id) return;
     const ok = window.confirm(
@@ -633,6 +662,7 @@ export default function AdminWithdrawalsPage() {
   };
 
   const handleCheckPayoutStatus = async (r) => {
+    if (!automatedPayoutsEnabled) return;
     const id = r?.id;
     if (!id) return;
     setActionBusyId(id);
@@ -760,7 +790,7 @@ export default function AdminWithdrawalsPage() {
           complete (with paid via + external reference). Reject if you will not pay out.
         </p>
 
-        {AUTOMATED_PAYPAL_PAYOUT_UI ? (
+        {automatedPayoutsEnabled ? (
           <div style={{ ...cardBase, padding: "0.75rem 1rem", marginBottom: "1.25rem", background: "#f8fafc" }}>
             <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.5 }}>
               <strong>Automated PayPal payouts are enabled.</strong> Confirm sandbox vs live before sending batches.
@@ -774,7 +804,7 @@ export default function AdminWithdrawalsPage() {
           </button>
         </div>
 
-        {payoutSuccessMessage ? (
+        {automatedPayoutsEnabled && payoutSuccessMessage ? (
           <div
             style={{
               ...cardBase,
@@ -831,10 +861,10 @@ export default function AdminWithdrawalsPage() {
               const hasBatch = !!(r?.processor_batch_id && String(r.processor_batch_id).trim());
               const payoutEmail = String(r?.payout_email || r?.payout_destination || "").trim();
               const hasPayoutEmail = payoutEmail.length > 0;
-              const canSendPayout =
-                AUTOMATED_PAYPAL_PAYOUT_UI && st === "pending" && hasPayoutEmail && !hasBatch;
-              const canCheckStatus = AUTOMATED_PAYPAL_PAYOUT_UI && st === "processing" && hasBatch;
-              const canRetryPayout = AUTOMATED_PAYPAL_PAYOUT_UI && st === "failed";
+              const showAutomatedSend =
+                automatedPayoutsEnabled && st === "pending" && hasPayoutEmail && !hasBatch;
+              const showAutomatedCheck = automatedPayoutsEnabled && st === "processing" && hasBatch;
+              const showAutomatedRetry = automatedPayoutsEnabled && st === "failed";
               const canRecordManual = st !== "paid" && st !== "rejected";
               const canMarkProcessing = st === "pending";
               const p = profilesMap[r.user_id];
@@ -848,7 +878,8 @@ export default function AdminWithdrawalsPage() {
               const paidVia = r?.paid_via != null ? String(r.paid_via).trim() : "";
               const extRef = r?.external_reference != null ? String(r.external_reference).trim() : "";
               const paidAt = r?.paid_at;
-              const showPrimaryActions = st === "pending" || st === "processing" || st === "failed" || canRecordManual;
+              const showPrimaryActions =
+                showAutomatedSend || showAutomatedCheck || showAutomatedRetry || canRecordManual;
               const showSecondaryActions = canMarkProcessing || canRecordManual;
 
               const btnBase = {
@@ -930,7 +961,27 @@ export default function AdminWithdrawalsPage() {
                       <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "#0f172a", whiteSpace: "nowrap" }}>
                         ${formatMoney(r?.amount)}
                       </span>
-                      <span style={statusBadgeStyle(r?.status)}>{adminStatusDisplay(r?.status)}</span>
+                      <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem", justifyContent: "flex-end" }}>
+                        <span style={statusBadgeStyle(r?.status)}>{adminStatusDisplay(r?.status)}</span>
+                        {withdrawalUrgencyChips(r, userWithdrawalCounts).map((chip) => (
+                          <span
+                            key={chip.key}
+                            title="Operational hint only"
+                            style={{
+                              display: "inline-block",
+                              padding: "0.12rem 0.4rem",
+                              borderRadius: "6px",
+                              fontSize: "0.62rem",
+                              fontWeight: 800,
+                              letterSpacing: "0.04em",
+                              textTransform: "uppercase",
+                              ...chip.style,
+                            }}
+                          >
+                            {chip.label}
+                          </span>
+                        ))}
+                      </span>
                     </div>
                   </div>
 
@@ -980,7 +1031,7 @@ export default function AdminWithdrawalsPage() {
                     >
                       {showPrimaryActions ? (
                         <div className="tc-withdrawal-actions-primary">
-                          {st === "pending" ? (
+                          {canRecordManual ? (
                             <button
                               type="button"
                               style={{
@@ -989,16 +1040,34 @@ export default function AdminWithdrawalsPage() {
                                 background: "linear-gradient(180deg, #22c55e 0%, #16a34a 100%)",
                                 color: "#ffffff",
                                 boxShadow: "0 2px 8px rgba(22, 163, 74, 0.25)",
+                                fontWeight: 700,
                                 ...disabledStyle,
                               }}
-                              disabled={busy || !canSendPayout}
+                              disabled={busy}
+                              onClick={() => handleRecordManualPayout(r)}
+                            >
+                              Record manual payout
+                            </button>
+                          ) : null}
+                          {showAutomatedSend ? (
+                            <button
+                              type="button"
+                              style={{
+                                ...btnBase,
+                                border: "1px solid #15803d",
+                                background: "linear-gradient(180deg, #15803d 0%, #166534 100%)",
+                                color: "#ffffff",
+                                boxShadow: "0 2px 8px rgba(22, 163, 74, 0.2)",
+                                ...disabledStyle,
+                              }}
+                              disabled={busy}
                               onClick={() => void handleSendPayout(r)}
                               title={!hasPayoutEmail ? "Missing payout email on withdrawal request." : undefined}
                             >
-                              Send payout
+                              Send payout (PayPal)
                             </button>
                           ) : null}
-                          {st === "processing" ? (
+                          {showAutomatedCheck ? (
                             <button
                               type="button"
                               style={{
@@ -1009,13 +1078,13 @@ export default function AdminWithdrawalsPage() {
                                 boxShadow: "0 2px 8px rgba(37, 99, 235, 0.22)",
                                 ...disabledStyle,
                               }}
-                              disabled={busy || !canCheckStatus}
+                              disabled={busy}
                               onClick={() => void handleCheckPayoutStatus(r)}
                             >
                               Check status
                             </button>
                           ) : null}
-                          {st === "failed" ? (
+                          {showAutomatedRetry ? (
                             <button
                               type="button"
                               style={{
@@ -1026,28 +1095,11 @@ export default function AdminWithdrawalsPage() {
                                 boxShadow: "0 2px 8px rgba(245, 158, 11, 0.25)",
                                 ...disabledStyle,
                               }}
-                              disabled={busy || !canRetryPayout}
+                              disabled={busy}
                               onClick={() => void handleRetryPayout(r)}
                               title="Submits a new PayPal payout with retry: true (fresh idempotency key when needed)."
                             >
                               {payoutRetryLoadingId === r.id ? "Retrying..." : "Retry payout"}
-                            </button>
-                          ) : null}
-                          {canRecordManual ? (
-                            <button
-                              type="button"
-                              style={{
-                                ...btnBase,
-                                border: "1px solid #94a3b8",
-                                background: "#ffffff",
-                                color: "#475569",
-                                fontWeight: 600,
-                                ...disabledStyle,
-                              }}
-                              disabled={busy}
-                              onClick={() => handleRecordManualPayout(r)}
-                            >
-                              Record manual payout
                             </button>
                           ) : null}
                         </div>

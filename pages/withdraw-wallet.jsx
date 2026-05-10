@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
+import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
@@ -443,6 +444,10 @@ export default function WithdrawWalletPage() {
           Withdraw Wallet
         </h1>
 
+        <div className="mb-4" style={{ maxWidth: "100%" }}>
+          <SoftLaunchNotice />
+        </div>
+
         <div
           style={{
             marginBottom: "1.25rem",
@@ -455,11 +460,26 @@ export default function WithdrawWalletPage() {
           <p style={{ margin: "0 0 0.4rem", fontSize: "0.9rem", fontWeight: 800, color: "#0f172a" }}>
             How withdrawals work
           </p>
-          <p style={{ margin: 0, fontSize: "0.86rem", color: "#475569", lineHeight: 1.55 }}>
-            A withdrawal debits your Tropicash wallet and creates a payout request. Our team reviews each request and sends
-            funds manually using the payout details you provide (for example PayPal or bank instructions). You will be
-            notified as the status changes.
+          <p style={{ margin: "0 0 0.65rem", fontSize: "0.86rem", color: "#475569", lineHeight: 1.55 }}>
+            When you submit a request, your <strong style={{ fontWeight: 700 }}>Tropicash wallet balance is updated
+            immediately</strong> for that amount. Funds are <strong style={{ fontWeight: 700 }}>not</strong> sent to
+            your bank or card automatically—Tropicash <strong style={{ fontWeight: 700 }}>reviews</strong> each
+            payout. After payment is completed <strong style={{ fontWeight: 700 }}>outside the app</strong>, an admin
+            marks the request <strong style={{ fontWeight: 700 }}>paid</strong> and you are notified.
           </p>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: "1.15rem",
+              fontSize: "0.84rem",
+              color: "#475569",
+              lineHeight: 1.55,
+            }}
+          >
+            <li style={{ marginBottom: "0.35rem" }}>Wallet debited when you submit the request.</li>
+            <li style={{ marginBottom: "0.35rem" }}>Team reviews your payout details.</li>
+            <li>Admin marks paid only after the external transfer is done.</li>
+          </ul>
         </div>
 
         <SoftEnforcementNotice profile={profile} />

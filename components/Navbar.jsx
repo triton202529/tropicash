@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
@@ -75,6 +76,17 @@ export default function Navbar() {
           >
             Help
           </button>
+          <div className="hidden items-center gap-2 border-l border-white/20 pl-2.5 text-[0.7rem] font-semibold text-white/90 sm:flex sm:text-xs">
+            <Link href="/privacy" className="whitespace-nowrap hover:underline">
+              Privacy
+            </Link>
+            <span className="text-white/35" aria-hidden>
+              ·
+            </span>
+            <Link href="/terms" className="whitespace-nowrap hover:underline">
+              Terms
+            </Link>
+          </div>
           {loading ? (
             <span className="text-xs font-medium text-white/85 sm:text-sm">Loading...</span>
           ) : user ? (
@@ -105,6 +117,15 @@ export default function Navbar() {
                   <div className={dropdownPanelClass}>
                     <button type="button" onClick={() => router.push("/profile")} className={dropdownItemClass}>
                       View Profile
+                    </button>
+                    <button type="button" onClick={() => router.push("/support")} className={dropdownItemClass}>
+                      Support
+                    </button>
+                    <button type="button" onClick={() => router.push("/privacy")} className={dropdownItemClass}>
+                      Privacy
+                    </button>
+                    <button type="button" onClick={() => router.push("/terms")} className={dropdownItemClass}>
+                      Terms
                     </button>
                     {isAdminUser(user, profile) ? (
                       <>
