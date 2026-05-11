@@ -6,6 +6,7 @@ import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
+import { logOperationalError, logOperationalEvent } from "../lib/operationalLogger";
 import {
   fetchUserWithdrawalRequests,
   formatWithdrawalFailureForUser,
@@ -129,26 +130,55 @@ export default function WalletPage() {
   const [balance, setBalance] = useState(0);
   const [previewRows, setPreviewRows] = useState(null);
   const [withdrawalPreview, setWithdrawalPreview] = useState(null);
+  const [balanceLoadError, setBalanceLoadError] = useState(null);
+  const [previewLoadError, setPreviewLoadError] = useState(null);
 
   const refreshWallet = useCallback(async () => {
     if (!user?.id) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("wallets")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
+    if (error) {
+      void logOperationalError({
+        category: "wallet.load_balance",
+        message: error.message || "wallets select failed",
+        userId: user.id,
+        route: "/wallet",
+        metadata: { code: error.code },
+      });
+      setBalanceLoadError("We couldn't load your balance. Try again in a moment.");
+      setBalance(0);
+      return;
+    }
+    setBalanceLoadError(null);
     const raw = data?.wallet_balance ?? data?.balance ?? 0;
     setBalance(Number(raw) || 0);
   }, [user?.id]);
 
   const refreshPreview = useCallback(async () => {
     if (!user?.id) return;
-    const { data: txns } = await supabase
+    setPreviewLoadError(null);
+    const { data: txns, error: txErr } = await supabase
       .from("transactions")
       .select("*")
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(3);
+
+    if (txErr) {
+      void logOperationalError({
+        category: "wallet.preview_txns",
+        message: txErr.message || "transactions select failed (preview)",
+        userId: user.id,
+        route: "/wallet",
+        metadata: { code: txErr.code },
+      });
+      setPreviewLoadError("We couldn't load recent activity for this section.");
+      setPreviewRows([]);
+      return;
+    }
 
     if (!txns?.length) {
       setPreviewRows([]);
@@ -166,10 +196,20 @@ export default function WalletPage() {
     };
 
     if (otherIds.size) {
-      const { data: profs } = await supabase
+      const { data: profs, error: profErr } = await supabase
         .from("profiles")
         .select("id, full_name, email")
         .in("id", [...otherIds]);
+      if (profErr) {
+        void logOperationalEvent({
+          level: "warn",
+          category: "wallet.preview_profiles",
+          message: profErr.message || "profiles select failed (preview)",
+          userId: user.id,
+          route: "/wallet",
+          metadata: { code: profErr.code },
+        });
+      }
       profs?.forEach((p) => {
         namesById[p.id] = displayNameFromProfile(p);
       });
@@ -259,6 +299,16 @@ export default function WalletPage() {
         <div className="mb-5">
           <SoftLaunchNotice />
         </div>
+
+        {(balanceLoadError || previewLoadError) && (
+          <div
+            className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm sm:px-5"
+            role="alert"
+          >
+            {balanceLoadError ? <p className="m-0 mb-1 font-medium">{balanceLoadError}</p> : null}
+            {previewLoadError ? <p className={`m-0 ${balanceLoadError ? "text-amber-900/90" : "font-medium"}`}>{previewLoadError}</p> : null}
+          </div>
+        )}
 
         <div
           className="mb-5 rounded-xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/95 to-white px-4 py-3.5 shadow-sm sm:px-5"

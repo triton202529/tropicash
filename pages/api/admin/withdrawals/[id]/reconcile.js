@@ -1,3 +1,4 @@
+import { logOperationalError } from "../../../../../lib/operationalLogger";
 import { createSupabaseServiceClient, requireAdminFromBearer } from "../../../../../lib/supabaseAdminApi";
 import { reconcileWithdrawalPayout } from "../../../../../lib/payouts/payoutService";
 
@@ -29,6 +30,14 @@ export default async function handler(req, res) {
   } catch (err) {
     const msg = err?.message || String(err);
     console.error("[admin/reconcile] failed:", err);
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "admin.withdrawal_reconcile",
+      message: msg,
+      userId: auth.user?.id ?? null,
+      route: "/api/admin/withdrawals/[id]/reconcile",
+      metadata: { withdrawalId },
+    });
     return res.status(502).json({ error: msg });
   }
 }

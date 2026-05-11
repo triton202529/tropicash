@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { ADMIN_EMAILS } from "../../../../../lib/adminAccess";
+import { logOperationalError } from "../../../../../lib/operationalLogger";
 import { executeWithdrawalPayout } from "../../../../../lib/payouts/payoutService";
 
 const DEFAULT_SUPABASE_URL = "https://opbhcndlibbcsmoaeymq.supabase.co";
@@ -92,6 +93,18 @@ export default async function handler(req, res) {
       err && typeof err === "object" && "paypalError" in err && err.paypalError && typeof err.paypalError === "object"
         ? err.paypalError
         : null;
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "admin.withdrawal_payout",
+      message: err?.message || "executeWithdrawalPayout failed",
+      userId: user.id,
+      route: "/api/admin/withdrawals/[id]/payout",
+      metadata: {
+        withdrawalId,
+        hasPayPalErrorDetails: !!paypalError,
+        paypalErrorName: paypalError && typeof paypalError === "object" ? paypalError.name : undefined,
+      },
+    });
     if (paypalError) {
       return res.status(400).json({ error: "PayPal payout failed", details: paypalError });
     }

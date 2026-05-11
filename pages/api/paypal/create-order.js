@@ -1,4 +1,6 @@
 import { createPayPalOrder } from "../../../lib/paypal";
+import { logOperationalError } from "../../../lib/operationalLogger";
+import { createSupabaseServiceClient } from "../../../lib/supabaseAdminApi";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -30,6 +32,15 @@ export default async function handler(req, res) {
     return res.status(200).json({ orderID: order.id });
   } catch (err) {
     console.error("[paypal/create-order]", err);
+    const admin = createSupabaseServiceClient();
+    void logOperationalError({
+      supabaseClient: admin,
+      category: "paypal.create_order",
+      message: err?.message || "createPayPalOrder failed",
+      userId: null,
+      route: "/api/paypal/create-order",
+      metadata: { amount },
+    });
     return res.status(502).json({
       error: err?.message || "Could not create PayPal order",
     });

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
+import { logOperationalError } from "../lib/operationalLogger";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 
@@ -77,6 +78,13 @@ export default function SupportPage() {
       });
       if (error) {
         console.error("[support] tester_feedback insert", error);
+        void logOperationalError({
+          category: "feedback.tester_insert",
+          message: error.message || "tester_feedback insert failed",
+          userId: user.id,
+          route: "/support",
+          metadata: { code: error.code, issueType },
+        });
         setFormError(error.message || "Could not save feedback. Try again or email support.");
         setSubmitting(false);
         return;
@@ -89,6 +97,15 @@ export default function SupportPage() {
       setRating("");
     } catch (err) {
       console.error(err);
+      if (user?.id) {
+        void logOperationalError({
+          category: "feedback.tester_insert",
+          message: err?.message || String(err),
+          userId: user.id,
+          route: "/support",
+          metadata: { threw: true },
+        });
+      }
       setFormError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);

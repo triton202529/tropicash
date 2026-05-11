@@ -5,6 +5,7 @@ import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { evaluateAndLogFraud } from "../lib/fraudService";
+import { logOperationalError } from "../lib/operationalLogger";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
 import { buildPayPalFundWalletSdkUrl } from "../lib/paypalSdkUrl";
@@ -112,6 +113,7 @@ export default function FundWalletPage() {
   const [paypalConfigMissing, setPaypalConfigMissing] = useState(false);
   const [paypalScriptError, setPaypalScriptError] = useState(false);
   const [fundTrust, setFundTrust] = useState({ status: "idle", result: null });
+  const [walletBalanceLoadError, setWalletBalanceLoadError] = useState(null);
 
   const paypalButtonContainerRef = useRef(null);
   const latestAmountRef = useRef("");
@@ -156,10 +158,19 @@ export default function FundWalletPage() {
 
     if (error) {
       console.error("[fund-wallet] fetchWalletBalance:", error);
+      void logOperationalError({
+        category: "wallet.load_balance",
+        message: error.message || "wallets select failed",
+        userId: user.id,
+        route: "/fund-wallet",
+        metadata: { code: error.code },
+      });
+      setWalletBalanceLoadError("We couldn't load your current balance. You can still try funding; refresh if this persists.");
       setWalletBalance(0);
       return;
     }
 
+    setWalletBalanceLoadError(null);
     const raw = data?.wallet_balance ?? data?.balance ?? 0;
     setWalletBalance(Number(raw) || 0);
   }, [user?.id]);
@@ -300,9 +311,23 @@ export default function FundWalletPage() {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
+            void logOperationalError({
+              category: "paypal.create_order",
+              message: String(data.error || "").trim() || `create-order HTTP ${res.status}`,
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: { httpStatus: res.status },
+            });
             throw new Error(data.error || "Could not start PayPal checkout.");
           }
           if (!data.orderID) {
+            void logOperationalError({
+              category: "paypal.create_order",
+              message: "create-order succeeded but orderID missing",
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: {},
+            });
             throw new Error("PayPal did not return an order ID.");
           }
           return data.orderID;
@@ -321,6 +346,13 @@ export default function FundWalletPage() {
           } = await supabase.auth.getSession();
           const accessToken = session?.access_token;
           if (!accessToken) {
+            void logOperationalError({
+              category: "auth.session",
+              message: "No access token when starting PayPal capture",
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: { phase: "capture_preflight" },
+            });
             setErrorMsg("Your session expired. Sign in again and retry.");
             return;
           }
@@ -336,6 +368,16 @@ export default function FundWalletPage() {
           const payload = await res.json().catch(() => ({}));
           if (!res.ok) {
             const apiErr = String(payload.error || "").trim();
+            void logOperationalError({
+              category: "paypal.capture",
+              message: apiErr || `capture-order HTTP ${res.status}`,
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: {
+                httpStatus: res.status,
+                orderID: data?.orderID ? String(data.orderID).slice(0, 80) : null,
+              },
+            });
             setErrorMsg(
               apiErr || "PayPal could not complete the payment.",
             );
@@ -343,12 +385,26 @@ export default function FundWalletPage() {
           }
 
           if (!payload.success || payload.amount == null) {
+            void logOperationalError({
+              category: "paypal.capture",
+              message: "Capture response missing success or amount",
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: { orderID: data?.orderID ? String(data.orderID).slice(0, 80) : null },
+            });
             setErrorMsg("Payment was not completed. Your wallet was not funded.");
             return;
           }
 
           const fundedAmount = Number(payload.amount);
           if (!Number.isFinite(fundedAmount) || fundedAmount <= 0) {
+            void logOperationalError({
+              category: "wallet.funding_verify",
+              message: "Funded amount from capture response was invalid",
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: { orderID: payload.orderID || data?.orderID || null },
+            });
             setErrorMsg("Could not verify the paid amount. Please contact support.");
             return;
           }
@@ -375,6 +431,13 @@ export default function FundWalletPage() {
             });
           } catch (fraudError) {
             console.error("[fund-wallet] fraud logging failed:", fraudError);
+            void logOperationalError({
+              category: "fraud.evaluate_client",
+              message: fraudError?.message || String(fraudError),
+              userId: user?.id,
+              route: "/fund-wallet",
+              metadata: { phase: "post_fund_evaluateAndLogFraud" },
+            });
           }
 
           setAmount("");
@@ -387,6 +450,13 @@ export default function FundWalletPage() {
           });
         } catch (unexpected) {
           console.error("[fund-wallet] onApprove error:", unexpected);
+          void logOperationalError({
+            category: "paypal.capture",
+            message: unexpected?.message || String(unexpected),
+            userId: user?.id,
+            route: "/fund-wallet",
+            metadata: { phase: "onApprove_catch" },
+          });
           setErrorMsg(friendlyFundingError(unexpected));
         } finally {
           setLoading(false);
@@ -395,6 +465,13 @@ export default function FundWalletPage() {
       },
       onError: (err) => {
         console.error("[fund-wallet] PayPal SDK error:", err);
+        void logOperationalError({
+          category: "paypal.sdk",
+          message: err?.message || String(err) || "PayPal Buttons onError",
+          userId: user?.id,
+          route: "/fund-wallet",
+          metadata: { phase: "buttons_onError" },
+        });
         setErrorMsg(
           friendlyFundingError(err) || "PayPal encountered an error. Try again.",
         );
@@ -571,6 +648,24 @@ export default function FundWalletPage() {
         <div style={{ marginBottom: "1.25rem" }}>
           <SoftLaunchNotice />
         </div>
+
+        {walletBalanceLoadError ? (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "1rem",
+              padding: "0.85rem 1rem",
+              borderRadius: "12px",
+              border: "1px solid #fcd34d",
+              background: "#fffbeb",
+              color: "#92400e",
+              fontSize: "0.86rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {walletBalanceLoadError}
+          </div>
+        ) : null}
 
         <div
           style={{

@@ -9,6 +9,7 @@ import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
 import { fetchDefaultPayoutMethod, formatPayoutDestinationDisplay } from "../lib/payoutMethods";
+import { logOperationalError } from "../lib/operationalLogger";
 import { notifyAdminNewWithdrawalRequest, fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
 import { buildWithdrawalPhase1Signals, emailDomainOnly } from "../lib/fraudRules";
 import { insertPhase1FraudLogs } from "../lib/fraudPhase1Log";
@@ -76,6 +77,13 @@ async function insertWithdrawNotification(userId, amount) {
       code: error?.code,
       raw: error,
     });
+    void logOperationalError({
+      category: "notification.create",
+      message: error?.message || "create_notification withdraw_wallet failed",
+      userId,
+      route: "/withdraw-wallet",
+      metadata: { code: error?.code },
+    });
     return false;
   }
   return true;
@@ -123,6 +131,8 @@ export default function WithdrawWalletPage() {
   const [payoutCheckLoading, setPayoutCheckLoading] = useState(true);
   const [recentWithdrawals, setRecentWithdrawals] = useState([]);
   const [recentWithdrawalsLoading, setRecentWithdrawalsLoading] = useState(false);
+  const [walletFetchError, setWalletFetchError] = useState(null);
+  const [payoutFetchError, setPayoutFetchError] = useState(null);
 
   const fetchWalletBalance = useCallback(async () => {
     if (!user?.id) return;
@@ -134,10 +144,19 @@ export default function WithdrawWalletPage() {
 
     if (error) {
       console.error("[withdraw-wallet] fetchWalletBalance:", error);
+      void logOperationalError({
+        category: "wallet.load_balance",
+        message: error.message || "wallets select failed",
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { code: error.code },
+      });
+      setWalletFetchError("We couldn't load your wallet balance. Refresh the page or try again shortly.");
       setWalletBalance(0);
       return;
     }
 
+    setWalletFetchError(null);
     const raw = data?.wallet_balance ?? data?.balance ?? 0;
     setWalletBalance(Number(raw) || 0);
   }, [user?.id]);
@@ -149,8 +168,21 @@ export default function WithdrawWalletPage() {
       return;
     }
     setPayoutCheckLoading(true);
-    const { row } = await fetchDefaultPayoutMethod(user.id);
-    setDefaultPayoutRow(row);
+    const { row, error } = await fetchDefaultPayoutMethod(user.id);
+    if (error) {
+      void logOperationalError({
+        category: "withdraw.payout_default",
+        message: error.message || "fetchDefaultPayoutMethod failed",
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { code: error.code },
+      });
+      setPayoutFetchError("We couldn't verify your saved payout method. Check your connection and refresh.");
+      setDefaultPayoutRow(null);
+    } else {
+      setPayoutFetchError(null);
+      setDefaultPayoutRow(row);
+    }
     setPayoutCheckLoading(false);
   }, [user?.id]);
 
@@ -278,6 +310,13 @@ export default function WithdrawWalletPage() {
     });
 
     if (error) {
+      void logOperationalError({
+        category: "withdrawal.create_request",
+        message: error.message || "create_withdrawal_request RPC failed",
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { code: error.code },
+      });
       setErrorMsg(messageForRpcError(error));
       setLoadingAction(false);
       return;
@@ -324,14 +363,28 @@ export default function WithdrawWalletPage() {
       );
     } catch (phase1Err) {
       console.error("[withdraw-wallet] phase1 fraud logs failed:", phase1Err);
+      void logOperationalError({
+        category: "fraud.phase1_client",
+        message: phase1Err?.message || String(phase1Err),
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { phase: "withdraw_phase1_signals" },
+      });
     }
 
     await fetchWalletBalance();
 
     try {
-      await notifyAdminNewWithdrawalRequest(amt);
+      await notifyAdminNewWithdrawalRequest(amt, { requesterUserId: user.id });
     } catch (adminNotifErr) {
       console.error("[withdraw-wallet] admin withdrawal notification failed:", adminNotifErr);
+      void logOperationalError({
+        category: "notification.admin_withdrawal_alert",
+        message: adminNotifErr?.message || String(adminNotifErr),
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { phase: "notify_admin_throw" },
+      });
     }
     await loadRecentWithdrawals();
 
@@ -346,12 +399,28 @@ export default function WithdrawWalletPage() {
       });
     } catch (fraudErr) {
       console.error("[withdraw-wallet] fraud logging failed:", fraudErr);
+      void logOperationalError({
+        category: "fraud.evaluate_client",
+        message: fraudErr?.message || String(fraudErr),
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { phase: "evaluateAndLogFraud" },
+      });
     }
 
+    let withdrawNotifOk = true;
     try {
-      await insertWithdrawNotification(user.id, amt);
+      withdrawNotifOk = await insertWithdrawNotification(user.id, amt);
     } catch (notificationErr) {
       console.error("[withdraw-wallet] notification failed:", notificationErr);
+      withdrawNotifOk = false;
+      void logOperationalError({
+        category: "notification.create",
+        message: notificationErr?.message || String(notificationErr),
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { phase: "withdraw_notification_throw" },
+      });
     }
 
     setAmount("");
@@ -359,7 +428,7 @@ export default function WithdrawWalletPage() {
     setSuccessBanner({
       amountFormatted: formatMoney(amt),
       payoutNote: payoutNote.trim(),
-      loggingFailed: false,
+      loggingFailed: !withdrawNotifOk,
     });
     setLoadingAction(false);
   };
@@ -447,6 +516,26 @@ export default function WithdrawWalletPage() {
         <div className="mb-4" style={{ maxWidth: "100%" }}>
           <SoftLaunchNotice />
         </div>
+
+        {(walletFetchError || payoutFetchError) && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "1rem",
+              padding: "0.85rem 1rem",
+              borderRadius: "12px",
+              border: "1px solid #fcd34d",
+              background: "#fffbeb",
+              color: "#92400e",
+              fontSize: "0.86rem",
+              lineHeight: 1.55,
+              maxWidth: "100%",
+            }}
+          >
+            {walletFetchError ? <p style={{ margin: "0 0 0.5rem" }}>{walletFetchError}</p> : null}
+            {payoutFetchError ? <p style={{ margin: 0 }}>{payoutFetchError}</p> : null}
+          </div>
+        )}
 
         <div
           style={{

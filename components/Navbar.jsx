@@ -148,6 +148,9 @@ export default function Navbar() {
                         <button type="button" onClick={() => router.push("/admin/feedback")} className={dropdownItemClass}>
                           Tester feedback
                         </button>
+                        <button type="button" onClick={() => router.push("/admin/logs")} className={dropdownItemClass}>
+                          Operational logs
+                        </button>
                       </>
                     ) : null}
                     <button type="button" onClick={handleLogout} className={dropdownItemClass}>

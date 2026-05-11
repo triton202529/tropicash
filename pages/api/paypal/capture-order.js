@@ -18,6 +18,7 @@ import {
   logPaypalCaptureFailed,
   logPaypalCaptureIncomplete,
 } from "../../../lib/fundingFraudServer";
+import { logOperationalError } from "../../../lib/operationalLogger";
 
 const DEFAULT_SUPABASE_URL = "https://opbhcndlibbcsmoaeymq.supabase.co";
 const DEFAULT_SUPABASE_ANON_KEY =
@@ -118,6 +119,14 @@ export default async function handler(req, res) {
       orderID,
       message: err?.message,
     });
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "paypal.capture",
+      message: err?.message || "PayPal capture threw",
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null, phase: "capture_throw" },
+    });
     console.error("[paypal/capture-order] PayPal capture failed:", err);
     console.error("[FUNDING_STATUS_UPDATE] status=failed phase=capture", { orderID });
     return res.status(502).json({
@@ -130,6 +139,14 @@ export default async function handler(req, res) {
       userId,
       orderID,
       paypalStatus: result.status,
+    });
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "paypal.capture",
+      message: `PayPal capture status not COMPLETED: ${result.status}`,
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null, paypalStatus: result.status },
     });
     console.error("[paypal/capture-order] Unexpected PayPal status:", result.status);
     console.error("[FUNDING_STATUS_UPDATE] status=failed paypalStatus", {
@@ -147,6 +164,14 @@ export default async function handler(req, res) {
   const amountNum = amountStr != null ? Number(String(amountStr)) : NaN;
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
     await logFundingInvalidCaptureAmount(supabaseAdmin, { userId, orderID });
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "paypal.capture",
+      message: "Invalid or missing capture amount from PayPal",
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null },
+    });
     console.error("[paypal/capture-order] Missing or invalid capture amount");
     return res.status(502).json({ error: "Could not read captured amount from PayPal" });
   }
@@ -173,6 +198,14 @@ export default async function handler(req, res) {
   });
 
   if (claim.kind === "error") {
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "funding.idempotency",
+      message: "Funding idempotency claim failed",
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null, detail: String(claim.error || "").slice(0, 500) },
+    });
     console.error("[paypal/capture-order] idempotency claim failed:", claim.error);
     return res.status(500).json({ error: "Could not verify funding status" });
   }
@@ -238,6 +271,18 @@ export default async function handler(req, res) {
       orderID,
       amountNum,
     });
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "funding.notification_dup_check",
+      message: dupErr.message || "Notification duplicate check failed",
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: {
+        orderID: orderID ? String(orderID).slice(0, 80) : null,
+        code: dupErr.code,
+        amountNum,
+      },
+    });
     console.error("[paypal/capture-order] duplicate check failed:", dupErr);
     await patchFundingIdempotencyRow(supabaseAdmin, idempotencyRowId, {
       status: "failed",
@@ -287,6 +332,18 @@ export default async function handler(req, res) {
       amountNum,
       fundWalletError: serializeSupabaseError(fundError),
     });
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "wallet.fund_wallet_rpc",
+      message: fundError.message || "fund_wallet RPC failed after PayPal capture",
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: {
+        orderID: orderID ? String(orderID).slice(0, 80) : null,
+        amountNum,
+        supabase: serializeSupabaseError(fundError),
+      },
+    });
     console.error("[paypal/capture-order] fund_wallet RPC failed:", fundError);
     console.error("[FUNDING_STATUS_UPDATE] status=failed phase=fund_wallet_rpc", { orderID, userId });
     await patchFundingIdempotencyRow(supabaseAdmin, idempotencyRowId, {
@@ -310,6 +367,14 @@ export default async function handler(req, res) {
     p_related_transaction_id: transactionId,
   });
   if (notifError) {
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "notification.create",
+      message: notifError.message || "create_notification RPC failed after funding",
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null, code: notifError.code },
+    });
     console.error("[paypal/capture-order] create_notification failed:", notifError);
   }
 

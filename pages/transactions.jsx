@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
+import { logOperationalError, logOperationalEvent } from "../lib/operationalLogger";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import { findWithdrawalMatchForWithdrawTransaction, withdrawalStatusUserLine } from "../lib/withdrawalRequests";
@@ -264,6 +265,13 @@ export default function TransactionsPage() {
       if (cancelled) return;
       if (txError) {
         console.error("[transactions] fetch failed:", txError);
+        void logOperationalError({
+          category: "transactions.list_fetch",
+          message: txError.message || "transactions select failed",
+          userId: user.id,
+          route: "/transactions",
+          metadata: { code: txError.code },
+        });
         setRows([]);
         setProfilesMap({});
         setWithdrawalRows([]);
@@ -303,6 +311,14 @@ export default function TransactionsPage() {
       if (cancelled) return;
       if (profileError) {
         console.error("[transactions] profile lookup failed:", profileError);
+        void logOperationalEvent({
+          level: "warn",
+          category: "transactions.profile_lookup",
+          message: profileError.message || "profiles select failed",
+          userId: user.id,
+          route: "/transactions",
+          metadata: { code: profileError.code },
+        });
         setProfilesMap({});
       } else {
         const nextMap = {};
