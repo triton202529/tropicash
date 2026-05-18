@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabaseClient";
+import { setAuthFormSecurityHint } from "../lib/security";
 import {
   authCardClass,
   authErrorBoxClass,
@@ -44,6 +45,7 @@ export default function AuthPage() {
     }
 
     setLoading(false);
+    setAuthFormSecurityHint({ isSignUp, source: "auth_page" });
     router.push("/wallet");
   };
 

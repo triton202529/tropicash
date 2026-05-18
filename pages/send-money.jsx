@@ -6,6 +6,8 @@ import Navbar from "../components/Navbar";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
+import { assertFinancialActionAllowed, formatFinancialBlockUserMessage } from "../lib/accountSecurityStatus";
+import FinancialRestrictionNotice from "../components/FinancialRestrictionNotice";
 
 function walletAmount(row) {
   const raw = row?.wallet_balance ?? row?.balance ?? 0;
@@ -93,6 +95,7 @@ export default function SendMoneyPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [successBanner, setSuccessBanner] = useState(null);
+  const [financialBlock, setFinancialBlock] = useState(null);
 
   const searchWrapRef = useRef(null);
 
@@ -243,6 +246,7 @@ export default function SendMoneyPage() {
     setDropdownOpen(false);
   };
 
+  // Server-side send-money enforcement should be added when transfer_funds is wrapped by an API route.
   const handleSend = async () => {
     if (sending) return;
 
@@ -267,6 +271,14 @@ export default function SendMoneyPage() {
       alert("Insufficient funds.");
       return;
     }
+
+    const finGate = await assertFinancialActionAllowed({ userId: user.id, action: "send_money" });
+    if (!finGate.allowed) {
+      setFinancialBlock(finGate);
+      alert(formatFinancialBlockUserMessage(finGate));
+      return;
+    }
+    setFinancialBlock(null);
 
     setSending(true);
 
@@ -463,6 +475,7 @@ export default function SendMoneyPage() {
       <style dangerouslySetInnerHTML={{ __html: sendFocusCss }} />
 
       <div style={pageShell}>
+        <FinancialRestrictionNotice gate={financialBlock} />
         <h2
           style={{
             fontSize: "1.55rem",

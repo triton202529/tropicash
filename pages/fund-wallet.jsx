@@ -9,6 +9,7 @@ import { logOperationalError } from "../lib/operationalLogger";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
 import { buildPayPalFundWalletSdkUrl } from "../lib/paypalSdkUrl";
+import { getPayPalMode } from "../lib/paypalMode";
 import {
   fundingMethodFromPayPalApproveData,
   fundingMethodLabel,
@@ -16,6 +17,8 @@ import {
   getPayPalAppEnvironment,
   rememberFundingPaymentSource,
 } from "../lib/paymentSource";
+import { assertFinancialActionAllowed, formatFinancialBlockUserMessage } from "../lib/accountSecurityStatus";
+import FinancialRestrictionNotice from "../components/FinancialRestrictionNotice";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -25,12 +28,7 @@ function formatMoney(value) {
   });
 }
 
-function friendlyFundingError(err) {
-  const raw = String(err?.message || err || "").trim();
-  if (!raw) return "Could not complete funding. Try again.";
-  if (raw.length > 160) return `${raw.slice(0, 157)}…`;
-  return raw;
-}
+const PAYPAL_SDK_LOAD_TIMEOUT_MS = 15000;
 
 const inputBase = {
   padding: "0.72rem 0.8rem",
@@ -106,12 +104,14 @@ export default function FundWalletPage() {
 
   const [amount, setAmount] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [financialBlock, setFinancialBlock] = useState(null);
   const [loading, setLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [successReceipt, setSuccessReceipt] = useState(null);
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalConfigMissing, setPaypalConfigMissing] = useState(false);
   const [paypalScriptError, setPaypalScriptError] = useState(false);
+  const [paypalLoadTimedOut, setPaypalLoadTimedOut] = useState(false);
   const [fundTrust, setFundTrust] = useState({ status: "idle", result: null });
   const [walletBalanceLoadError, setWalletBalanceLoadError] = useState(null);
 
@@ -119,26 +119,7 @@ export default function FundWalletPage() {
   const latestAmountRef = useRef("");
   const captureInFlightRef = useRef(false);
 
-  const paypalUiMode = useMemo(() => {
-    const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
-    if (raw === "live") return "live";
-    if (raw === "sandbox") return "sandbox";
-    return "sandbox";
-  }, []);
-
-  useEffect(() => {
-    const raw = String(process.env.NEXT_PUBLIC_PAYPAL_MODE ?? "sandbox").trim().toLowerCase();
-    if (
-      process.env.NODE_ENV === "development" &&
-      raw !== "sandbox" &&
-      raw !== "live" &&
-      process.env.NEXT_PUBLIC_PAYPAL_MODE
-    ) {
-      console.warn(
-        `[fund-wallet] Invalid NEXT_PUBLIC_PAYPAL_MODE "${process.env.NEXT_PUBLIC_PAYPAL_MODE}", using sandbox.`,
-      );
-    }
-  }, []);
+  const paypalUiMode = useMemo(() => getPayPalMode(), []);
 
   useEffect(() => {
     latestAmountRef.current = amount;
@@ -222,6 +203,35 @@ export default function FundWalletPage() {
     }
 
     let cancelled = false;
+    let timeoutId = null;
+
+    const armTimeout = () => {
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        if (window.paypal) {
+          setPaypalReady(true);
+          return;
+        }
+        setPaypalLoadTimedOut(true);
+        void logOperationalError({
+          category: "paypal.sdk_load_timeout",
+          message: `PayPal SDK did not load within ${PAYPAL_SDK_LOAD_TIMEOUT_MS}ms`,
+          userId: user?.id,
+          route: "/fund-wallet",
+          metadata: { timeoutMs: PAYPAL_SDK_LOAD_TIMEOUT_MS, mode: paypalUiMode },
+        });
+      }, PAYPAL_SDK_LOAD_TIMEOUT_MS);
+    };
+
+    const markReady = () => {
+      if (cancelled) return;
+      if (timeoutId != null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      setPaypalReady(true);
+    };
+
     const desiredSdkUrl = buildPayPalFundWalletSdkUrl(clientId);
     const existing =
       document.querySelector(`script[src="${CSS.escape(desiredSdkUrl)}"]`) ||
@@ -233,12 +243,17 @@ export default function FundWalletPage() {
         );
       }
       const onLoad = () => {
-        if (!cancelled && window.paypal) setPaypalReady(true);
+        if (!cancelled && window.paypal) markReady();
       };
       existing.addEventListener("load", onLoad);
-      if (window.paypal) setPaypalReady(true);
+      if (window.paypal) {
+        markReady();
+      } else {
+        armTimeout();
+      }
       return () => {
         cancelled = true;
+        if (timeoutId != null) window.clearTimeout(timeoutId);
         existing.removeEventListener("load", onLoad);
       };
     }
@@ -247,17 +262,24 @@ export default function FundWalletPage() {
     script.src = desiredSdkUrl;
     script.async = true;
     script.onload = () => {
-      if (!cancelled) setPaypalReady(true);
+      if (!cancelled && window.paypal) markReady();
     };
     script.onerror = () => {
-      if (!cancelled) setPaypalScriptError(true);
+      if (cancelled) return;
+      if (timeoutId != null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      setPaypalScriptError(true);
     };
     document.body.appendChild(script);
+    armTimeout();
 
     return () => {
       cancelled = true;
+      if (timeoutId != null) window.clearTimeout(timeoutId);
     };
-  }, [paypalUiMode]);
+  }, [paypalUiMode, user?.id]);
 
   const formDisabled = loading || !!successReceipt;
 
@@ -304,21 +326,50 @@ export default function FundWalletPage() {
           if (!Number.isFinite(amt) || amt <= 0) {
             throw new Error("Please enter a valid amount.");
           }
+          if (user?.id) {
+            const finGate = await assertFinancialActionAllowed({ userId: user.id, action: "fund_wallet" });
+            if (!finGate.allowed) {
+              setFinancialBlock(finGate);
+              setErrorMsg(formatFinancialBlockUserMessage(finGate));
+              throw new Error("account_security_restriction");
+            }
+            setFinancialBlock(null);
+          }
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const accessToken = session?.access_token;
+          const orderHeaders = { "Content-Type": "application/json" };
+          if (accessToken) orderHeaders.Authorization = `Bearer ${accessToken}`;
+
           const res = await fetch("/api/paypal/create-order", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: orderHeaders,
             body: JSON.stringify({ amount: amt }),
           });
           const data = await res.json().catch(() => ({}));
+          if (res.status === 403 && data?.error === "account_restricted") {
+            const msg =
+              typeof data?.message === "string" && data.message.trim()
+                ? data.message.trim()
+                : "Your Tropicash account has a security restriction. This action is temporarily unavailable while we review your account.";
+            setFinancialBlock({ allowed: false, message: msg, reason: null, status: "restricted" });
+            setErrorMsg(msg);
+            throw new Error("account_security_restriction");
+          }
           if (!res.ok) {
+            const apiErr = String(data?.error || "").trim();
             void logOperationalError({
               category: "paypal.create_order",
-              message: String(data.error || "").trim() || `create-order HTTP ${res.status}`,
+              message: apiErr || `create-order HTTP ${res.status}`,
               userId: user?.id,
               route: "/fund-wallet",
-              metadata: { httpStatus: res.status },
+              metadata: { httpStatus: res.status, rawError: apiErr || null },
             });
-            throw new Error(data.error || "Could not start PayPal checkout.");
+            if (res.status === 429 && apiErr) {
+              throw new Error(apiErr);
+            }
+            throw new Error("We couldn't start PayPal checkout. Please try again.");
           }
           if (!data.orderID) {
             void logOperationalError({
@@ -328,7 +379,7 @@ export default function FundWalletPage() {
               route: "/fund-wallet",
               metadata: {},
             });
-            throw new Error("PayPal did not return an order ID.");
+            throw new Error("We couldn't start PayPal checkout. Please try again.");
           }
           return data.orderID;
         } finally {
@@ -376,11 +427,16 @@ export default function FundWalletPage() {
               metadata: {
                 httpStatus: res.status,
                 orderID: data?.orderID ? String(data.orderID).slice(0, 80) : null,
+                rawError: apiErr || null,
               },
             });
-            setErrorMsg(
-              apiErr || "PayPal could not complete the payment.",
-            );
+            if (res.status === 429 && apiErr) {
+              setErrorMsg(apiErr);
+            } else {
+              setErrorMsg(
+                "PayPal couldn't complete the payment. No money was charged. Please try again.",
+              );
+            }
             return;
           }
 
@@ -392,7 +448,7 @@ export default function FundWalletPage() {
               route: "/fund-wallet",
               metadata: { orderID: data?.orderID ? String(data.orderID).slice(0, 80) : null },
             });
-            setErrorMsg("Payment was not completed. Your wallet was not funded.");
+            setErrorMsg("We couldn't verify the funded amount. Please contact support.");
             return;
           }
 
@@ -405,7 +461,7 @@ export default function FundWalletPage() {
               route: "/fund-wallet",
               metadata: { orderID: payload.orderID || data?.orderID || null },
             });
-            setErrorMsg("Could not verify the paid amount. Please contact support.");
+            setErrorMsg("We couldn't verify the funded amount. Please contact support.");
             return;
           }
 
@@ -457,7 +513,9 @@ export default function FundWalletPage() {
             route: "/fund-wallet",
             metadata: { phase: "onApprove_catch" },
           });
-          setErrorMsg(friendlyFundingError(unexpected));
+          setErrorMsg(
+            "PayPal couldn't complete the payment. No money was charged. Please try again.",
+          );
         } finally {
           setLoading(false);
           captureInFlightRef.current = false;
@@ -473,7 +531,7 @@ export default function FundWalletPage() {
           metadata: { phase: "buttons_onError" },
         });
         setErrorMsg(
-          friendlyFundingError(err) || "PayPal encountered an error. Try again.",
+          "PayPal couldn't complete the payment. No money was charged. Please try again.",
         );
         setLoading(false);
       },
@@ -642,6 +700,8 @@ export default function FundWalletPage() {
         >
           Fund Wallet
         </h2>
+
+        <FinancialRestrictionNotice gate={financialBlock} />
 
         <SoftEnforcementNotice profile={profile} />
 
@@ -1038,7 +1098,44 @@ export default function FundWalletPage() {
                 </p>
               ) : null}
 
-              {!paypalConfigMissing && !paypalScriptError && !paypalReady ? (
+              {paypalLoadTimedOut && !paypalReady && !paypalScriptError ? (
+                <div
+                  role="alert"
+                  style={{
+                    margin: "0.75rem 0 0",
+                    padding: "0.85rem 0.9rem",
+                    borderRadius: "10px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    color: "#b91c1c",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: "0.875rem", lineHeight: 1.5 }}>
+                    Couldn&rsquo;t load PayPal checkout. Refresh the page or try again later.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") window.location.reload();
+                    }}
+                    style={{
+                      marginTop: "0.65rem",
+                      padding: "0.5rem 0.85rem",
+                      borderRadius: "8px",
+                      border: "1px solid #fca5a5",
+                      background: "#ffffff",
+                      color: "#b91c1c",
+                      fontWeight: 700,
+                      fontSize: "0.82rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Reload
+                  </button>
+                </div>
+              ) : null}
+
+              {!paypalConfigMissing && !paypalScriptError && !paypalLoadTimedOut && !paypalReady ? (
                 <p style={{ margin: 0, fontSize: "0.875rem", color: "#64748b" }}>
                   Loading PayPal…
                 </p>

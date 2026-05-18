@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
+import { setAuthFormSecurityHint } from "../lib/security";
 import { useRouter } from "next/router";
 import Navbar from "../components/Navbar";
 import {
@@ -33,6 +34,7 @@ export default function LoginPage() {
     if (error) {
       setErrorMsg(error.message);
     } else {
+      setAuthFormSecurityHint({ isSignUp: false, source: "login_page" });
       router.push("/wallet");
     }
   };

@@ -364,6 +364,9 @@ export default function WalletPage() {
           <Link href="/insights" className={pillLinkClass}>
             Insights <span aria-hidden="true">→</span>
           </Link>
+          <Link href="/triton-transfer" className={pillLinkClass}>
+            Triton transfers <span aria-hidden="true">→</span>
+          </Link>
           <Link href="/support" className={pillLinkClass}>
             Help &amp; support <span aria-hidden="true">→</span>
           </Link>

@@ -16,6 +16,13 @@ import {
   savePayoutMethodForUser,
   formatPayoutDestinationDisplay,
 } from '../lib/payoutMethods';
+import {
+  DEFAULT_PREFERENCES,
+  fetchNotificationPreferences,
+  upsertNotificationPreferences,
+} from '../lib/notifications';
+import { assertFinancialActionAllowed, formatFinancialBlockUserMessage } from '../lib/accountSecurityStatus';
+import FinancialRestrictionNotice from '../components/FinancialRestrictionNotice';
 
 const PAYOUT_BRAND_PRESETS = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Other'];
 
@@ -37,6 +44,10 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState({ type: null, message: '' });
 
+  const [notifPrefs, setNotifPrefs] = useState({ ...DEFAULT_PREFERENCES });
+  const [notifPrefsSaving, setNotifPrefsSaving] = useState(false);
+  const [notifPrefsFeedback, setNotifPrefsFeedback] = useState({ type: null, message: '' });
+
   const [payoutMethods, setPayoutMethods] = useState([]);
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutSaving, setPayoutSaving] = useState(false);
@@ -49,6 +60,7 @@ export default function ProfilePage() {
   const [pmBrandOther, setPmBrandOther] = useState('');
   const [pmLast4, setPmLast4] = useState('');
   const [pmLabel, setPmLabel] = useState('');
+  const [financialBlock, setFinancialBlock] = useState(null);
 
   const displayProfile = localProfile ?? profile;
 
@@ -111,6 +123,36 @@ export default function ProfilePage() {
     if (!user?.id || loading) return;
     loadPayoutMethods();
   }, [user?.id, loading, loadPayoutMethods]);
+
+  useEffect(() => {
+    if (!user?.id || loading) return;
+    let cancelled = false;
+    void (async () => {
+      const prefs = await fetchNotificationPreferences(user.id);
+      if (!cancelled) setNotifPrefs(prefs);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, loading]);
+
+  const handleSaveNotifPrefs = async (overrides) => {
+    if (!user?.id) return;
+    setNotifPrefsFeedback({ type: null, message: '' });
+    setNotifPrefsSaving(true);
+    const next = { ...notifPrefs, ...(overrides || {}) };
+    setNotifPrefs(next);
+    const { ok } = await upsertNotificationPreferences(user.id, next);
+    if (!ok) {
+      setNotifPrefsFeedback({
+        type: 'error',
+        message: 'Could not save your notification preferences. Please try again.',
+      });
+    } else {
+      setNotifPrefsFeedback({ type: 'success', message: 'Notification preferences saved.' });
+    }
+    setNotifPrefsSaving(false);
+  };
 
   useEffect(() => {
     if (profile) {
@@ -287,9 +329,19 @@ export default function ProfilePage() {
     }
   };
 
+  // Server-side payout-method enforcement should be added when savePayoutMethodForUser is wrapped by an API route.
   const handleSavePayoutMethod = async () => {
     if (!user?.id) return;
     setPayoutFeedback({ type: null, message: '' });
+
+    const finGate = await assertFinancialActionAllowed({ userId: user.id, action: 'add_payout_method' });
+    if (!finGate.allowed) {
+      setFinancialBlock(finGate);
+      setPayoutFeedback({ type: 'error', message: formatFinancialBlockUserMessage(finGate) });
+      return;
+    }
+    setFinancialBlock(null);
+
     setPayoutSaving(true);
     try {
       const { data, error } = await savePayoutMethodForUser(
@@ -519,6 +571,60 @@ export default function ProfilePage() {
 
           <div className="mt-5 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] p-4 text-left">
             <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
+              Notification preferences
+            </h2>
+            <p className="mb-3 text-xs leading-relaxed text-[#64748b]">
+              Choose which channels Tropicash uses to reach you. Email and push are best-effort and may be queued during phase 1.
+            </p>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md bg-white px-3 py-2 shadow-sm">
+                <span className="text-sm font-medium text-[#0f172a]">Email me about wallet activity</span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.email_enabled}
+                  onChange={(e) => void handleSaveNotifPrefs({ email_enabled: e.target.checked })}
+                  disabled={notifPrefsSaving}
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md bg-white px-3 py-2 shadow-sm">
+                <span className="text-sm font-medium text-[#0f172a]">Send push notifications</span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.push_enabled}
+                  onChange={(e) => void handleSaveNotifPrefs({ push_enabled: e.target.checked })}
+                  disabled={notifPrefsSaving}
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md bg-white px-3 py-2 shadow-sm">
+                <span className="text-sm font-medium text-[#0f172a]">Security alerts</span>
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.security_alerts}
+                  onChange={(e) => void handleSaveNotifPrefs({ security_alerts: e.target.checked })}
+                  disabled={notifPrefsSaving}
+                />
+              </label>
+            </div>
+            {notifPrefsFeedback.type === 'success' && notifPrefsFeedback.message ? (
+              <p
+                className="mt-3 rounded-[10px] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+                role="status"
+              >
+                {notifPrefsFeedback.message}
+              </p>
+            ) : null}
+            {notifPrefsFeedback.type === 'error' && notifPrefsFeedback.message ? (
+              <p
+                className="mt-3 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                role="alert"
+              >
+                {notifPrefsFeedback.message}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-5 rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] p-4 text-left">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
               Payout settings
             </h2>
             <p className="mb-3 text-xs leading-relaxed text-[#64748b]">
@@ -549,6 +655,8 @@ export default function ProfilePage() {
             <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#94a3b8]">
               Payout method
             </h2>
+
+            <FinancialRestrictionNotice gate={financialBlock} />
 
             {payoutLoading ? (
               <p className="text-sm text-[#64748b]">Loading payout method…</p>

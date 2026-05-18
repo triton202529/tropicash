@@ -13,6 +13,8 @@ import { logOperationalError } from "../lib/operationalLogger";
 import { notifyAdminNewWithdrawalRequest, fetchUserWithdrawalRequests } from "../lib/withdrawalRequests";
 import { buildWithdrawalPhase1Signals, emailDomainOnly } from "../lib/fraudRules";
 import { insertPhase1FraudLogs } from "../lib/fraudPhase1Log";
+import { assertFinancialActionAllowed, formatFinancialBlockUserMessage } from "../lib/accountSecurityStatus";
+import FinancialRestrictionNotice from "../components/FinancialRestrictionNotice";
 
 const MIN_WITHDRAWAL_AMOUNT = 1;
 const MAX_WITHDRAWAL_AMOUNT = 250;
@@ -133,6 +135,7 @@ export default function WithdrawWalletPage() {
   const [recentWithdrawalsLoading, setRecentWithdrawalsLoading] = useState(false);
   const [walletFetchError, setWalletFetchError] = useState(null);
   const [payoutFetchError, setPayoutFetchError] = useState(null);
+  const [financialBlock, setFinancialBlock] = useState(null);
 
   const fetchWalletBalance = useCallback(async () => {
     if (!user?.id) return;
@@ -252,6 +255,15 @@ export default function WithdrawWalletPage() {
       return;
     }
 
+    const finGate = await assertFinancialActionAllowed({ userId: user.id, action: "withdraw_wallet" });
+    if (!finGate.allowed) {
+      setFinancialBlock(finGate);
+      setErrorMsg(formatFinancialBlockUserMessage(finGate));
+      setLoadingAction(false);
+      return;
+    }
+    setFinancialBlock(null);
+
     if (!defaultPayoutRow) {
       setErrorMsg("Add a payout method before withdrawing.");
       setLoadingAction(false);
@@ -303,6 +315,54 @@ export default function WithdrawWalletPage() {
       }
     }
 
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (accessToken) {
+        const limitRes = await fetch("/api/withdrawals/check-limit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        if (limitRes.status === 403) {
+          const payload = await limitRes.json().catch(() => ({}));
+          if (payload?.error === "account_restricted") {
+            const msg =
+              typeof payload?.message === "string" && payload.message.trim()
+                ? payload.message.trim()
+                : formatFinancialBlockUserMessage({ allowed: false });
+            setFinancialBlock({ allowed: false, message: msg, reason: null, status: "restricted" });
+            setErrorMsg(msg);
+            setLoadingAction(false);
+            return;
+          }
+        }
+        if (limitRes.status === 429) {
+          const payload = await limitRes.json().catch(() => ({}));
+          setErrorMsg(
+            typeof payload?.error === "string" && payload.error
+              ? payload.error
+              : "You've submitted several withdrawal requests recently. Please wait a bit and try again.",
+          );
+          setLoadingAction(false);
+          return;
+        }
+      }
+    } catch (limitErr) {
+      void logOperationalError({
+        category: "abuse.limiter_error",
+        message: limitErr?.message || "withdrawals/check-limit fetch failed",
+        userId: user.id,
+        route: "/withdraw-wallet",
+        metadata: { phase: "withdraw_check_limit" },
+      });
+    }
+
+    // Withdrawal RPC is gated server-side via POST /api/withdrawals/check-limit (account security + rate limit).
     const { error } = await supabase.rpc("create_withdrawal_request", {
       p_user_id: user.id,
       p_amount: amt,
@@ -512,6 +572,8 @@ export default function WithdrawWalletPage() {
         <h1 style={{ fontSize: "1.55rem", fontWeight: 700, color: "#0f172a", margin: "0 0 1rem", letterSpacing: "-0.02em" }}>
           Withdraw Wallet
         </h1>
+
+        <FinancialRestrictionNotice gate={financialBlock} />
 
         <div className="mb-4" style={{ maxWidth: "100%" }}>
           <SoftLaunchNotice />

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useUser } from "../../lib/userContext";
 import { isAdminUser } from "../../lib/adminAccess";
 import Navbar from "../../components/Navbar";
+import AuditTimelineEmbed from "../../components/admin/AuditTimelineEmbed";
 import { notifyUserWithdrawalStatusChange } from "../../lib/withdrawalRequests";
+import { appendAuditEvent } from "../../lib/auditTimeline";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -380,6 +383,7 @@ function WithdrawalFailurePanel({ failureReason }) {
 }
 
 export default function AdminWithdrawalsPage() {
+  const router = useRouter();
   const { user, profile, loading: authLoading } = useUser();
   const [rows, setRows] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
@@ -390,6 +394,13 @@ export default function AdminWithdrawalsPage() {
   const [actionBusyId, setActionBusyId] = useState(null);
   const [payoutRetryLoadingId, setPayoutRetryLoadingId] = useState(null);
   const [adminNotesDraft, setAdminNotesDraft] = useState({});
+  const [withdrawalAuditOpenId, setWithdrawalAuditOpenId] = useState(null);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const w = router.query.withdrawalId;
+    if (typeof w === "string" && w.trim()) setWithdrawalAuditOpenId(w.trim());
+  }, [router.isReady, router.query.withdrawalId]);
 
   const fetchRows = useCallback(async () => {
     if (!user?.id) return;
@@ -512,6 +523,23 @@ export default function AdminWithdrawalsPage() {
       });
       setActionBusyId(null);
       return;
+    }
+    if (patch.status != null) {
+      const prevStatus = String(row.status || "").toLowerCase();
+      const nextStatus = String(patch.status || "").toLowerCase();
+      void appendAuditEvent({
+        entityType: "withdrawal",
+        entityId: id,
+        eventType: "withdrawal.status_changed",
+        actorUserId: user?.id ?? null,
+        targetUserId: row.user_id ?? null,
+        severity: "info",
+        title: "Withdrawal status changed",
+        description: `${prevStatus} → ${nextStatus}`,
+        metadata: { from_status: prevStatus, to_status: nextStatus },
+        dedupeKey: `audit:withdrawal:${id}:${prevStatus}:${nextStatus}`,
+        dedupeWindowMs: 5 * 60 * 1000,
+      });
     }
     if (notifyKind && row?.user_id) {
       try {
@@ -1145,6 +1173,18 @@ export default function AdminWithdrawalsPage() {
                       ) : null}
                     </div>
                   ) : null}
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <button
+                      type="button"
+                      style={btnSm}
+                      onClick={() => setWithdrawalAuditOpenId((cur) => (cur === r.id ? null : r.id))}
+                    >
+                      {withdrawalAuditOpenId === r.id ? "Hide audit timeline" : "Audit timeline"}
+                    </button>
+                    {withdrawalAuditOpenId === r.id ? (
+                      <AuditTimelineEmbed entityType="withdrawal" entityId={r.id} limit={20} />
+                    ) : null}
+                  </div>
                 </div>
               );
             })

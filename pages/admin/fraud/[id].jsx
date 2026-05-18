@@ -5,6 +5,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { useUser } from "../../../lib/userContext";
 import { isAdminUser } from "../../../lib/adminAccess";
 import Navbar from "../../../components/Navbar";
+import AuditTimelineEmbed from "../../../components/admin/AuditTimelineEmbed";
 import { normalizeRiskFlagsArray, recomputeAndPersistUserRiskState } from "../../../lib/riskFlags";
 import { normalizeAccountFlags } from "../../../lib/accountControls";
 import {
@@ -757,6 +758,8 @@ export default function AdminFraudDetailPage() {
             </button>
           </div>
         </div>
+
+        {id ? <AuditTimelineEmbed entityType="fraud_case" entityId={id} limit={20} /> : null}
 
         <div
           style={{

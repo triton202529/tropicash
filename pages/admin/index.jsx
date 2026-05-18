@@ -6,6 +6,7 @@ import Navbar from "../../components/Navbar";
 import { supabase } from "../../lib/supabaseClient";
 import { updateSmartAlertStatus } from "../../lib/smartAlerts";
 import { fetchAdminOperationalSnapshot } from "../../lib/adminOperationalOverview";
+import { fetchAdminSecuritySignalCounts } from "../../lib/adminSecuritySignals";
 
 const pageWrap = {
   padding: "2rem 1.25rem 3rem",
@@ -118,6 +119,17 @@ export default function AdminIndexPage() {
   const [alertsError, setAlertsError] = useState(null);
   const [alertBusyId, setAlertBusyId] = useState(null);
 
+  const [secSignals, setSecSignals] = useState({
+    highSeverityEvents: null,
+    suspiciousLogins: null,
+    suspiciousLoginsLast7d: null,
+    suspiciousLoginWarning: null,
+    suspiciousLoginHigh: null,
+    revokedSessions: null,
+    error: null,
+  });
+  const [secSignalsLoading, setSecSignalsLoading] = useState(false);
+
   const [opsLoading, setOpsLoading] = useState(false);
   const [opsError, setOpsError] = useState(null);
   const [opsKpi, setOpsKpi] = useState(null);
@@ -202,17 +214,39 @@ export default function AdminIndexPage() {
     }
   }, [user?.id, user, profile]);
 
+  const loadSecuritySignals = useCallback(async () => {
+    if (!user?.id || !isAdminUser(user, profile)) return;
+    setSecSignalsLoading(true);
+    try {
+      const res = await fetchAdminSecuritySignalCounts(supabase);
+      setSecSignals(res);
+    } catch (e) {
+      console.error(e);
+      setSecSignals({
+        highSeverityEvents: null,
+        suspiciousLogins: null,
+        suspiciousLoginsLast7d: null,
+        suspiciousLoginWarning: null,
+        suspiciousLoginHigh: null,
+        revokedSessions: null,
+        error: e?.message || "Failed to load security signals.",
+      });
+    } finally {
+      setSecSignalsLoading(false);
+    }
+  }, [user?.id, user, profile]);
+
   useEffect(() => {
     if (authLoading || !user || !isAdminUser(user, profile)) return;
     let cancelled = false;
     (async () => {
-      await Promise.all([loadAlerts(), loadOperational()]);
+      await Promise.all([loadAlerts(), loadOperational(), loadSecuritySignals()]);
       if (cancelled) return;
     })();
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, profile, loadAlerts, loadOperational]);
+  }, [authLoading, user, profile, loadAlerts, loadOperational, loadSecuritySignals]);
 
   useEffect(() => {
     if (authLoading || !user?.id || !isAdminUser(user, profile)) return;
@@ -377,6 +411,16 @@ export default function AdminIndexPage() {
         </p>
         <ul style={{ margin: "0 0 1.5rem", paddingLeft: "1.25rem", fontSize: "0.95rem", color: "#64748b" }}>
           <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/security" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Security Console
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/audit" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Admin Audit Trail
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/fraud" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Fraud dashboard
             </Link>
@@ -409,6 +453,31 @@ export default function AdminIndexPage() {
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/logs" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Operational logs
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/timeline" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Audit timeline
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/treasury" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Treasury
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/ledger" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Internal ledger
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/triton-transfers" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Triton transfers
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/health" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Health check
             </Link>
           </li>
         </ul>
@@ -655,6 +724,59 @@ export default function AdminIndexPage() {
         </div>
 
         <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+          <h2
+            style={{
+              margin: "0 0 0.5rem",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#94a3b8",
+            }}
+          >
+            Security signals
+          </h2>
+          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+            Cross-account counts from <code style={{ fontSize: "0.72rem" }}>security_events</code> and{" "}
+            <code style={{ fontSize: "0.72rem" }}>user_sessions</code> (admin read-only). Apply{" "}
+            <code style={{ fontSize: "0.72rem" }}>security_foundation.sql</code> if these stay empty.
+          </p>
+          {secSignals.error ? (
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "#b91c1c" }}>{secSignals.error}</p>
+          ) : null}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+              gap: "0.65rem",
+            }}
+          >
+            {[
+              { label: "High + critical events", value: secSignals.highSeverityEvents },
+              { label: "Suspicious logins (all)", value: secSignals.suspiciousLogins },
+              { label: "Suspicious logins (7d)", value: secSignals.suspiciousLoginsLast7d },
+              { label: "Suspicious (warning)", value: secSignals.suspiciousLoginWarning },
+              { label: "Suspicious (high)", value: secSignals.suspiciousLoginHigh },
+              { label: "Revoked sessions", value: secSignals.revokedSessions },
+            ].map((c) => (
+              <div key={c.label} style={{ border: "1px solid #e0f2fe", borderRadius: "10px", padding: "0.65rem 0.75rem", background: "#f8fafc" }}>
+                <p style={{ margin: 0, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b" }}>
+                  {c.label}
+                </p>
+                <p style={{ margin: "0.35rem 0 0", fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                  {secSignalsLoading ? "…" : c.value == null ? "—" : String(c.value)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p style={{ margin: "0.85rem 0 0", fontSize: "0.82rem" }}>
+            <Link href="/admin/security" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Open Security Console →
+            </Link>
+          </p>
+        </div>
+
+        <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
             <h2
               style={{
@@ -674,12 +796,12 @@ export default function AdminIndexPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => void Promise.all([loadAlerts(), loadOperational()])}
-                disabled={alertsLoading || opsLoading}
+                onClick={() => void Promise.all([loadAlerts(), loadOperational(), loadSecuritySignals()])}
+                disabled={alertsLoading || opsLoading || secSignalsLoading}
                 style={{
                   ...btnXs,
-                  opacity: alertsLoading || opsLoading ? 0.65 : 1,
-                  cursor: alertsLoading || opsLoading ? "not-allowed" : "pointer",
+                  opacity: alertsLoading || opsLoading || secSignalsLoading ? 0.65 : 1,
+                  cursor: alertsLoading || opsLoading || secSignalsLoading ? "not-allowed" : "pointer",
                 }}
               >
                 Refresh

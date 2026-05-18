@@ -66,12 +66,27 @@ function safeJsonPreview(obj) {
   }
 }
 
+const CATEGORY_FILTERS = [
+  { value: "all", label: "All categories" },
+  { value: "abuse", label: "abuse.* (rate limits)" },
+  { value: "fraud", label: "fraud.*" },
+  { value: "other", label: "Other" },
+];
+
+function categoryGroup(category) {
+  const c = String(category || "").toLowerCase();
+  if (c.startsWith("abuse.")) return "abuse";
+  if (c.startsWith("fraud.")) return "fraud";
+  return "other";
+}
+
 export default function AdminOperationalLogsPage() {
   const { user, profile, loading: authLoading } = useUser();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [expanded, setExpanded] = useState(() => new Set());
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const load = useCallback(async () => {
     if (!user?.id || !isAdminUser(user, profile)) return;
@@ -92,6 +107,10 @@ export default function AdminOperationalLogsPage() {
     setRows(Array.isArray(data) ? data : []);
     setLoading(false);
   }, [user?.id, user, profile]);
+
+  const visibleRows = categoryFilter === "all"
+    ? rows
+    : rows.filter((r) => categoryGroup(r?.category) === categoryFilter);
 
   useEffect(() => {
     if (authLoading || !user || !isAdminUser(user, profile)) return;
@@ -166,10 +185,49 @@ export default function AdminOperationalLogsPage() {
           redacted in the client before insert.
         </p>
 
-        <div style={{ ...cardBase, padding: "0.75rem 1rem", marginBottom: "1rem" }}>
+        <div
+          style={{
+            ...cardBase,
+            padding: "0.75rem 1rem",
+            marginBottom: "1rem",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.65rem",
+            alignItems: "center",
+          }}
+        >
           <button type="button" onClick={() => void load()} disabled={loading} style={{ ...btnSm, marginTop: 0 }}>
             {loading ? "Refreshing…" : "Refresh"}
           </button>
+          <label
+            htmlFor="ops-cat-filter"
+            style={{ fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}
+          >
+            Category
+          </label>
+          <select
+            id="ops-cat-filter"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{
+              padding: "0.32rem 0.55rem",
+              fontSize: "0.78rem",
+              borderRadius: "8px",
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+              color: "#0f172a",
+              fontWeight: 600,
+            }}
+          >
+            {CATEGORY_FILTERS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+            Showing {visibleRows.length} of {rows.length}
+          </span>
         </div>
 
         {errorMsg ? (
@@ -181,12 +239,16 @@ export default function AdminOperationalLogsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
           {loading && rows.length === 0 ? (
             <p style={{ color: "#64748b" }}>Loading…</p>
-          ) : rows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <div style={{ ...cardBase, padding: "2rem", textAlign: "center" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>No operational logs yet.</p>
+              <p style={{ margin: 0, color: "#64748b" }}>
+                {rows.length === 0
+                  ? "No operational logs yet."
+                  : "No logs match this filter."}
+              </p>
             </div>
           ) : (
-            rows.map((r) => {
+            visibleRows.map((r) => {
               const id = r.id;
               const isOpen = expanded.has(id);
               const meta = r.metadata && typeof r.metadata === "object" ? r.metadata : {};

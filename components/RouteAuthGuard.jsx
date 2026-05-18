@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { useUser } from "../lib/userContext";
+import AccountSecurityRestrictionBanner from "./AccountSecurityRestrictionBanner";
 
 /** Pathnames that do not require a Supabase session. */
 const PUBLIC_PATHNAMES = new Set([
@@ -10,10 +11,30 @@ const PUBLIC_PATHNAMES = new Set([
   "/forgot-password",
   "/reset-password",
   "/support",
-  "/security",
   "/privacy",
   "/terms",
+  "/developers",
+  "/developers/how-it-works",
+  "/developers/docs",
+  "/developers/pricing",
+  "/developers/roadmap",
+  "/developers/status",
+  "/developers/request-access",
 ]);
+
+/**
+ * Path prefixes that require auth but should redirect to a non-root login
+ * destination instead of "/". Order matters — the first matching prefix wins.
+ * Phase 1.5 introduces /dev-console as authenticated-only shell pages.
+ *
+ * NOTE: This guard enforces *session presence* only. Role-based gating
+ * (e.g. admin-only `/admin/*` pages) is enforced at the page level via
+ * `isAdminUser()` from `lib/adminAccess.js`. Do not encode admin allow-lists
+ * in this file — keep admin logic next to the page that needs it.
+ */
+const AUTH_REDIRECT_PREFIXES = [
+  { prefix: "/dev-console", redirectTo: "/login" },
+];
 
 const loadingShellStyle = {
   minHeight: "100vh",
@@ -25,6 +46,15 @@ const loadingShellStyle = {
   fontSize: "0.95rem",
   fontWeight: 600,
 };
+
+function resolveRedirectTarget(pathname) {
+  for (const rule of AUTH_REDIRECT_PREFIXES) {
+    if (pathname === rule.prefix || pathname.startsWith(`${rule.prefix}/`)) {
+      return rule.redirectTo;
+    }
+  }
+  return "/";
+}
 
 export default function RouteAuthGuard({ children }) {
   const router = useRouter();
@@ -38,7 +68,8 @@ export default function RouteAuthGuard({ children }) {
     if (loading) return;
 
     if (!user) {
-      router.replace("/");
+      const target = resolveRedirectTarget(router.pathname);
+      router.replace(target);
     }
   }, [router, router.isReady, loading, user, isPublic]);
 
@@ -54,5 +85,10 @@ export default function RouteAuthGuard({ children }) {
     return <div style={loadingShellStyle}>Loading…</div>;
   }
 
-  return children;
+  return (
+    <>
+      <AccountSecurityRestrictionBanner />
+      {children}
+    </>
+  );
 }

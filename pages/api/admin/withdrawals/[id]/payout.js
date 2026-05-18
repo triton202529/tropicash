@@ -1,32 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
-import { ADMIN_EMAILS } from "../../../../../lib/adminAccess";
 import { logOperationalError } from "../../../../../lib/operationalLogger";
 import { executeWithdrawalPayout } from "../../../../../lib/payouts/payoutService";
-
-const DEFAULT_SUPABASE_URL = "https://opbhcndlibbcsmoaeymq.supabase.co";
-const DEFAULT_SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wYmhjbmRsaWJiY3Ntb2FleW1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMTM4NjIsImV4cCI6MjA2NzU4OTg2Mn0.Scy3QTema-fyccjeado4ZHoL2s5fjND8useCatvJRyA";
-
-function getSupabaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL
-  );
-}
-
-function getSupabaseAnonKey() {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    DEFAULT_SUPABASE_ANON_KEY
-  );
-}
-
-function isAdminEmail(email) {
-  const e = String(email || "")
-    .trim()
-    .toLowerCase();
-  return ADMIN_EMAILS.map((x) => String(x).trim().toLowerCase()).includes(e);
-}
+import {
+  getSupabaseAnonKey,
+  getSupabaseUrl,
+  isAdminEmail,
+} from "../../../../../lib/supabaseAdminApi";
+import { emitAdminEvent } from "../../../../../lib/eventBus";
+import { appendAuditEventServer } from "../../../../../lib/auditTimeline";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -51,8 +32,19 @@ export default async function handler(req, res) {
   const supabaseUrl = getSupabaseUrl();
   const anonKey = getSupabaseAnonKey();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    console.error("[admin/payout] Missing SUPABASE_SERVICE_ROLE_KEY");
+  const missingEnv = [];
+  if (!supabaseUrl) missingEnv.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!anonKey) missingEnv.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!serviceRoleKey) missingEnv.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (missingEnv.length > 0) {
+    console.error("[admin/payout] missing env:", missingEnv.join(", "));
+    void logOperationalError({
+      category: "env.config",
+      message: `Missing required env: ${missingEnv.join(", ")}`,
+      userId: null,
+      route: "/api/admin/withdrawals/[id]/payout",
+      metadata: { missing: missingEnv },
+    });
     return res.status(500).json({ error: "Server configuration error" });
   }
 
@@ -81,6 +73,36 @@ export default async function handler(req, res) {
 
   try {
     const result = await executeWithdrawalPayout(supabaseAdmin, withdrawalId, { forceRetry });
+    void emitAdminEvent({
+      supabaseClient: supabaseAdmin,
+      eventType: `withdrawal.${String(result.status || "updated").toLowerCase()}`,
+      category: "treasury",
+      severity: result.status === "paid" ? "success" : "info",
+      title: `Withdrawal ${result.status || "updated"}`,
+      message: `Withdrawal ${withdrawalId} marked ${result.status || "updated"}.`,
+      actorUserId: user.id,
+      metadata: {
+        withdrawalId,
+        status: result.status || null,
+        processorStatus: result.processorStatus || null,
+        batchId: result.batchId || null,
+      },
+    });
+    void appendAuditEventServer({
+      entityType: "withdrawal",
+      entityId: withdrawalId,
+      eventType: "admin.payout",
+      actorUserId: user.id,
+      severity: result.status === "paid" ? "success" : "info",
+      title: "Admin automated payout",
+      description: `Withdrawal ${withdrawalId} → ${String(result.status || "updated")}.`,
+      metadata: {
+        status: result.status || null,
+        processor_status: result.processorStatus || null,
+      },
+      dedupeKey: `audit:withdrawal:${withdrawalId}:payout:${String(result.status || "")}:${String(result.processorStatus || "")}`.slice(0, 400),
+      dedupeWindowMs: 8 * 60 * 1000,
+    });
     return res.status(200).json({
       success: true,
       withdrawalId,
@@ -93,27 +115,66 @@ export default async function handler(req, res) {
       err && typeof err === "object" && "paypalError" in err && err.paypalError && typeof err.paypalError === "object"
         ? err.paypalError
         : null;
+    const rawMsg = err?.message || String(err);
+    const lower = rawMsg.toLowerCase();
     void logOperationalError({
       supabaseClient: supabaseAdmin,
-      category: "admin.withdrawal_payout",
-      message: err?.message || "executeWithdrawalPayout failed",
+      category: "withdrawal.admin_payout",
+      message: rawMsg || "executeWithdrawalPayout failed",
       userId: user.id,
       route: "/api/admin/withdrawals/[id]/payout",
       metadata: {
         withdrawalId,
         hasPayPalErrorDetails: !!paypalError,
         paypalErrorName: paypalError && typeof paypalError === "object" ? paypalError.name : undefined,
+        paypalErrorMessage:
+          paypalError && typeof paypalError === "object" && typeof paypalError.message === "string"
+            ? paypalError.message
+            : undefined,
       },
     });
-    if (paypalError) {
-      return res.status(400).json({ error: "PayPal payout failed", details: paypalError });
-    }
-
-    const msg = err?.message || String(err);
     console.error("[admin/payout] executeWithdrawalPayout failed:", err);
-    const lower = msg.toLowerCase();
+    void emitAdminEvent({
+      supabaseClient: supabaseAdmin,
+      eventType: "withdrawal.payout_failed",
+      category: "treasury",
+      severity: "warning",
+      title: "Withdrawal payout failed",
+      message: `Payout for withdrawal ${withdrawalId} failed during processing.`,
+      actorUserId: user.id,
+      metadata: {
+        withdrawalId,
+        hasPayPalErrorDetails: !!paypalError,
+      },
+    });
+    void appendAuditEventServer({
+      entityType: "withdrawal",
+      entityId: withdrawalId,
+      eventType: "admin.payout_failed",
+      actorUserId: user.id,
+      severity: "warning",
+      title: "Admin payout failed",
+      description: `Payout processing failed for withdrawal ${withdrawalId}.`,
+      metadata: {
+        has_paypal_error_details: !!paypalError,
+      },
+      dedupeKey: `audit:withdrawal:${withdrawalId}:payout_failed`,
+      dedupeWindowMs: 8 * 60 * 1000,
+    });
+    if (paypalError) {
+      const summary =
+        typeof paypalError.message === "string" && paypalError.message.trim()
+          ? paypalError.message.trim().slice(0, 200)
+          : "PayPal rejected the payout request.";
+      return res.status(400).json({
+        error: "PayPal payout failed",
+        summary,
+      });
+    }
     if (lower.includes("no payout destination")) {
-      return res.status(400).json({ error: msg });
+      return res.status(400).json({
+        error: "Withdrawal has no payout destination on file.",
+      });
     }
     if (
       lower.includes("already") ||
@@ -121,8 +182,12 @@ export default async function handler(req, res) {
       lower.includes("not allowed") ||
       lower.includes("cannot start")
     ) {
-      return res.status(409).json({ error: msg });
+      return res.status(409).json({
+        error: "Withdrawal cannot be paid out in its current state.",
+      });
     }
-    return res.status(502).json({ error: msg });
+    return res.status(502).json({
+      error: "Could not process this payout. Check /admin/logs for details.",
+    });
   }
 }

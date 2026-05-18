@@ -15,7 +15,12 @@ const navShellStyle = {
 };
 
 const dropdownPanelClass =
-  "absolute right-0 z-10 mt-2 w-52 overflow-hidden rounded-2xl border border-[#e2e8f0] bg-[rgba(255,255,255,0.96)] py-1 text-[#0f172a] shadow-[0_12px_30px_rgba(15,23,42,0.12)]";
+  "tc-account-dropdown absolute right-0 z-10 mt-2 w-52 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#e2e8f0] bg-[rgba(255,255,255,0.96)] pt-1 pb-2 text-[#0f172a] shadow-[0_12px_30px_rgba(15,23,42,0.12)] [scrollbar-width:thin] [scrollbar-color:rgba(15,23,42,0.25)_transparent]";
+
+const dropdownPanelStyle = {
+  maxHeight: "min(80vh, 720px)",
+  WebkitOverflowScrolling: "touch",
+};
 
 const dropdownItemClass =
   "block w-full cursor-pointer rounded-lg px-4 py-2.5 text-left text-sm font-medium text-[#0f172a] transition hover:bg-[#f1f5f9]";
@@ -77,6 +82,12 @@ export default function Navbar() {
             Help
           </button>
           <div className="hidden items-center gap-2 border-l border-white/20 pl-2.5 text-[0.7rem] font-semibold text-white/90 sm:flex sm:text-xs">
+            <Link href="/developers" className="whitespace-nowrap hover:underline">
+              Developers
+            </Link>
+            <span className="text-white/35" aria-hidden>
+              ·
+            </span>
             <Link href="/privacy" className="whitespace-nowrap hover:underline">
               Privacy
             </Link>
@@ -114,12 +125,18 @@ export default function Navbar() {
                 </button>
 
                 {showDropdown && (
-                  <div className={dropdownPanelClass}>
+                  <div className={dropdownPanelClass} style={dropdownPanelStyle}>
                     <button type="button" onClick={() => router.push("/profile")} className={dropdownItemClass}>
                       View Profile
                     </button>
+                    <button type="button" onClick={() => router.push("/security")} className={dropdownItemClass}>
+                      Security
+                    </button>
                     <button type="button" onClick={() => router.push("/support")} className={dropdownItemClass}>
                       Support
+                    </button>
+                    <button type="button" onClick={() => router.push("/developers")} className={dropdownItemClass}>
+                      Developers
                     </button>
                     <button type="button" onClick={() => router.push("/privacy")} className={dropdownItemClass}>
                       Privacy
@@ -131,6 +148,9 @@ export default function Navbar() {
                       <>
                         <button type="button" onClick={() => router.push("/admin")} className={dropdownItemClass}>
                           Admin
+                        </button>
+                        <button type="button" onClick={() => router.push("/admin/timeline")} className={dropdownItemClass}>
+                          Audit timeline
                         </button>
                         <button type="button" onClick={() => router.push("/admin/alerts")} className={dropdownItemClass}>
                           Alert center
@@ -151,6 +171,18 @@ export default function Navbar() {
                         <button type="button" onClick={() => router.push("/admin/logs")} className={dropdownItemClass}>
                           Operational logs
                         </button>
+                        <button type="button" onClick={() => router.push("/admin/treasury")} className={dropdownItemClass}>
+                          Treasury
+                        </button>
+                        <button type="button" onClick={() => router.push("/admin/ledger")} className={dropdownItemClass}>
+                          Internal ledger
+                        </button>
+                        <button type="button" onClick={() => router.push("/admin/triton-transfers")} className={dropdownItemClass}>
+                          Triton transfers
+                        </button>
+                        <button type="button" onClick={() => router.push("/admin/health")} className={dropdownItemClass}>
+                          Health check
+                        </button>
                       </>
                     ) : null}
                     <button type="button" onClick={handleLogout} className={dropdownItemClass}>
@@ -164,6 +196,21 @@ export default function Navbar() {
         </div>
       </nav>
       <div className="min-h-[4rem] sm:min-h-[4.5rem]" aria-hidden="true" />
+      <style jsx global>{`
+        .tc-account-dropdown::-webkit-scrollbar {
+          width: 6px;
+        }
+        .tc-account-dropdown::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .tc-account-dropdown::-webkit-scrollbar-thumb {
+          background-color: rgba(15, 23, 42, 0.25);
+          border-radius: 9999px;
+        }
+        .tc-account-dropdown::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(15, 23, 42, 0.4);
+        }
+      `}</style>
     </>
   );
 }

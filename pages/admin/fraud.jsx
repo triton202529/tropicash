@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useUser } from "../../lib/userContext";
 import { isAdminUser } from "../../lib/adminAccess";
 import Navbar from "../../components/Navbar";
+import AuditTimelineEmbed from "../../components/admin/AuditTimelineEmbed";
 import { recomputeAndPersistUserRiskState } from "../../lib/riskFlags";
 import { logFraudNoteSaved, logFraudStatusChanged } from "../../lib/fraudEvents";
 
@@ -257,6 +258,7 @@ export default function AdminFraudDashboardPage() {
   const [noteBusyId, setNoteBusyId] = useState(null);
   const [statusBusyId, setStatusBusyId] = useState(null);
   const [noteDraftById, setNoteDraftById] = useState({});
+  const [auditRowExpandId, setAuditRowExpandId] = useState(null);
 
   const fetchLogs = useCallback(async () => {
     if (!user?.id) return;
@@ -1064,8 +1066,8 @@ export default function AdminFraudDashboardPage() {
                         : r.review_note || "";
 
                     return (
+                      <Fragment key={r.id}>
                       <tr
-                        key={r.id}
                         style={{ borderBottom: "1px solid #f1f5f9", verticalAlign: "top" }}
                       >
                         <td style={{ padding: "0.65rem 0.75rem", color: "#0f172a", minWidth: "140px" }}>
@@ -1237,6 +1239,22 @@ export default function AdminFraudDashboardPage() {
                             <button
                               type="button"
                               disabled={busy}
+                              onClick={() =>
+                                setAuditRowExpandId((cur) => (cur === r.id ? null : r.id))
+                              }
+                              style={{
+                                ...btnSm,
+                                marginRight: "0.35rem",
+                                marginBottom: "0.25rem",
+                                opacity: busy ? 0.65 : 1,
+                                cursor: busy ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              {auditRowExpandId === r.id ? "Hide audit" : "Audit"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
                               onClick={() => updateFraudStatus(r.id, "reviewed")}
                               style={{
                                 ...btnSm,
@@ -1274,6 +1292,16 @@ export default function AdminFraudDashboardPage() {
                           </div>
                         </td>
                       </tr>
+                      {auditRowExpandId === r.id ? (
+                        <tr>
+                          <td colSpan={15} style={{ padding: 0, background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                            <div style={{ padding: "0.5rem 0.75rem" }}>
+                              <AuditTimelineEmbed entityType="fraud_case" entityId={r.id} limit={15} />
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                      </Fragment>
                     );
                   })}
                 </tbody>

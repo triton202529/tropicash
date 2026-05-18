@@ -5,6 +5,7 @@ import { supabase } from "../../../../lib/supabaseClient";
 import { useUser } from "../../../../lib/userContext";
 import { isAdminUser } from "../../../../lib/adminAccess";
 import Navbar from "../../../../components/Navbar";
+import AuditTimelineEmbed from "../../../../components/admin/AuditTimelineEmbed";
 import { normalizeRiskFlagsArray } from "../../../../lib/riskFlags";
 import { normalizeAccountFlags } from "../../../../lib/accountControls";
 const pageWrap = {
@@ -576,6 +577,8 @@ export default function UserInvestigationTimelinePage() {
             Refresh
           </button>
         </div>
+
+        <AuditTimelineEmbed entityType="user" entityId={userId} limit={20} />
 
         {fetchWarnings.length > 0 ? (
           <div

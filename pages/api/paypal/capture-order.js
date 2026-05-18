@@ -18,27 +18,15 @@ import {
   logPaypalCaptureFailed,
   logPaypalCaptureIncomplete,
 } from "../../../lib/fundingFraudServer";
-import { logOperationalError } from "../../../lib/operationalLogger";
-
-const DEFAULT_SUPABASE_URL = "https://opbhcndlibbcsmoaeymq.supabase.co";
-const DEFAULT_SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wYmhjbmRsaWJiY3Ntb2FleW1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMTM4NjIsImV4cCI6MjA2NzU4OTg2Mn0.Scy3QTema-fyccjeado4ZHoL2s5fjND8useCatvJRyA";
-
-function getSupabaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    DEFAULT_SUPABASE_URL
-  );
-}
-
-function getSupabaseAnonKey() {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    DEFAULT_SUPABASE_ANON_KEY
-  );
-}
+import { logOperationalError, logOperationalEvent } from "../../../lib/operationalLogger";
+import { getSupabaseAnonKey, getSupabaseUrl } from "../../../lib/supabaseAdminApi";
+import {
+  buildRateLimitKey,
+  extractClientIp,
+  incrementRateLimit,
+} from "../../../lib/rateLimit";
+import { emitAdminEvent, emitEvent, recordEventOnce } from "../../../lib/eventBus";
+import { appendAuditEventServer } from "../../../lib/auditTimeline";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -77,8 +65,19 @@ export default async function handler(req, res) {
   const supabaseUrl = getSupabaseUrl();
   const anonKey = getSupabaseAnonKey();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    console.error("[paypal/capture-order] Missing SUPABASE_SERVICE_ROLE_KEY");
+  const missingEnv = [];
+  if (!supabaseUrl) missingEnv.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!anonKey) missingEnv.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!serviceRoleKey) missingEnv.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (missingEnv.length > 0) {
+    console.error("[paypal/capture-order] missing env:", missingEnv.join(", "));
+    void logOperationalError({
+      category: "env.config",
+      message: `Missing required env: ${missingEnv.join(", ")}`,
+      userId: null,
+      route: "/api/paypal/capture-order",
+      metadata: { missing: missingEnv },
+    });
     return res.status(500).json({ error: "Server configuration error" });
   }
 
@@ -95,6 +94,74 @@ export default async function handler(req, res) {
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  const ip = extractClientIp(req);
+  const limitKey = buildRateLimitKey({ userId, ip });
+  if (limitKey) {
+    const limit = await incrementRateLimit({
+      supabaseClient: supabaseAdmin,
+      category: "paypal.capture_order",
+      key: limitKey,
+    });
+    if (!limit.allowed) {
+      const retryAfter = limit.retryAfterSec ?? 60;
+      res.setHeader("Retry-After", String(retryAfter));
+      void logOperationalEvent({
+        level: "warn",
+        supabaseClient: supabaseAdmin,
+        category: "abuse.funding",
+        message: "paypal.capture_order rate-limit triggered",
+        userId,
+        route: "/api/paypal/capture-order",
+        metadata: {
+          limitCategory: "paypal.capture_order",
+          key: limitKey,
+          count: limit.count,
+          retryAfterSec: retryAfter,
+        },
+      });
+      void emitEvent({
+        supabaseClient: supabaseAdmin,
+        targetUserId: userId,
+        eventType: "security.rate_limit",
+        category: "security",
+        severity: "warning",
+        title: "Funding rate limit reached",
+        message: "You've reached the funding rate limit. Please wait a few minutes before trying again.",
+        metadata: { limitCategory: "paypal.capture_order", retryAfterSec: retryAfter },
+      });
+      void recordEventOnce({
+        supabaseClient: supabaseAdmin,
+        adminTarget: true,
+        eventType: "security.rate_limit",
+        category: "admin",
+        severity: "warning",
+        title: "Rate limit hit",
+        message: "User hit rate limit on paypal.capture_order.",
+        actorUserId: userId,
+        metadata: { limitCategory: "paypal.capture_order", retryAfterSec: retryAfter, key: limitKey, userId },
+        dedupeKey: `rate_limit.${limitKey}.paypal.capture_order`,
+        windowMs: 10 * 60 * 1000,
+      });
+      void appendAuditEventServer({
+        entityType: "user",
+        entityId: userId,
+        eventType: "abuse.rate_limit",
+        actorUserId: userId,
+        targetUserId: userId,
+        severity: "warning",
+        title: "PayPal capture rate limit",
+        description: "paypal.capture_order soft limit exceeded.",
+        metadata: { limitCategory: "paypal.capture_order", retryAfterSec: retryAfter },
+        dedupeKey: `audit:rate:${limitKey}:paypal.capture_order`,
+        dedupeWindowMs: 10 * 60 * 1000,
+      });
+      return res.status(429).json({
+        error: "Too many funding attempts. Please wait a few minutes and try again.",
+        retryAfterSec: retryAfter,
+      });
+    }
+  }
 
   let body = req.body;
   if (typeof body === "string") {
@@ -129,8 +196,30 @@ export default async function handler(req, res) {
     });
     console.error("[paypal/capture-order] PayPal capture failed:", err);
     console.error("[FUNDING_STATUS_UPDATE] status=failed phase=capture", { orderID });
+    void recordEventOnce({
+      supabaseClient: supabaseAdmin,
+      targetUserId: userId,
+      eventType: "funding.failed",
+      category: "payments",
+      severity: "warning",
+      title: "Funding attempt failed",
+      message: "We couldn't complete your wallet funding. Please try again or contact support if it persists.",
+      metadata: { orderID, phase: "capture_throw" },
+      dedupeKey: `funding.failed:${userId}:${orderID}`,
+      windowMs: 5 * 60 * 1000,
+    });
+    void emitAdminEvent({
+      supabaseClient: supabaseAdmin,
+      eventType: "funding.failed",
+      category: "payments",
+      severity: "warning",
+      title: "User funding failed",
+      message: `Funding attempt failed for user during PayPal capture (order ${orderID}).`,
+      actorUserId: userId,
+      metadata: { orderID, phase: "capture_throw", userId },
+    });
     return res.status(502).json({
-      error: err?.message || "Could not capture PayPal order",
+      error: "Could not capture PayPal order",
     });
   }
 
@@ -152,6 +241,28 @@ export default async function handler(req, res) {
     console.error("[FUNDING_STATUS_UPDATE] status=failed paypalStatus", {
       orderID,
       paypalStatus: result.status,
+    });
+    void recordEventOnce({
+      supabaseClient: supabaseAdmin,
+      targetUserId: userId,
+      eventType: "funding.failed",
+      category: "payments",
+      severity: "warning",
+      title: "Funding incomplete",
+      message: "PayPal didn't confirm completion of your wallet funding. Please try again.",
+      metadata: { orderID, phase: "paypal_status", paypalStatus: result.status },
+      dedupeKey: `funding.failed:${userId}:${orderID}`,
+      windowMs: 5 * 60 * 1000,
+    });
+    void emitAdminEvent({
+      supabaseClient: supabaseAdmin,
+      eventType: "funding.failed",
+      category: "payments",
+      severity: "warning",
+      title: "PayPal capture incomplete",
+      message: `PayPal status ${result.status} on order ${orderID}.`,
+      actorUserId: userId,
+      metadata: { orderID, phase: "paypal_status", paypalStatus: result.status, userId },
     });
     return res.status(502).json({
       error: "PayPal payment was not completed",
@@ -351,8 +462,30 @@ export default async function handler(req, res) {
       provider_capture_id: providerCaptureId,
       raw_response: { paypal: result, fund_wallet: serializeSupabaseError(fundError) },
     });
+    void recordEventOnce({
+      supabaseClient: supabaseAdmin,
+      targetUserId: userId,
+      eventType: "funding.failed",
+      category: "payments",
+      severity: "warning",
+      title: "Funding could not be credited",
+      message: "Your PayPal payment captured but we couldn't credit your wallet. Support has been notified.",
+      metadata: { orderID, phase: "fund_wallet_rpc" },
+      dedupeKey: `funding.failed:${userId}:${orderID}`,
+      windowMs: 5 * 60 * 1000,
+    });
+    void emitAdminEvent({
+      supabaseClient: supabaseAdmin,
+      eventType: "funding.failed",
+      category: "payments",
+      severity: "critical",
+      title: "Wallet credit failed after capture",
+      message: `fund_wallet RPC failed after PayPal capture for order ${orderID}.`,
+      actorUserId: userId,
+      metadata: { orderID, phase: "fund_wallet_rpc", userId, code: fundError?.code || null },
+    });
     return res.status(500).json({
-      error: fundError.message || "Could not credit wallet after payment",
+      error: "Could not credit wallet after payment",
     });
   }
 
@@ -376,6 +509,22 @@ export default async function handler(req, res) {
       metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null, code: notifError.code },
     });
     console.error("[paypal/capture-order] create_notification failed:", notifError);
+    void appendAuditEventServer({
+      entityType: "notification",
+      entityId: userId,
+      eventType: "notification.create_failed",
+      actorUserId: userId,
+      targetUserId: userId,
+      severity: "warning",
+      title: "Post-funding notification failed",
+      description: "create_notification RPC failed after successful funding.",
+      metadata: {
+        code: notifError.code || null,
+        orderID: orderID ? String(orderID).slice(0, 80) : null,
+      },
+      dedupeKey: `audit:notification:funding:${userId}:${String(orderID)}`,
+      dedupeWindowMs: 8 * 60 * 1000,
+    });
   }
 
   const notificationId =
@@ -394,6 +543,18 @@ export default async function handler(req, res) {
   });
   await logFundingSuccessFraudSignals(supabaseAdmin, { userId, amountNum, orderID });
   console.log("[FUNDING_STATUS_UPDATE] status=completed", { orderID, userId, amount: amountNum });
+
+  void emitEvent({
+    supabaseClient: supabaseAdmin,
+    targetUserId: userId,
+    eventType: "funding.completed",
+    category: "payments",
+    severity: "success",
+    title: "Wallet funded",
+    message: `$${amountText} was added to your wallet.`,
+    relatedTransactionId: transactionId,
+    metadata: { orderID, amount: amountNum },
+  });
 
   return res.status(200).json({
     success: true,

@@ -69,6 +69,37 @@ export default function SupportPage() {
 
     setSubmitting(true);
     try {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+        const limitRes = await fetch("/api/support/check-limit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+        if (limitRes.status === 429) {
+          const payload = await limitRes.json().catch(() => ({}));
+          setFormError(
+            typeof payload?.error === "string" && payload.error
+              ? payload.error
+              : "You've sent us a lot of feedback in a short time. Please try again in a bit.",
+          );
+          setSubmitting(false);
+          return;
+        }
+      } catch (limitErr) {
+        void logOperationalError({
+          category: "abuse.limiter_error",
+          message: limitErr?.message || "support/check-limit fetch failed",
+          userId: user?.id || null,
+          route: "/support",
+          metadata: { phase: "support_check_limit" },
+        });
+      }
       const { error } = await supabase.from("tester_feedback").insert({
         user_id: user.id,
         issue_type: issueType,
@@ -79,13 +110,15 @@ export default function SupportPage() {
       if (error) {
         console.error("[support] tester_feedback insert", error);
         void logOperationalError({
-          category: "feedback.tester_insert",
+          category: "support.feedback_insert",
           message: error.message || "tester_feedback insert failed",
           userId: user.id,
           route: "/support",
           metadata: { code: error.code, issueType },
         });
-        setFormError(error.message || "Could not save feedback. Try again or email support.");
+        setFormError(
+          "Could not save feedback right now. Please try again, or email support@tropicash.com.",
+        );
         setSubmitting(false);
         return;
       }
@@ -99,14 +132,16 @@ export default function SupportPage() {
       console.error(err);
       if (user?.id) {
         void logOperationalError({
-          category: "feedback.tester_insert",
+          category: "support.feedback_insert",
           message: err?.message || String(err),
           userId: user.id,
           route: "/support",
           metadata: { threw: true },
         });
       }
-      setFormError("Something went wrong. Please try again.");
+      setFormError(
+        "Could not save feedback right now. Please try again, or email support@tropicash.com.",
+      );
     } finally {
       setSubmitting(false);
     }
