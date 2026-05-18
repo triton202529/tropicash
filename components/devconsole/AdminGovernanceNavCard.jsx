@@ -14,7 +14,7 @@ export default function AdminGovernanceNavCard() {
 
   return (
     <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
-      <p className="font-semibold text-violet-900">Developer Approvals</p>
+      <p className="font-semibold text-violet-900">Developer Governance</p>
       <p className="mt-1 text-violet-900/90">
         Review pending sandbox activations, live upgrades, and capability requests in the
         governance queue.
@@ -23,7 +23,7 @@ export default function AdminGovernanceNavCard() {
         href="/dev-console/app-governance"
         className="mt-3 inline-flex rounded-lg bg-violet-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-violet-800"
       >
-        Open Governance Queue →
+        Open Developer Governance →
       </Link>
     </div>
   );

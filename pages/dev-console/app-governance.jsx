@@ -236,7 +236,7 @@ export default function DevConsoleAppGovernancePage() {
 
   if (authLoading) {
     return (
-      <DevConsoleLayout title="Developer App Governance" subtitle="Loading…">
+      <DevConsoleLayout title="Developer Governance" subtitle="Loading…">
         <p className="text-sm text-slate-600">Checking your session…</p>
       </DevConsoleLayout>
     );
@@ -244,7 +244,7 @@ export default function DevConsoleAppGovernancePage() {
 
   if (!user) {
     return (
-      <DevConsoleLayout title="Developer App Governance" subtitle="Sign in required.">
+      <DevConsoleLayout title="Developer Governance" subtitle="Sign in required.">
         <p className="text-sm text-slate-600">
           <Link href="/login" className="font-semibold text-emerald-700 underline">
             Go to login
@@ -257,7 +257,7 @@ export default function DevConsoleAppGovernancePage() {
   if (!admin) {
     return (
       <DevConsoleLayout
-        title="Developer App Governance"
+        title="Developer Governance"
         subtitle="Admin operators only."
       >
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
@@ -282,7 +282,7 @@ export default function DevConsoleAppGovernancePage() {
 
   return (
     <DevConsoleLayout
-      title="Developer App Governance"
+      title="Developer Governance"
       subtitle="Review sandbox activation and environment upgrade requests. Metadata and status transitions only — no API keys, secrets, or live API execution."
     >
       <div

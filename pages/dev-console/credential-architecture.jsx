@@ -84,7 +84,7 @@ export default function DevConsoleCredentialArchitecturePage() {
           <code className="rounded bg-slate-100 px-1 text-xs">developer_credential_lifecycle_events</code>{" "}
           (owner read, admin write). Pair with app governance on{" "}
           <Link href="/dev-console/app-governance" className="font-semibold text-emerald-700 underline">
-            App Governance
+            Developer Governance
           </Link>{" "}
           before imagining live issuance.
         </p>

@@ -51,7 +51,7 @@ export default function DevConsoleLayout({
 }) {
   const router = useRouter();
   const currentPath = router.pathname;
-  const { user, profile, loading: authLoading } = useUser();
+  const { user, profile } = useUser();
   const isAdmin = isAdminUser(user, profile);
 
   const [environmentLabel] = useState(() =>
@@ -60,13 +60,13 @@ export default function DevConsoleLayout({
 
   const navItems = useMemo(() => {
     const routes = filterDevConsoleRoutes(DEV_CONSOLE_ROUTES, {
-      isAdmin: !authLoading && isAdmin,
+      isAdmin,
     });
     return routes.map((route) => ({
       ...route,
       active: isRouteActive(currentPath, route.path),
     }));
-  }, [currentPath, authLoading, isAdmin]);
+  }, [currentPath, isAdmin]);
 
   return (
     <>

@@ -4,8 +4,12 @@ import DevConsoleLayout, {
   DevConsolePlaceholderCard,
   DevConsoleComingSoon,
 } from "../../components/devconsole/DevConsoleLayout";
+import { isAdminUser } from "../../lib/adminAccess";
+import { useUser } from "../../lib/userContext";
 
 export default function DevConsoleAppsPage() {
+  const { user, profile, loading: authLoading } = useUser();
+  const showGovernanceLink = !authLoading && isAdminUser(user, profile);
   return (
     <DevConsoleLayout
       title="Apps"
@@ -80,6 +84,14 @@ export default function DevConsoleAppsPage() {
             </Link>{" "}
             — sandbox capability requests (admin assigns in governance).
           </li>
+          {showGovernanceLink ? (
+            <li>
+              <Link href="/dev-console/app-governance" className="font-semibold text-emerald-800 underline">
+                Developer Governance
+              </Link>{" "}
+              — admin review queue for sandbox activation, live upgrades, and capability requests.
+            </li>
+          ) : null}
         </ul>
       </section>
 

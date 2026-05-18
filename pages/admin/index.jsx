@@ -480,6 +480,15 @@ export default function AdminIndexPage() {
               Health check
             </Link>
           </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/dev-console/app-governance" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Developer Governance
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — developer app review queue (Dev Console)
+            </span>
+          </li>
         </ul>
 
         <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
