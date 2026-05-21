@@ -74,6 +74,18 @@ export default function DevConsoleProductCatalogPage() {
 
       <div
         role="note"
+        className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950"
+      >
+        <strong className="font-semibold">Phase 9A + 9B — Product Access.</strong> Sandbox product entitlement previews
+        and metadata-only product governance map capabilities to access scopes in{" "}
+        <Link href="/dev-console/product-access" className="font-semibold text-teal-900 underline">
+          Product Access
+        </Link>{" "}
+        — no endpoints, credentials, execution, or live access.
+      </div>
+
+      <div
+        role="note"
         className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950"
       >
         <strong className="font-semibold">Phase 4E — Sandbox Analytics.</strong> Static usage, health,
@@ -98,10 +110,10 @@ export default function DevConsoleProductCatalogPage() {
 
       <div
         role="note"
-        className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+        className="rounded-xl border border-tropicash-green-tint bg-tropicash-green-tint px-4 py-3 text-sm text-slate-900"
       >
         <strong className="font-semibold">Phase 5C — Gateway Simulator.</strong> The{" "}
-        <Link href="/dev-console/gateway-simulator" className="font-semibold text-emerald-900 underline">
+        <Link href="/dev-console/gateway-simulator" className="font-semibold text-tropicash-green-hover underline">
           Gateway Simulator
         </Link>{" "}
         merges catalog keys into static request envelopes, correlation triples, audit-field rehearsals, illustrative
@@ -119,6 +131,19 @@ export default function DevConsoleProductCatalogPage() {
         </Link>{" "}
         simulator stitches post-gateway delegate narration across the same catalog keys — choreography only; no queues,
         workers, or live execution.
+      </div>
+
+      <div
+        role="note"
+        className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+      >
+        <strong className="font-semibold">Phase 10A + 10B — Request Simulator.</strong> Sandbox request flow, governance,
+        and observability metadata for catalog <code className="text-xs">product_key</code> rows live in the{" "}
+        <Link href="/dev-console/request-simulator" className="font-semibold text-amber-900 underline">
+          Request Simulator
+        </Link>{" "}
+        — simulation only, metadata only, preview only; no execution, no live request traffic, no endpoint activation,
+        and no money movement.
       </div>
 
       <section className={sectionClass} aria-labelledby="phase-heading">
@@ -483,15 +508,27 @@ export default function DevConsoleProductCatalogPage() {
       </section>
 
       <p className="text-sm text-slate-600">
-        <Link href="/dev-console/sandbox-analytics" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/workspace" className="font-semibold text-tropicash-green-hover underline">
+          Workspace (Phase 7A + 7B)
+        </Link>
+        {" · "}
+        <Link href="/dev-console/product-access" className="font-semibold text-tropicash-green-hover underline">
+          Product Access (9A + 9B)
+        </Link>
+        {" · "}
+        <Link href="/dev-console/request-simulator" className="font-semibold text-tropicash-green-hover underline">
+          Request Simulator (10A + 10B)
+        </Link>
+        {" · "}
+        <Link href="/dev-console/sandbox-analytics" className="font-semibold text-tropicash-green-hover underline">
           Sandbox Analytics
         </Link>
         {" · "}
-        <Link href="/dev-console/app-capabilities" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/app-capabilities" className="font-semibold text-tropicash-green-hover underline">
           App Capabilities
         </Link>
         {" · "}
-        <Link href="/dev-console/my-apps" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/my-apps" className="font-semibold text-tropicash-green-hover underline">
           My Apps
         </Link>
       </p>

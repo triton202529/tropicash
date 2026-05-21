@@ -231,7 +231,7 @@ export default function DevConsoleMyAppsPage() {
     return (
       <DevConsoleLayout title="My Apps" subtitle="Sign in to view your developer apps.">
         <p className="text-sm text-slate-600">
-          <Link href="/login" className="font-semibold text-emerald-700 underline">
+          <Link href="/login" className="font-semibold text-tropicash-green-hover underline">
             Go to login
           </Link>
         </p>
@@ -250,7 +250,11 @@ export default function DevConsoleMyAppsPage() {
       >
         <strong className="font-semibold">Governance only.</strong> You can register apps and request
         sandbox activation. Admins approve status transitions; credentials, webhooks, and payment APIs
-        are not enabled here.
+        are not enabled here. For a static identity and readiness snapshot, open{" "}
+        <Link href="/dev-console/workspace" className="font-semibold text-amber-900 underline">
+          Workspace (Phase 7A + 7B)
+        </Link>
+        .
       </div>
 
       {loadError ? (
@@ -317,6 +321,12 @@ export default function DevConsoleMyAppsPage() {
           >
             🔐 Read Credential Architecture
           </Link>
+          <Link
+            href="/dev-console/credential-lifecycle"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🪪 Credential Lifecycle
+          </Link>
         </div>
       </section>
 
@@ -352,7 +362,7 @@ export default function DevConsoleMyAppsPage() {
         ) : (
           <p className="mt-3 text-sm text-slate-600">
             No organizations yet.{" "}
-            <Link href="/dev-console/apps-register" className="font-semibold text-emerald-700 underline">
+            <Link href="/dev-console/apps-register" className="font-semibold text-tropicash-green-hover underline">
               Register an app
             </Link>
             .
@@ -406,7 +416,7 @@ export default function DevConsoleMyAppsPage() {
                     .{" "}
                     <Link
                       href="/dev-console/app-capabilities"
-                      className="font-semibold text-emerald-700 underline"
+                      className="font-semibold text-tropicash-green-hover underline"
                     >
                       Manage capabilities
                     </Link>
@@ -440,7 +450,7 @@ export default function DevConsoleMyAppsPage() {
         ) : (
           <p className="mt-3 text-sm text-slate-600">
             No apps yet.{" "}
-            <Link href="/dev-console/apps-register" className="font-semibold text-emerald-700 underline">
+            <Link href="/dev-console/apps-register" className="font-semibold text-tropicash-green-hover underline">
               Create a sandbox app
             </Link>
             .
@@ -533,6 +543,12 @@ export default function DevConsoleMyAppsPage() {
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
+            href="/dev-console/workspace"
+            className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-sm hover:bg-emerald-100"
+          >
+            🏠 Workspace (Phase 7A + 7B)
+          </Link>
+          <Link
             href="/dev-console/app-capabilities"
             className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
           >
@@ -554,11 +570,11 @@ export default function DevConsoleMyAppsPage() {
       </section>
 
       <p className="text-sm text-slate-600">
-        <Link href="/dev-console/apps-register" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/apps-register" className="font-semibold text-tropicash-green-hover underline">
           Register another app
         </Link>
         {" · "}
-        <Link href="/dev-console/apps" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/apps" className="font-semibold text-tropicash-green-hover underline">
           Apps overview
         </Link>
       </p>

@@ -439,8 +439,18 @@ export default function AuthSimulatorPage() {
                 </Link>
               </li>
               <li>
+                <Link href="/dev-console/credential-lifecycle" className="hover:underline">
+                  Credential Lifecycle (8A + 8B — metadata-only credential governance) →
+                </Link>
+              </li>
+              <li>
                 <Link href="/dev-console/product-catalog" className="hover:underline">
                   Product Catalog (Phase 4D) →
+                </Link>
+              </li>
+              <li>
+                <Link href="/dev-console/product-access" className="hover:underline">
+                  Product Access (9A + 9B — sandbox product entitlement previews, metadata-only governance) →
                 </Link>
               </li>
               <li>
@@ -451,6 +461,11 @@ export default function AuthSimulatorPage() {
               <li>
                 <Link href="/dev-console/gateway-simulator" className="hover:underline">
                   Gateway Simulator (Phase 5C) →
+                </Link>
+              </li>
+              <li>
+                <Link href="/dev-console/request-simulator" className="hover:underline">
+                  Request Simulator (10A + 10B) — sandbox request flow, governance, and observability metadata; no endpoint execution →
                 </Link>
               </li>
               <li>

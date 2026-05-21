@@ -5,6 +5,11 @@ import { useUser } from "../../lib/userContext";
 import { isAdminUser } from "../../lib/adminAccess";
 import { supabase } from "../../lib/supabaseClient";
 import {
+  fetchDeveloperAccessRequests,
+  updateDeveloperAccessRequestStatus,
+} from "../../lib/developerAccessRequests";
+import { DEVELOPER_ACCESS_USE_CASES } from "../../lib/developerCenterConfig";
+import {
   approveCapabilityRequest,
   fetchPendingCapabilityRequestsForAdmin,
   needsChangesCapabilityRequest,
@@ -45,6 +50,8 @@ function statusBadge(status) {
     pending: "border-amber-200 bg-amber-50 text-amber-950",
     approved: "border-emerald-200 bg-emerald-50 text-emerald-900",
     rejected: "border-red-200 bg-red-50 text-red-900",
+    reviewed: "border-sky-200 bg-sky-50 text-sky-900",
+    archived: "border-slate-200 bg-slate-100 text-slate-700",
     needs_changes: "border-sky-200 bg-sky-50 text-sky-900",
     cancelled: "border-slate-200 bg-slate-100 text-slate-700",
     draft: "border-slate-200 bg-slate-50 text-slate-700",
@@ -81,21 +88,23 @@ export default function DevConsoleAppGovernancePage() {
   const [capDecisionNotes, setCapDecisionNotes] = useState("");
   const [capActionMessage, setCapActionMessage] = useState({ type: "", text: "" });
   const [capActing, setCapActing] = useState(false);
+  const [accessRequests, setAccessRequests] = useState([]);
+  const [selectedAccessRequestId, setSelectedAccessRequestId] = useState("");
+  const [accessReviewNotes, setAccessReviewNotes] = useState("");
+  const [accessActionMessage, setAccessActionMessage] = useState({ type: "", text: "" });
+  const [accessActing, setAccessActing] = useState(false);
 
   const load = useCallback(async () => {
-    if (!admin) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setLoadError("");
-    const [pRes, rRes, aRes, lRes, oRes, capRes] = await Promise.all([
+    const [pRes, rRes, aRes, lRes, oRes, capRes, accessRes] = await Promise.all([
       fetchAllPendingReviewsForAdmin(),
       fetchAllReviewsForAdmin(),
       fetchAppsForGovernance(),
       fetchAllLifecycleEventsForAdmin(),
       supabase.from("developer_organizations").select("id, organization_name").limit(500),
       fetchPendingCapabilityRequestsForAdmin(),
+      fetchDeveloperAccessRequests(),
     ]);
     const parts = [];
     if (pRes.error) parts.push(pRes.error.message || "Could not load pending reviews.");
@@ -103,20 +112,45 @@ export default function DevConsoleAppGovernancePage() {
     if (aRes.error) parts.push(aRes.error.message || "Could not load apps.");
     if (lRes.error) parts.push(lRes.error.message || "Could not load lifecycle events.");
     if (capRes.error) parts.push(capRes.error.message || "Could not load capability requests.");
+    if (accessRes.error) {
+      parts.push(accessRes.error.message || "Could not load public access requests.");
+    }
+    let pending = pRes.data || [];
+    if (!pRes.error && !pending.length && (rRes.data || []).length) {
+      const fromHistory = (rRes.data || []).filter((r) => r.status === "pending");
+      if (fromHistory.length) {
+        pending = fromHistory;
+        console.log("[governance-debug] pending reviews recovered from review history", {
+          count: fromHistory.length,
+        });
+      }
+    }
+    console.log("[governance-debug] app-governance load", {
+      admin,
+      userId: user?.id ?? null,
+      userEmail: user?.email ?? null,
+      pendingReviews: pending.length,
+      capabilityRequests: (capRes.data || []).length,
+      accessRequests: (accessRes.data || []).length,
+      allReviews: (rRes.data || []).length,
+      apps: (aRes.data || []).length,
+      loadErrors: parts,
+    });
     setLoadError(parts.join(" "));
-    setPendingReviews(pRes.data || []);
+    setPendingReviews(pending);
     setAllReviews(rRes.data || []);
     setApps(aRes.data || []);
     setLifecycle(lRes.data || []);
     setOrgs(oRes.error ? [] : oRes.data || []);
     setCapabilityRequests(capRes.data || []);
+    setAccessRequests(accessRes.data || []);
     setLoading(false);
-  }, [admin]);
+  }, [admin, user?.email, user?.id]);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !admin || !user?.id) return;
     void load();
-  }, [authLoading, load]);
+  }, [authLoading, admin, user?.id, load]);
 
   const appById = useMemo(
     () => Object.fromEntries((apps || []).map((a) => [a.id, a])),
@@ -152,6 +186,16 @@ export default function DevConsoleAppGovernancePage() {
     return seed ? seed.capabilityLabel : key;
   };
 
+  const useCaseLabel = (value) => {
+    const opt = DEVELOPER_ACCESS_USE_CASES.find((u) => u.value === value);
+    return opt ? opt.label : value || "—";
+  };
+
+  const selectedAccessRequest = useMemo(
+    () => (accessRequests || []).find((r) => r.id === selectedAccessRequestId) || null,
+    [accessRequests, selectedAccessRequestId],
+  );
+
   useEffect(() => {
     if (!selectedReviewId && pendingReviews.length) {
       setSelectedReviewId(pendingReviews[0].id);
@@ -163,6 +207,44 @@ export default function DevConsoleAppGovernancePage() {
       setSelectedCapRequestId(capabilityRequests[0].id);
     }
   }, [capabilityRequests, selectedCapRequestId]);
+
+  useEffect(() => {
+    if (!selectedAccessRequestId && accessRequests.length) {
+      setSelectedAccessRequestId(accessRequests[0].id);
+    }
+  }, [accessRequests, selectedAccessRequestId]);
+
+  const handleAccessRequestStatus = async (status) => {
+    setAccessActionMessage({ type: "", text: "" });
+    if (!user?.id || !selectedAccessRequestId) {
+      setAccessActionMessage({ type: "error", text: "Select a public access request first." });
+      return;
+    }
+    setAccessActing(true);
+    const { data, error } = await updateDeveloperAccessRequestStatus({
+      id: selectedAccessRequestId,
+      status,
+      reviewed_by_user_id: user.id,
+      review_notes: accessReviewNotes.trim() || null,
+    });
+    setAccessActing(false);
+    if (error) {
+      setAccessActionMessage({
+        type: "error",
+        text: error.message || "Could not update access request.",
+      });
+      return;
+    }
+    setAccessActionMessage({
+      type: "success",
+      text:
+        status === "approved"
+          ? `Access request approved. The submitter can sign in to the Developer Console (shell entry only). No organizations, apps, or API keys were created.`
+          : `Access request marked ${data?.status || status}. No org or app records were created.`,
+    });
+    setAccessReviewNotes("");
+    void load();
+  };
 
   const handleDecision = async (status) => {
     setActionMessage({ type: "", text: "" });
@@ -246,7 +328,7 @@ export default function DevConsoleAppGovernancePage() {
     return (
       <DevConsoleLayout title="Developer Governance" subtitle="Sign in required.">
         <p className="text-sm text-slate-600">
-          <Link href="/login" className="font-semibold text-emerald-700 underline">
+          <Link href="/login" className="font-semibold text-tropicash-green-hover underline">
             Go to login
           </Link>
         </p>
@@ -274,6 +356,10 @@ export default function DevConsoleAppGovernancePage() {
           <Link href="/dev-console/sandbox-analytics" className="font-semibold underline">
             Sandbox Analytics
           </Link>
+          ,{" "}
+          <Link href="/dev-console/workspace" className="font-semibold underline">
+            Workspace
+          </Link>
           .
         </div>
       </DevConsoleLayout>
@@ -285,6 +371,148 @@ export default function DevConsoleAppGovernancePage() {
       title="Developer Governance"
       subtitle="Review sandbox activation and environment upgrade requests. Metadata and status transitions only — no API keys, secrets, or live API execution."
     >
+      <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+        <strong className="font-semibold">Phase 7A Workspace:</strong> developers see static identity, onboarding, and
+        readiness on{" "}
+        <Link href="/dev-console/workspace" className="font-semibold underline">
+          Workspace
+        </Link>
+        — seed counts may differ from live queue rows below.
+      </div>
+      <section
+        className="tropicash-surface rounded-2xl p-5 sm:p-6"
+        aria-labelledby="public-access-heading"
+      >
+        <h2 id="public-access-heading" className="text-lg font-bold text-slate-900">
+          Public developer access requests
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Intake from{" "}
+          <Link href="/developers/request-access" className="font-semibold text-tropicash-green-hover underline">
+            /developers/request-access
+          </Link>
+          . Approving grants signed-in access to the Developer Console shell only — it does not
+          create organizations, apps, or API keys.
+        </p>
+        {loading ? (
+          <p className="mt-3 text-sm text-slate-600">Loading…</p>
+        ) : accessRequests.length ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[960px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                  <th className="pb-2 pr-3 font-semibold">Name</th>
+                  <th className="pb-2 pr-3 font-semibold">Company</th>
+                  <th className="pb-2 pr-3 font-semibold">Email</th>
+                  <th className="pb-2 pr-3 font-semibold">Use case</th>
+                  <th className="pb-2 pr-3 font-semibold">Message</th>
+                  <th className="pb-2 pr-3 font-semibold">Status</th>
+                  <th className="pb-2 font-semibold">Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accessRequests.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`cursor-pointer border-b border-slate-100 last:border-0 ${
+                      selectedAccessRequestId === r.id ? "bg-slate-50" : ""
+                    }`}
+                    onClick={() => setSelectedAccessRequestId(r.id)}
+                  >
+                    <td className="py-2 pr-3 font-medium text-slate-900">{r.full_name}</td>
+                    <td className="py-2 pr-3 text-slate-600">{r.company_name || "—"}</td>
+                    <td className="py-2 pr-3 text-slate-600">{r.email}</td>
+                    <td className="py-2 pr-3 text-slate-600">{useCaseLabel(r.use_case)}</td>
+                    <td className="py-2 pr-3 max-w-[200px] truncate text-slate-600">
+                      {r.message || "—"}
+                    </td>
+                    <td className="py-2 pr-3">{statusBadge(r.status)}</td>
+                    <td className="py-2 text-slate-500">{formatWhen(r.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-slate-600">No public access requests yet.</p>
+        )}
+
+        {selectedAccessRequest ? (
+          <div className="mt-4 space-y-3 border-t border-slate-200 pt-4 text-sm text-slate-700">
+            <p>
+              <span className="font-semibold text-slate-900">Selected:</span>{" "}
+              {selectedAccessRequest.full_name} · {selectedAccessRequest.email}
+            </p>
+            {selectedAccessRequest.message ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="font-semibold">Message:</span> {selectedAccessRequest.message}
+              </p>
+            ) : null}
+            <div>
+              <label className={labelClass} htmlFor="access-review-notes">
+                Review notes
+              </label>
+              <textarea
+                id="access-review-notes"
+                className={inputClass}
+                rows={3}
+                value={accessReviewNotes}
+                onChange={(ev) => setAccessReviewNotes(ev.target.value)}
+                placeholder="Optional notes stored on the request row."
+              />
+            </div>
+            {accessActionMessage.text ? (
+              <p
+                role={accessActionMessage.type === "error" ? "alert" : "status"}
+                className={
+                  accessActionMessage.type === "error" ? "text-red-700" : "text-emerald-800"
+                }
+              >
+                {accessActionMessage.text}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={btnSecondary}
+                disabled={accessActing}
+                onClick={() => void handleAccessRequestStatus("reviewed")}
+              >
+                Mark reviewed
+              </button>
+              <button
+                type="button"
+                className={btnPrimary}
+                disabled={accessActing}
+                onClick={() => void handleAccessRequestStatus("approved")}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                className={btnSecondary}
+                disabled={accessActing}
+                onClick={() => void handleAccessRequestStatus("rejected")}
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                className={btnSecondary}
+                disabled={accessActing}
+                onClick={() => void handleAccessRequestStatus("archived")}
+              >
+                Archive
+              </button>
+            </div>
+          </div>
+        ) : accessRequests.length ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Select a request above to update status.
+          </p>
+        ) : null}
+      </section>
+
       <div
         role="note"
         className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
@@ -294,6 +522,18 @@ export default function DevConsoleAppGovernancePage() {
         access approval sets <code className="text-xs">live_pending</code> (not{" "}
         <code className="text-xs">live_active</code>) until a future phase. No credentials are
         issued and no payment or wallet surfaces are touched.
+      </div>
+
+      <div
+        role="note"
+        className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950"
+      >
+        <strong className="font-semibold">Phase 9A + 9B — Product Access.</strong> Sandbox product entitlement previews
+        and metadata-only product governance (visibility rules, review outcomes, revocation models) live in{" "}
+        <Link href="/dev-console/product-access" className="font-semibold text-teal-900 underline">
+          Product Access
+        </Link>
+        . App review outcomes here inform product entitlement history seeds — no endpoints, execution, or live access.
       </div>
 
       <section
@@ -308,12 +548,36 @@ export default function DevConsoleAppGovernancePage() {
           tables (no secret columns), lifecycle vocabulary, and vault blueprint slices. Review the
           static console walkthrough so governance decisions stay aligned with issuance constraints.
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/dev-console/credential-architecture"
             className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
           >
-            🔐 Open Credential Architecture
+            🔐 Credential Architecture (Phase 5A)
+          </Link>
+          <Link
+            href="/dev-console/credential-lifecycle"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🪪 Credential Lifecycle (8A + 8B)
+          </Link>
+          <Link
+            href="/dev-console/workspace"
+            className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-sm hover:bg-emerald-100"
+          >
+            🏠 Workspace (Phase 7A + 7B)
+          </Link>
+          <Link
+            href="/dev-console/product-access"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🎫 Product Access (9A + 9B)
+          </Link>
+          <Link
+            href="/dev-console/request-simulator"
+            className="inline-flex rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100"
+          >
+            📨 Request Simulator (10A + 10B)
           </Link>
         </div>
         <p className="mt-3 text-xs text-slate-500">
@@ -323,7 +587,7 @@ export default function DevConsoleAppGovernancePage() {
         <p className="mt-4 text-sm text-slate-600">
           <strong className="font-semibold text-slate-800">Phase 5B — request verification simulation.</strong> After
           credentials are modeled, the{" "}
-          <Link href="/dev-console/auth-simulator" className="font-semibold text-emerald-700 underline">
+          <Link href="/dev-console/auth-simulator" className="font-semibold text-tropicash-green-hover underline">
             Auth Simulator
           </Link>{" "}
           explains how a future edge would walk transport, lifecycle, environment, and capability checks before any
@@ -333,11 +597,11 @@ export default function DevConsoleAppGovernancePage() {
 
       <p className="text-sm text-slate-600">
         Capability approvals can be cross-checked against the static{" "}
-        <Link href="/dev-console/product-catalog" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/product-catalog" className="font-semibold text-tropicash-green-hover underline">
           Product Catalog
         </Link>{" "}
         (Phase 4D — illustrative contracts only) and{" "}
-        <Link href="/dev-console/sandbox-analytics" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/sandbox-analytics" className="font-semibold text-tropicash-green-hover underline">
           Sandbox Analytics
         </Link>{" "}
         (Phase 4E — simulated usage narratives only).
@@ -348,6 +612,10 @@ export default function DevConsoleAppGovernancePage() {
           {loadError}{" "}
           <span className="text-slate-600">
             Apply{" "}
+            <code className="rounded bg-slate-100 px-1">
+              supabase/sql/developer_access_requests.sql
+            </code>
+            ,{" "}
             <code className="rounded bg-slate-100 px-1">
               supabase/sql/developer_app_governance_phase4b.sql
             </code>{" "}

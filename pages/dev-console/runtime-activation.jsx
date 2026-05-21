@@ -480,10 +480,40 @@ export default function RuntimeActivationPage() {
             Credential Architecture (Phase 5A)
           </Link>
           <Link
+            href="/dev-console/credential-lifecycle"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🪪 Credential Lifecycle (8A + 8B)
+          </Link>
+          <Link
+            href="/dev-console/app-governance"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🛡️ Developer Governance
+          </Link>
+          <Link
+            href="/dev-console/workspace"
+            className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-sm hover:bg-emerald-100"
+          >
+            🏠 Workspace (Phase 7A + 7B)
+          </Link>
+          <Link
+            href="/dev-console/product-access"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🎫 Product Access (9A + 9B)
+          </Link>
+          <Link
             href="/dev-console/auth-simulator"
             className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
           >
             Auth Simulator (Phase 5B)
+          </Link>
+          <Link
+            href="/dev-console/request-simulator"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            📨 Request Simulator (10A + 10B)
           </Link>
           <Link
             href="/dev-console/runtime-state"

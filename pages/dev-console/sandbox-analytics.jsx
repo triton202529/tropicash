@@ -98,24 +98,24 @@ export default function DevConsoleSandboxAnalyticsPage() {
         </p>
         <p className="mt-4 text-sm text-slate-600">
           <strong className="font-semibold text-slate-800">Catalog alignment:</strong>{" "}
-          <Link href="/dev-console/product-catalog" className="font-semibold text-emerald-700 underline">
+          <Link href="/dev-console/product-catalog" className="font-semibold text-tropicash-green-hover underline">
             Product Catalog
           </Link>{" "}
           (Phase 4D) — cross-check <code className="text-xs">product_key</code> /{" "}
           <code className="text-xs">contract_key</code> / Phase 2C{" "}
           <code className="text-xs">capability_key</code> values. For a deterministic auth-stage walk on the same keys, open{" "}
-          <Link href="/dev-console/auth-simulator" className="font-semibold text-emerald-700 underline">
+          <Link href="/dev-console/auth-simulator" className="font-semibold text-tropicash-green-hover underline">
             Auth Simulator
           </Link>{" "}
           (Phase 5B — verification modeling only). For rehearsal request envelopes layered on identical keys plus
           illustrative gateway routing previews, delegated trace joins, observability placeholders, and audit rehearsal
           fields, continue to{" "}
-          <Link href="/dev-console/gateway-simulator" className="font-semibold text-emerald-700 underline">
+          <Link href="/dev-console/gateway-simulator" className="font-semibold text-tropicash-green-hover underline">
             Gateway Simulator (Phase 5C)
           </Link>{" "}
           — consoles only; seeded analytics counters stay decoupled from any HTTP edge narrative. For post-gateway
           delegate narration on the same keys, continue to{" "}
-          <Link href="/dev-console/execution-routing" className="font-semibold text-emerald-700 underline">
+          <Link href="/dev-console/execution-routing" className="font-semibold text-tropicash-green-hover underline">
             Execution Routing (Phase 5D)
           </Link>{" "}
           — simulation only; no workers or live routing.
@@ -415,15 +415,19 @@ export default function DevConsoleSandboxAnalyticsPage() {
       </section>
 
       <p className="text-sm text-slate-600">
-        <Link href="/dev-console/product-catalog" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/workspace" className="font-semibold text-tropicash-green-hover underline">
+          Workspace (Phase 7A + 7B)
+        </Link>
+        {" · "}
+        <Link href="/dev-console/product-catalog" className="font-semibold text-tropicash-green-hover underline">
           Product Catalog
         </Link>
         {" · "}
-        <Link href="/dev-console/app-capabilities" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/app-capabilities" className="font-semibold text-tropicash-green-hover underline">
           App Capabilities
         </Link>
         {" · "}
-        <Link href="/dev-console/sandbox" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/sandbox" className="font-semibold text-tropicash-green-hover underline">
           Sandbox
         </Link>
       </p>

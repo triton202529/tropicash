@@ -156,7 +156,11 @@ export default function GatewaySimulatorPage() {
             <Link href="/dev-console/execution-routing" className="font-semibold text-amber-900 underline">
               Phase 5D execution routing
             </Link>
-            .
+            , and end-to-end sandbox request envelopes in{" "}
+            <Link href="/dev-console/request-simulator" className="font-semibold text-amber-900 underline">
+              Phase 10A + 10B Request Simulator (governance & observability metadata)
+            </Link>{" "}
+            (preview routes only — no real endpoint execution).
           </span>
         </div>
       </div>
@@ -478,8 +482,18 @@ export default function GatewaySimulatorPage() {
                 </Link>
               </li>
               <li>
+                <Link href="/dev-console/product-access" className="hover:underline">
+                  Product Access (9A + 9B — sandbox product entitlement previews, metadata-only governance) →
+                </Link>
+              </li>
+              <li>
                 <Link href="/dev-console/credential-architecture" className="hover:underline">
                   Credential Architecture (Phase 5A) →
+                </Link>
+              </li>
+              <li>
+                <Link href="/dev-console/credential-lifecycle" className="hover:underline">
+                  Credential Lifecycle (8A + 8B — metadata-only credential governance) →
                 </Link>
               </li>
               <li>

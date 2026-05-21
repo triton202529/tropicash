@@ -375,7 +375,7 @@ export default function DevConsoleAppCapabilitiesPage() {
 
     setSubmitting(true);
 
-    const { error } = await createCapabilityRequest({
+    const { data, error } = await createCapabilityRequest({
 
       app_id: selectedApp.id,
 
@@ -397,6 +397,16 @@ export default function DevConsoleAppCapabilitiesPage() {
 
     if (error) {
 
+      console.log("[governance-debug] app-capabilities submit failed", {
+
+        app_id: selectedApp.id,
+
+        capability_key: capabilityKey.trim(),
+
+        message: error.message,
+
+      });
+
       setActionMessage({
 
         type: "error",
@@ -408,6 +418,18 @@ export default function DevConsoleAppCapabilitiesPage() {
       return;
 
     }
+
+    console.log("[governance-debug] app-capabilities submit ok", {
+
+      request_id: data?.id,
+
+      status: data?.status,
+
+      capability_key: data?.capability_key,
+
+      app_id: data?.app_id,
+
+    });
 
     setActionMessage({
 
@@ -451,7 +473,7 @@ export default function DevConsoleAppCapabilitiesPage() {
 
         <p className="text-sm text-slate-600">
 
-          <Link href="/login" className="font-semibold text-emerald-700 underline">
+          <Link href="/login" className="font-semibold text-tropicash-green-hover underline">
 
             Go to login
 
@@ -485,7 +507,7 @@ export default function DevConsoleAppCapabilitiesPage() {
 
         Phase 4D adds a static catalog of API products and sandbox contracts — see{" "}
 
-        <Link href="/dev-console/product-catalog" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/product-catalog" className="font-semibold text-tropicash-green-hover underline">
 
           Product Catalog
 
@@ -493,7 +515,7 @@ export default function DevConsoleAppCapabilitiesPage() {
 
         . Phase 4E surfaces simulated usage and health narratives keyed to the same products —{" "}
 
-        <Link href="/dev-console/sandbox-analytics" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/sandbox-analytics" className="font-semibold text-tropicash-green-hover underline">
 
           Sandbox Analytics
 
@@ -607,7 +629,7 @@ export default function DevConsoleAppCapabilitiesPage() {
 
             No apps yet.{" "}
 
-            <Link href="/dev-console/apps-register" className="font-semibold text-emerald-700 underline">
+            <Link href="/dev-console/apps-register" className="font-semibold text-tropicash-green-hover underline">
 
               Register an app
 
@@ -963,7 +985,7 @@ export default function DevConsoleAppCapabilitiesPage() {
 
       <p className="text-sm text-slate-600">
 
-        <Link href="/dev-console/my-apps" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/my-apps" className="font-semibold text-tropicash-green-hover underline">
 
           Back to My Apps
 
@@ -1131,7 +1153,7 @@ function RelatedProductAccessSection({ relatedCatalog, capabilityKey }) {
 
             Full tables live on{" "}
 
-            <Link href="/dev-console/product-catalog" className="font-semibold text-emerald-700 underline">
+            <Link href="/dev-console/product-catalog" className="font-semibold text-tropicash-green-hover underline">
 
               Product Catalog
 
@@ -1139,7 +1161,7 @@ function RelatedProductAccessSection({ relatedCatalog, capabilityKey }) {
 
             ; simulated usage previews in{" "}
 
-            <Link href="/dev-console/sandbox-analytics" className="font-semibold text-emerald-700 underline">
+            <Link href="/dev-console/sandbox-analytics" className="font-semibold text-tropicash-green-hover underline">
 
               Sandbox Analytics
 

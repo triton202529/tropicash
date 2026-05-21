@@ -524,6 +524,11 @@ export default function ExecutionRoutingPage() {
                 </Link>
               </li>
               <li>
+                <Link href="/dev-console/request-simulator" className="hover:underline">
+                  Request Simulator (10A + 10B) — sandbox request flow, governance, and observability metadata; no endpoint execution →
+                </Link>
+              </li>
+              <li>
                 <Link href="/dev-console/runtime-activation" className="hover:underline">
                   Runtime Activation (Phase 6A) →
                 </Link>

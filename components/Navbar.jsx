@@ -5,6 +5,10 @@ import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import { isAdminUser } from "../lib/adminAccess";
 import { getSoftEnforcementState } from "../lib/softEnforcement";
+import {
+  resolveDeveloperNavHref,
+  useDeveloperNavHref,
+} from "../lib/useDeveloperNavHref";
 import Image from "next/image";
 import NotificationBell from "./NotificationBell";
 
@@ -29,6 +33,28 @@ export default function Navbar() {
   const { user, profile, loading, logout } = useUser();
   const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
+  const { href: developersHref, checking: developersNavChecking } = useDeveloperNavHref(
+    user,
+    profile,
+    loading,
+  );
+
+  const goDevelopers = async (event) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+    setShowDropdown(false);
+    const target = developersNavChecking
+      ? await resolveDeveloperNavHref(user, profile, loading)
+      : developersHref;
+    await router.push(target);
+  };
+
+  const handleDevelopersNavClick = (event) => {
+    if (developersNavChecking) {
+      void goDevelopers(event);
+    }
+  };
 
   const handleLogout = async () => {
     setShowDropdown(false);
@@ -82,7 +108,11 @@ export default function Navbar() {
             Help
           </button>
           <div className="hidden items-center gap-2 border-l border-white/20 pl-2.5 text-[0.7rem] font-semibold text-white/90 sm:flex sm:text-xs">
-            <Link href="/developers" className="whitespace-nowrap hover:underline">
+            <Link
+              href={developersHref}
+              onClick={handleDevelopersNavClick}
+              className="whitespace-nowrap hover:underline"
+            >
               Developers
             </Link>
             <span className="text-white/35" aria-hidden>
@@ -135,7 +165,7 @@ export default function Navbar() {
                     <button type="button" onClick={() => router.push("/support")} className={dropdownItemClass}>
                       Support
                     </button>
-                    <button type="button" onClick={() => router.push("/developers")} className={dropdownItemClass}>
+                    <button type="button" onClick={() => void goDevelopers()} className={dropdownItemClass}>
                       Developers
                     </button>
                     <button type="button" onClick={() => router.push("/privacy")} className={dropdownItemClass}>

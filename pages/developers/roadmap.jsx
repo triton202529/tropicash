@@ -68,8 +68,8 @@ const statusBadge = {
   in_progress: {
     label: "In progress",
     className:
-      "border border-emerald-200 bg-emerald-50 text-emerald-800",
-    dot: "bg-emerald-500",
+      "border border-tropicash-green-tint bg-tropicash-green-tint text-tropicash-green-hover",
+    dot: "bg-tropicash-green",
   },
   planned: {
     label: "Planned",
@@ -82,7 +82,7 @@ const phaseCardClass =
   "tropicash-surface rounded-2xl p-5 sm:p-6";
 
 const ctaPrimaryClass =
-  "rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
+  "rounded-lg bg-tropicash-green px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-tropicash-green-hover hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
 
 const ctaSecondaryClass =
   "rounded-lg border border-[rgba(226,232,240,0.9)] bg-[rgba(255,255,255,0.92)] px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
@@ -94,7 +94,7 @@ export default function DeveloperRoadmapPage() {
       <div className="px-4 py-8 pb-16 sm:px-6 sm:py-10">
         <main className="mx-auto flex w-full max-w-4xl flex-col">
           <header className="mb-8 sm:mb-10">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <p className="text-xs font-semibold uppercase tracking-wide text-tropicash-green-hover">
               Developer Center
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -163,7 +163,7 @@ export default function DeveloperRoadmapPage() {
                         className="flex items-start gap-2 text-sm leading-relaxed text-slate-700 sm:text-[0.9375rem]"
                       >
                         <span
-                          className="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                          className="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-tropicash-green"
                           aria-hidden
                         />
                         <span>{item}</span>

@@ -10,7 +10,7 @@ const cardClass =
   "tropicash-surface flex h-full flex-col rounded-2xl p-5 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(15,23,42,0.10)] sm:p-6";
 
 const ctaPrimaryClass =
-  "rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
+  "rounded-lg bg-tropicash-green px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-tropicash-green-hover hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
 
 const ctaSecondaryClass =
   "rounded-lg border border-[rgba(226,232,240,0.9)] bg-[rgba(255,255,255,0.92)] px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
@@ -24,7 +24,7 @@ const API_SECTIONS = [
     status: "Planned — Phase 3",
   },
   {
-    accent: "#10b981",
+    accent: "#159669",
     icon: "👛",
     title: "Wallet API",
     text: "Programmatically create and manage Tropicash wallets, query balances, move funds between wallets, and stream transaction history.",
@@ -68,12 +68,12 @@ export default function DevelopersLanding() {
         <main className="mx-auto flex w-full max-w-6xl flex-col">
           {/* Hero */}
           <section className="flex w-full flex-col items-center text-center">
-            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-tropicash-green-tint bg-tropicash-green-tint px-3 py-1 text-xs font-semibold uppercase tracking-wide text-tropicash-green-hover">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-tropicash-green" aria-hidden />
               Developer Preview · Phase: {DEVELOPER_API_PHASE}
             </span>
             <h1 className="max-w-3xl text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 sm:text-5xl sm:leading-[1.1]">
-              Build with <span className="text-emerald-600">Tropicash</span>
+              Build with <span className="text-tropicash-green">Tropicash</span>
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
               Tropicash APIs will let businesses and developers accept payments, move money,
@@ -150,7 +150,7 @@ export default function DevelopersLanding() {
                     🧭
                   </span>
                   <div className="min-w-0">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-emerald-800">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-tropicash-green-tint bg-tropicash-green-tint px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-tropicash-green-hover">
                       Architecture preview
                     </span>
                     <h2
@@ -237,7 +237,7 @@ export default function DevelopersLanding() {
                     className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm font-semibold text-slate-800 sm:text-base"
                   >
                     <span
-                      className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"
+                      className="inline-block h-2.5 w-2.5 rounded-full bg-tropicash-green"
                       aria-hidden
                     />
                     {name}

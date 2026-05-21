@@ -6,7 +6,7 @@ const cardClass =
   "tropicash-surface flex h-full flex-col rounded-2xl p-5 sm:p-6";
 
 const ctaPrimaryClass =
-  "rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
+  "rounded-lg bg-tropicash-green px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-tropicash-green-hover hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
 
 const ctaSecondaryClass =
   "rounded-lg border border-[rgba(226,232,240,0.9)] bg-[rgba(255,255,255,0.92)] px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
@@ -20,7 +20,7 @@ const DOCS_SECTIONS = [
     phaseKey: "phase_2",
   },
   {
-    accent: "#10b981",
+    accent: "#159669",
     icon: "👛",
     title: "Wallet API",
     text: "Create wallets, fetch balances, and inspect transaction history programmatically.",

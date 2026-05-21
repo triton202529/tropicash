@@ -83,7 +83,7 @@ export default function DevConsoleCredentialArchitecturePage() {
           Append-only lifecycle events for credentials are modeled in SQL as{" "}
           <code className="rounded bg-slate-100 px-1 text-xs">developer_credential_lifecycle_events</code>{" "}
           (owner read, admin write). Pair with app governance on{" "}
-          <Link href="/dev-console/app-governance" className="font-semibold text-emerald-700 underline">
+          <Link href="/dev-console/app-governance" className="font-semibold text-tropicash-green-hover underline">
             Developer Governance
           </Link>{" "}
           before imagining live issuance.
@@ -264,6 +264,12 @@ export default function DevConsoleCredentialArchitecturePage() {
         </ul>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
+            href="/dev-console/workspace"
+            className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-sm hover:bg-emerald-100"
+          >
+            🏠 Workspace (Phase 7A + 7B)
+          </Link>
+          <Link
             href="/dev-console/my-apps"
             className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
           >
@@ -280,6 +286,12 @@ export default function DevConsoleCredentialArchitecturePage() {
             className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
           >
             Product Catalog
+          </Link>
+          <Link
+            href="/dev-console/credential-lifecycle"
+            className="inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            🪪 Credential Lifecycle (8A + 8B — metadata-only governance)
           </Link>
           <Link
             href="/dev-console/auth-simulator"
@@ -307,6 +319,14 @@ export default function DevConsoleCredentialArchitecturePage() {
           </Link>
         </div>
         <p className="mt-6 text-sm leading-relaxed text-slate-600">
+          <strong className="text-slate-800">Phase 7A + 7B Workspace:</strong> developers see static identity, persona
+          context, smart recommendations, milestones, and readiness on{" "}
+          <Link href="/dev-console/workspace" className="font-semibold text-tropicash-green-hover underline">
+            Workspace
+          </Link>
+          — credential issuance remains a future phase (credential_prepared_placeholder is planning only).
+        </p>
+        <p className="mt-4 text-sm leading-relaxed text-slate-600">
           <strong className="text-slate-800">Phase 6A Runtime Activation:</strong> governance gates reference Phase 5A
           credential review (`credential_review_completed`) before any activation-ready narration — simulation only; no
           issuance, live runtime, or enforcement.

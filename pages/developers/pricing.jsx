@@ -20,7 +20,7 @@ const PRICING_TIERS = [
     key: "startup",
     name: "Startup",
     price: "TBD",
-    accent: "#10b981",
+    accent: "#159669",
     description:
       "For early-stage builders moving the first real transactions on Tropicash.",
     features: [
@@ -62,7 +62,7 @@ const PRICING_TIERS = [
 ];
 
 const ctaPrimaryClass =
-  "rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
+  "rounded-lg bg-tropicash-green px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-tropicash-green-hover hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
 
 const ctaSecondaryClass =
   "rounded-lg border border-[rgba(226,232,240,0.9)] bg-[rgba(255,255,255,0.92)] px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
@@ -99,7 +99,7 @@ export default function DeveloperPricingPage() {
               const baseClass =
                 "tropicash-surface flex h-full flex-col rounded-2xl p-5 sm:p-6";
               const cardClass = tier.highlighted
-                ? `${baseClass} ring-2 ring-emerald-500/30`
+                ? `${baseClass} ring-2 ring-tropicash-green/30`
                 : baseClass;
               return (
                 <article key={tier.key} className={cardClass}>
@@ -113,7 +113,7 @@ export default function DeveloperPricingPage() {
                       {tier.name}
                     </h3>
                     {tier.highlighted ? (
-                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-emerald-800">
+                      <span className="inline-flex items-center rounded-full border border-tropicash-green-tint bg-tropicash-green-tint px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-tropicash-green-hover">
                         Likely best fit
                       </span>
                     ) : null}
@@ -135,7 +135,7 @@ export default function DeveloperPricingPage() {
                     {tier.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-2">
                         <span
-                          className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                          className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-tropicash-green"
                           aria-hidden
                         />
                         <span>{feature}</span>

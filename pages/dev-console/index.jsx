@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AdminGovernanceNavCard from "../../components/devconsole/AdminGovernanceNavCard";
 import DevConsoleLayout, {
   DevConsolePlaceholderCard,
@@ -11,6 +12,25 @@ export default function DevConsoleOverviewPage() {
       subtitle="A snapshot of your future Tropicash developer infrastructure. None of these metrics are live yet."
     >
       <AdminGovernanceNavCard />
+
+      <section
+        className="tropicash-surface rounded-2xl p-5 sm:p-6"
+        aria-labelledby="workspace-entry-heading"
+      >
+        <h2 id="workspace-entry-heading" className="text-lg font-bold text-slate-900">
+          Developer workspace
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Phase 7A + 7B — identity, persona context, milestones, smart recommendations, environment posture, and
+          readiness from static seeds. Sandbox-first; no live API or credentials on this page.
+        </p>
+        <Link
+          href="/dev-console/workspace"
+          className="mt-4 inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-sm hover:bg-emerald-100"
+        >
+          🏠 Open Workspace
+        </Link>
+      </section>
 
       <section
         aria-labelledby="overview-metrics-heading"

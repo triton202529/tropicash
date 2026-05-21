@@ -812,3 +812,186 @@ is introduced.
 
 Blueprint detail: **Phase 6B — Runtime Activation Readiness Audit** in
 [`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 32. Developer identity & workspace foundation (Phase 7A)
+
+Phase 7A adds `lib/developerWorkspaceConfig.js` and the Developer Console page `/dev-console/workspace` (route icon
+**🏠** in `DEV_CONSOLE_ROUTES`). The page surfaces static workspace identity, a deterministic readiness score, onboarding
+checkpoints and timeline events, environment notices, organization summary counts, health indicators, and recommendations —
+all from pure config helpers with no Supabase, network, `Date.now()`, or `Math.random()`.
+
+Environment vocabulary (`sandbox`, `live_preview`, `restricted`, `suspended`), developer tiers, and six onboarding stages
+anchor cross-links from Overview, My Apps, Developer Governance, and Credential Architecture. Live API access, credential
+issuance, workers, webhooks, and money subsystems remain explicitly out of scope.
+
+Blueprint detail: **Phase 7A — Developer Identity & Workspace Foundation** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 33. Workspace personalization & context layer (Phase 7B)
+
+Phase 7B adds `lib/developerWorkspaceContextConfig.js` and extends `/dev-console/workspace` with persona, context
+state, environment preference, simulated activity feed, rule-driven smart recommendations, milestone progress, and
+health context overlays — while retaining all Phase 7A sections. Helpers read Phase 7A seeds read-only for alignment;
+no Supabase, network, `Date.now()`, or `Math.random()`.
+
+Persona vocabulary (six types), seven context states, five environment preferences, and eight milestones — including
+`credential_prepared_placeholder` with explicit “future planning only — no credentials issued” copy — anchor cross-links
+from My Apps, Product Catalog, Sandbox Analytics, and Credential Architecture. Live API access, credential issuance,
+workers, webhooks, and money subsystems remain out of scope.
+
+Blueprint detail: **Phase 7B — Workspace Personalization & Context Layer** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 34. Workspace readiness validation (Phase 7C)
+
+Phase 7C audits and hardens Phases **7A–7B**: developer console route access via `RouteAuthGuard` and
+`lib/developerAccessGate.js` (admins bypass; approved `developer_access_requests` required for `/dev-console/*`);
+public `/developers` remains outside the gate; Navbar `useDeveloperNavHref` resolves to `/dev-console` only when access
+is allowed. Config modules stay deterministic (no clocks, randomness, fetch, or storage). `/dev-console/workspace`
+retains Phase 7A + 7B sections with safety copy; Overview and peer pages maintain bidirectional workspace cross-links.
+
+No API keys, live endpoints, workers, webhooks, Supabase writes, or money subsystems are introduced.
+
+Blueprint detail: **Phase 7C — Workspace Readiness Validation** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 35. Sandbox credential lifecycle foundation (Phase 8A)
+
+Phase 8A adds `lib/developerCredentialLifecycleConfig.js` and the Developer Console page
+`/dev-console/credential-lifecycle` (route icon **🪪**). The phase models **placeholder** sandbox credential lifecycle
+(statuses, request types, environments, visibility), eight deterministic readiness checks, timeline seeds with static
+step labels, and governance recommendations — while explicitly excluding secret material, authentication runtime, API
+traffic, webhooks, workers, Supabase writes, and money subsystems.
+
+Blueprint detail: **Phase 8A — Sandbox Credential Lifecycle Foundation** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 36. Credential governance & visibility layer (Phase 8B)
+
+Phase 8B adds `lib/developerCredentialGovernanceConfig.js` and extends `/dev-console/credential-lifecycle` with
+**metadata-only credential governance**: eight governance states, seven developer/admin visibility rules, six review
+outcomes, deterministic history and rationale seeds, placeholder visibility previews (prefix hints such as `tc_sbx_`
+only — no secret material), and five suspension/revocation teaching models. The layer builds on Phase 8A lifecycle
+vocabulary while explicitly excluding secrets, authentication runtime, API traffic, webhooks, workers, Supabase writes,
+and money subsystems.
+
+Blueprint detail: **Phase 8B — Credential Governance & Visibility Layer** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 37. Credential readiness audit & governance hardening (Phase 8C)
+
+Phase 8C audits and hardens Phases **8A–8B**: developer console route access via `RouteAuthGuard` and
+`lib/developerAccessGate.js` (admins bypass; approved `developer_access_requests` required for `/dev-console/*`);
+public `/developers` remains outside the gate; Navbar `useDeveloperNavHref` resolves to `/dev-console` only when access
+is allowed. Config modules `lib/developerCredentialLifecycleConfig.js` and `lib/developerCredentialGovernanceConfig.js`
+stay deterministic (no clocks, randomness, fetch, storage, or crypto). `/dev-console/credential-lifecycle` retains
+Phase 8A + 8B sections with consolidated placeholder-safety banner copy; Workspace, Credential Architecture, Auth
+Simulator, Gateway Simulator, Runtime Activation, and Developer Governance maintain bidirectional Credential Lifecycle
+cross-links with consistent labels.
+
+No API keys, live endpoints, workers, webhooks, Supabase writes, or money subsystems are introduced.
+
+Blueprint detail: **Phase 8C — Credential Readiness Audit & Governance Hardening** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 38. Sandbox API product access layer (Phase 9A)
+
+Phase 9A adds `lib/developerProductAccessConfig.js` and the Developer Console page
+`/dev-console/product-access` (route icon **🎫** — distinct from Apps **🧩**). The phase models **sandbox product
+entitlements**, capability → product mapping, six access scopes, eight access states, eight governance restrictions,
+seven governance rules, fourteen usage envelopes (execution disabled), readiness checks, and recommendations — while
+explicitly excluding real endpoints, API execution, credentials, secrets, authentication runtime, webhooks, workers,
+Supabase writes, and money movement.
+
+Blueprint detail: **Phase 9A — Sandbox API Product Access Layer** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 39. Product access governance & visibility layer (Phase 9B)
+
+Phase 9B adds `lib/developerProductGovernanceConfig.js` and extends the Developer Console page
+`/dev-console/product-access` with sections **9B.1–9B.8**. The phase models **entitlement governance states**,
+eight **visibility rules**, six **review outcomes**, four **governance actors**, deterministic **entitlement history**,
+**restriction rationale** cards, six **revocation/suspension** teaching models, **sandbox entitlement preview** seeds
+(for example `wallet_funding`, `send_money`, `treasury_placeholder`, `sandbox_webhooks_placeholder`), and **governance
+risk summaries** — while explicitly excluding endpoints, API execution, credentials, secrets, authentication runtime,
+webhooks, workers, Supabase writes, and money movement.
+
+Blueprint detail: **Phase 9B — Product Access Governance & Visibility Layer** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 40. Product access readiness audit & governance hardening (Phase 9C)
+
+Phase 9C audits and hardens Phases **9A–9B**: developer console route access via `RouteAuthGuard` and
+`lib/developerAccessGate.js` (admins bypass; approved `developer_access_requests` required for `/dev-console/*`);
+public `/developers` remains outside the gate; Navbar `useDeveloperNavHref` resolves to `/dev-console` only when access
+is allowed. Config modules `lib/developerProductAccessConfig.js` and `lib/developerProductGovernanceConfig.js` stay
+deterministic (no clocks, randomness, fetch, storage, or crypto; helpers return copies without mutating seeds).
+`/dev-console/product-access` retains Phase 9A + 9B sections with consolidated safety banner copy (sandbox only, preview
+only, metadata only, no execution, no endpoints, no live access); Workspace, Product Catalog, Credential Lifecycle, Auth
+Simulator, Gateway Simulator, Runtime Activation, and Developer Governance maintain bidirectional Product Access
+cross-links with consistent **9A + 9B** labels.
+
+No API keys, live endpoints, workers, webhooks, Supabase writes, or money subsystems are introduced.
+
+Blueprint detail: **Phase 9C — Product Access Readiness Audit & Governance Hardening** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 41. Sandbox API request & flow simulation layer (Phase 10A)
+
+Phase 10A adds `lib/developerSandboxRequestFlowConfig.js` and the Developer Console page
+`/dev-console/request-simulator`. The layer models **sandbox API request envelopes**, **twelve validation stages**,
+**deterministic response previews**, and **delegated linkage** into Phase 5B authentication, Phase 5C gateway, and
+Phase 5D execution routing simulations — read-only alignment with Phases 8A–8B credential lifecycle/governance and
+9A–9B product access/governance seeds.
+
+`evaluateSandboxRequestCase` walks stages, applies `failure_state_keys`, merges auth/gateway/routing evaluations by seeded
+case keys, and returns envelope, stage trace, validation summary, response preview, and outcome summary objects. Route
+previews are labeled **preview only**; no endpoints, auth runtime, webhooks, workers, Supabase writes, or money movement
+are introduced.
+
+Cross-links on Product Access, Credential Lifecycle, Auth Simulator, Gateway Simulator, Execution Routing, Runtime
+Activation, and Workspace point to Request Simulator with consistent sandbox-request copy.
+
+Blueprint detail: **Phase 10A — Sandbox API Request & Flow Simulation Layer** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 42. Request governance & observability layer (Phase 10B)
+
+Phase 10B adds `lib/developerRequestGovernanceConfig.js` and extends `/dev-console/request-simulator` with sections
+**10B.1–10B.8**. The layer models **request governance states**, **visibility rules**, **observability signal vocabulary**,
+**audit trail seeds**, **blocking models**, and **restriction rationales** — read-only alignment with Phase 10A
+`SANDBOX_REQUEST_CASE_KEYS` and teaching bridges to Phase 2E/2F observability vocabulary.
+
+`getRequestGovernanceOverview` merges preview seeds with the operator-selected case key for observability copy. Pure
+helpers build governance, visibility, observability, audit, and risk summaries. No endpoints, live traffic, telemetry
+emitters, audit ingestion, auth runtime, webhooks, workers, Supabase writes, or money movement are introduced.
+
+Cross-links on Workspace, Product Access, Credential Lifecycle, Auth Simulator, Gateway Simulator, Execution Routing,
+and Runtime Activation point to Request Simulator with consistent **10A + 10B** labels and governance/observability copy.
+
+Blueprint detail: **Phase 10B — Request Governance & Observability Layer** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).
+
+## 43. Request simulation readiness audit & governance hardening (Phase 10C)
+
+Phase 10C audits and hardens Phases **10A–10B**: developer console route access via `RouteAuthGuard` and
+`lib/developerAccessGate.js` (admins bypass; approved `developer_access_requests` required for `/dev-console/*`);
+public `/developers` remains outside the gate; Navbar `useDeveloperNavHref` resolves to `/dev-console` only when access
+is allowed. Config modules `lib/developerSandboxRequestFlowConfig.js` and `lib/developerRequestGovernanceConfig.js` stay
+deterministic (no clocks, randomness, fetch, storage, or crypto; helpers return copies without mutating seeds).
+`REQUEST_FAILURE_GOVERNANCE_LINKS` maps each Phase 10A `failure_key` to Phase 10B blocking models and restriction
+rationales with startup alignment asserts.
+
+`/dev-console/request-simulator` retains Phase 10A sections 3–9 and 10B.1–10B.8 with consolidated safety banner copy
+(simulation only, metadata only, preview only, no execution, no live request traffic, no endpoint activation, no money
+movement); failure cards surface linked blocking model and rationale labels. Workspace, Product Catalog, Product Access,
+Credential Lifecycle, Auth Simulator, Gateway Simulator, Execution Routing, Runtime Activation, and Developer
+Governance maintain bidirectional Request Simulator cross-links with consistent **10A + 10B** labels.
+
+Observability signals and audit trail seeds remain static (no clock timestamps); blocking stage failures in
+`evaluateSandboxRequestCase` align with governance blocking model keys.
+
+No API keys, live endpoints, workers, webhooks, Supabase writes, or money subsystems are introduced.
+
+Blueprint detail: **Phase 10C — Request Simulation Readiness Audit & Governance Hardening** in
+[`docs/internal-service-blueprint.md`](./internal-service-blueprint.md).

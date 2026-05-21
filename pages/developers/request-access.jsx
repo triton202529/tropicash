@@ -1,20 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
-import { supabase } from "../../lib/supabaseClient";
-import {
-  DEVELOPER_ACCESS_USE_CASES,
-  DEVELOPER_ACCESS_REQUESTS_TABLE,
-} from "../../lib/developerCenterConfig";
+import { submitDeveloperAccessRequest } from "../../lib/developerAccessRequests";
+import { normalizeDeveloperEmail } from "../../lib/developerAccessGate";
+import { DEVELOPER_ACCESS_USE_CASES } from "../../lib/developerCenterConfig";
+import { useUser } from "../../lib/userContext";
 
 const SUCCESS_MESSAGE =
-  "Developer access request received. Tropicash will review this before API access is enabled.";
+  "Developer access request received. Tropicash will review your request before you can sign in to the Developer Console. Approval grants console entry only — not organizations, apps, or API keys.";
 
 const labelClass = "mb-1 block text-sm font-semibold text-slate-700";
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none ring-blue-500/20 focus:border-blue-500 focus:ring-2";
 
 export default function RequestAccessPage() {
+  const { user, loading: authLoading } = useUser();
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,6 +24,14 @@ export default function RequestAccessPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (authLoading || !user?.email) return;
+    const sessionEmail = normalizeDeveloperEmail(user.email);
+    if (sessionEmail) {
+      setEmail((prev) => (prev.trim() ? prev : sessionEmail));
+    }
+  }, [authLoading, user?.email]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,39 +62,30 @@ export default function RequestAccessPage() {
 
     setSubmitting(true);
 
-    // Attempt to persist the request. The success UX is the same regardless of
-    // whether the table exists yet — if Supabase rejects (missing table, RLS,
-    // network), we still show a friendly confirmation. Phase 1 is foundational.
-    try {
-      const { error } = await supabase
-        .from(DEVELOPER_ACCESS_REQUESTS_TABLE)
-        .insert({
-          full_name: trimmedName,
-          company_name: trimmedCompany || null,
-          email: trimmedEmail,
-          use_case: useCase,
-          message: trimmedMessage || null,
-        });
-      if (error) {
-        console.warn(
-          "[developers/request-access] insert failed (showing success anyway):",
-          error.message || error,
-        );
-      }
-    } catch (err) {
-      console.warn(
-        "[developers/request-access] insert threw (showing success anyway):",
-        err?.message || err,
+    const { error } = await submitDeveloperAccessRequest({
+      full_name: trimmedName,
+      company_name: trimmedCompany || null,
+      email: trimmedEmail,
+      use_case: useCase,
+      message: trimmedMessage || null,
+    });
+
+    setSubmitting(false);
+
+    if (error) {
+      setFormError(
+        error.message ||
+          "We could not save your request. Please try again in a moment.",
       );
-    } finally {
-      setSubmitted(true);
-      setSubmitting(false);
-      setFullName("");
-      setCompanyName("");
-      setEmail("");
-      setUseCase("");
-      setMessage("");
+      return;
     }
+
+    setSubmitted(true);
+    setFullName("");
+    setCompanyName("");
+    setEmail("");
+    setUseCase("");
+    setMessage("");
   };
 
   return (
@@ -95,7 +94,7 @@ export default function RequestAccessPage() {
       <div className="px-4 py-8 pb-16 sm:px-6 sm:py-10">
         <main className="mx-auto flex w-full max-w-2xl flex-col">
           <header className="mb-6 sm:mb-8">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <p className="text-xs font-semibold uppercase tracking-wide text-tropicash-green-hover">
               Developer Center
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -115,7 +114,7 @@ export default function RequestAccessPage() {
             >
               <div className="flex items-start gap-3">
                 <span
-                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tropicash-green-tint text-tropicash-green-hover"
                   aria-hidden
                 >
                   ✓
@@ -254,7 +253,7 @@ export default function RequestAccessPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
+                className="w-full rounded-lg bg-tropicash-green py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-tropicash-green-hover disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
               >
                 {submitting ? "Submitting…" : "Submit request"}
               </button>

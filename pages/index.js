@@ -17,7 +17,7 @@ const featureCardBaseClass =
   "group flex flex-col overflow-hidden rounded-2xl bg-[rgba(255,255,255,0.92)] text-left shadow-[0_10px_30px_rgba(0,0,0,0.06)] backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] border border-[rgba(226,232,240,0.9)]";
 
 const ctaPrimaryClass =
-  "rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
+  "rounded-lg bg-tropicash-green px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-tropicash-green-hover hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
 
 const ctaSecondaryClass =
   "rounded-lg border border-[rgba(226,232,240,0.9)] bg-[rgba(255,255,255,0.92)] px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
@@ -30,7 +30,7 @@ const FEATURES = [
     text: "Instantly send money to anyone across the Caribbean.",
   },
   {
-    accent: "#10b981",
+    accent: "#159669",
     icon: "💳",
     title: "Fund Wallet",
     text: "Add funds securely using your preferred payment method.",
@@ -62,7 +62,7 @@ export default function Home() {
             />
           </div>
           <h1 className="mb-4 max-w-xl text-[1.65rem] font-bold leading-[1.15] tracking-tight text-slate-800 sm:mb-5 sm:text-4xl sm:leading-[1.12]">
-            Welcome to <span className="text-emerald-600">Tropicash</span>
+            Welcome to <span className="text-tropicash-green">Tropicash</span>
           </h1>
           <p className="mb-6 max-w-md text-base leading-relaxed text-slate-600 sm:mb-7 sm:text-lg">
             Send, receive, and manage money across the Caribbean. Fund your wallet, make transfers, request withdrawals,

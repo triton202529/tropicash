@@ -2,7 +2,7 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 
 const ctaPrimaryClass =
-  "rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
+  "rounded-lg bg-tropicash-green px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-tropicash-green-hover hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
 
 const ctaSecondaryClass =
   "rounded-lg border border-[rgba(226,232,240,0.9)] bg-[rgba(255,255,255,0.92)] px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-[6px] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] sm:text-base";
@@ -151,7 +151,7 @@ const PLATFORM_CONNECTIONS = [
     title: "Tropicash Wallet",
     description:
       "Wallets, balances, deposits, withdrawals, and transaction history — the home base for every Tropicash account.",
-    accent: "#10b981",
+    accent: "#159669",
   },
   {
     key: "elitehire_pro",
@@ -235,7 +235,7 @@ export default function HowTropicashWorksPage() {
               Architecture preview — not live API infrastructure
             </span>
             <h1 className="max-w-3xl text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 sm:text-5xl sm:leading-[1.1]">
-              How <span className="text-emerald-600">Tropicash</span> Works
+              How <span className="text-tropicash-green">Tropicash</span> Works
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
               Tropicash is being built as a programmable financial

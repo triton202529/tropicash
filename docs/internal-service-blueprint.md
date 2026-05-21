@@ -1837,6 +1837,27 @@ infrastructure (executor, emitter, replay engine, enforcement middleware) could
 be introduced — and only behind explicit governance and a working enforcement
 code path.
 
+## Public Developer Access Requests
+
+Public intake for the Developer Center lives in `public.developer_access_requests`
+(`supabase/sql/developer_access_requests.sql`). Visitors submit from
+`/developers/request-access` without signing in; the row stores contact fields,
+use case, optional message, and a workflow status (`pending` → `reviewed` /
+`approved` / `rejected` / `archived`) plus admin review metadata
+(`reviewed_by_user_id`, `review_notes`, `reviewed_at`).
+
+**RLS:** `anon` may **INSERT** only (no select/update/delete for anonymous callers).
+Authenticated **admins** (`public.tc_is_admin()`) may **SELECT**, **UPDATE**, and **DELETE**.
+There is no self-service list for submitters.
+
+**Application:** `lib/developerAccessRequests.js` (`submitDeveloperAccessRequest`,
+`fetchDeveloperAccessRequests`, `updateDeveloperAccessRequestStatus`);
+`/dev-console/app-governance` admin queue at the top of the page (separate from
+`developer_app_reviews` and capability request queues).
+
+**Hard exclusions:** Approving or archiving a request does **not** create
+`developer_organizations`, `developer_apps`, API keys, or secrets.
+
 ## Phase 4A — Developer Organizations & App Registration
 
 Phase 4A adds **registration-only** persistence for developer organizations and
@@ -2375,4 +2396,489 @@ accepted.
 
 - `docs/internal-platform-architecture.md` — §31 Phase 6B summary.
 - Phase 6A runtime activation governance blueprint immediately above.
+
+## Phase 7A — Developer Identity & Workspace Foundation
+
+Phase 7A introduces a **developer workspace shell** — identity vocabulary, onboarding checkpoints, environment
+notices, health indicators, recommendations, and a deterministic readiness score assembled from static seeds. It is the
+home surface for “your Tropicash developer workspace” before credential issuance or live API access.
+
+### Scope
+
+| Area | Intent |
+|------|--------|
+| Config | `lib/developerWorkspaceConfig.js` — environment modes, tiers, onboarding stages, seeds, pure helpers |
+| Console UI | `/dev-console/workspace` — hero, identity cards, readiness, timeline, environment panel, org summary, recommendations, safety copy |
+| Routes | `lib/developerCenterConfig.js` — `DEV_CONSOLE_ROUTES` entry `/dev-console/workspace` (icon **🏠**) |
+| Cross-links | Overview, My Apps, Developer Governance, Credential Architecture; workspace links back to My Apps, Governance, Credential Architecture, Product Catalog |
+
+### Vocabulary (exported)
+
+- **Environment modes:** `sandbox`, `live_preview`, `restricted`, `suspended`
+- **Developer tiers:** `explorer`, `builder`, `partner`, `enterprise`
+- **Onboarding stages:** `access_approved` → `sandbox_ready` (six ordered stages)
+
+### Seeded artifacts (minimum counts)
+
+- Workspace identity fields (`workspace_id`, `display_name`, `developer_tier`, `onboarding_stage`, `environment_mode`, simulated timestamps)
+- 6+ onboarding checkpoints, 8+ workspace events, 6+ health indicators, 6+ environment notices, 8+ recommendation cards
+- Organization summary: `active_org_count`, `sandbox_apps_count`, `pending_reviews_count`, `approved_capabilities_count`
+
+### Pure helpers
+
+`getWorkspaceOverview()`, `getWorkspaceHealth()`, `getWorkspaceTimeline()`, `getWorkspaceRecommendations()`,
+`getWorkspaceEnvironmentMeta()`, `buildWorkspaceSummary()`, `buildWorkspaceReadinessScore()` — no I/O, no clocks, no
+randomness.
+
+### Hard constraints (Phase 7A)
+
+- **No** API keys, secrets, live APIs, payment/wallet/treasury/fraud, workers/webhooks, credential issuance, runtime
+  execution, or money movement.
+- **No** `Date.now()`, `Math.random()`, Supabase writes, network, or realtime on the workspace page.
+- Org/app counts on Workspace are **static**; My Apps remains authoritative for live rows.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §32 Phase 7A summary.
+- Phase 6B runtime activation readiness audit immediately above.
+
+## Phase 7B — Workspace Personalization & Context Layer
+
+Phase 7B adds a **personalization and context layer** on top of Phase 7A — developer personas, context states,
+environment preferences, milestone progress, simulated activity feed, rule-driven smart recommendations, and health
+context overlays. All artifacts remain static seeds; the Developer Operating Center narrative deepens without
+credentials, live APIs, or Supabase writes.
+
+### Scope
+
+| Area | Intent |
+|------|--------|
+| Config | `lib/developerWorkspaceContextConfig.js` — personas, context states, preferences, milestones, rules, activity/notices, pure helpers |
+| Console UI | `/dev-console/workspace` — adds Developer Persona, Context Summary, Contextual Readiness, Environment Preference, Activity Feed, Smart Recommendations, Milestone Progress, Workspace Health Context (7A sections retained) |
+| Alignment | Read-only imports from `lib/developerWorkspaceConfig.js` for identity and recommendation card keys |
+| Cross-links | My Apps, Product Catalog, Sandbox Analytics, Credential Architecture — workspace shortcut updated to Phase 7A + 7B |
+
+### Vocabulary (exported)
+
+- **Personas:** `explorer`, `builder`, `integrator`, `operator`, `partner`, `enterprise` (label, description, onboarding_priority, suggested_actions, maturity_level)
+- **Context states:** `onboarding`, `active`, `sandbox_ready`, `review_required`, `capability_pending`, `organization_setup`, `restricted`
+- **Environment preferences:** `sandbox_first`, `live_preview`, `governance_first`, `capability_first`, `analytics_first`
+- **Milestones:** 8 including `credential_prepared_placeholder` — **future planning only — no credentials issued**
+
+### Seeded artifacts (minimum counts)
+
+- 6 persona types, 7 context states, 5 environment preferences
+- 8 onboarding milestones, 7+ recommendation rules, 9+ activity seeds, 6+ context notices
+- `WORKSPACE_CONTEXT_SEED` — persona_key, context_state, environment_preference aligned with Phase 7A identity seed
+
+### Pure helpers
+
+`getDeveloperPersona()`, `getWorkspaceContext()`, `getWorkspaceEnvironmentPreference()`, `getWorkspaceActivityFeed()`,
+`getWorkspaceNotices()`, `getWorkspaceRecommendations()` (context rule merge), `buildWorkspaceContextSummary()`,
+`buildWorkspaceProgressSummary()`, `buildWorkspaceRecommendationPriority()`, `buildWorkspaceHealthContext()` — no I/O,
+no clocks, no randomness.
+
+### Hard constraints (Phase 7B)
+
+- **No** API keys, secrets, live APIs, payment/wallet/treasury/fraud, workers/webhooks, credential issuance, runtime
+  execution, or money movement.
+- **No** `Date.now()`, `Math.random()`, Supabase writes, network, fetch, or storage on the workspace page.
+- `credential_prepared_placeholder` milestone is explicit placeholder copy only.
+- Smart recommendations filter/boost Phase 7A cards via rules — links are orientation only.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §33 Phase 7B summary.
+- Phase 7A developer identity & workspace foundation immediately above.
+
+## Phase 7C — Workspace Readiness Validation
+
+Phase 7C is a **readiness audit and hardening pass** on Phases 7A–7B — routes, config determinism, workspace UI
+safety copy, bidirectional cross-links, and documentation. No new runtime, credentials, Supabase writes, workers,
+webhooks, or money subsystems.
+
+### Scope
+
+| Area | Intent |
+|------|--------|
+| Routes / access | `/dev-console`, `/dev-console/workspace`, My Apps, Product Catalog, Credential Architecture — `RouteAuthGuard` + `developerAccessGate` for approved dev + admin; `/developers` public; Navbar `useDeveloperNavHref` → `/dev-console` when allowed |
+| Config determinism | `lib/developerWorkspaceConfig.js`, `lib/developerWorkspaceContextConfig.js` — no `Date.now()`, `Math.random()`, fetch, Supabase, or storage; helpers return copies without mutating seeds |
+| Console UI | `/dev-console/workspace` — Phase 7A + 7B sections, safety banners, mobile-friendly wrapping on long mono fields |
+| Cross-links | Bidirectional workspace links: Overview ↔ Workspace, My Apps, Developer Governance, Credential Architecture, Product Catalog, Sandbox Analytics |
+| Docs | This section + `docs/internal-platform-architecture.md` §34 |
+
+### Validation checklist (7C)
+
+- Approved developer or admin reaches workspace and related console routes; unapproved users see `DevConsoleAccessDenied`.
+- Workspace page imports config modules only — no network I/O on mount.
+- `WORKSPACE_SAFETY_RULES` and `WORKSPACE_CONTEXT_SAFETY_RULES` rendered on workspace; credential placeholder copy explicit.
+- Overview entry card references Phase 7A + 7B; related-tools footer links back to Overview and peer console pages.
+
+### Hard constraints (Phase 7C)
+
+- **Audit + hardening only** — surgical fixes to broken access paths, cross-links, copy, and wrapping; no feature expansion.
+- **No** API keys, secrets, live APIs, payment/wallet/treasury/fraud, workers/webhooks, credential issuance, runtime execution, or Supabase writes introduced by this phase.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §34 Phase 7C summary.
+- Phase 7B workspace personalization & context layer immediately above.
+
+## Phase 8A — Sandbox Credential Lifecycle Foundation
+
+Phase 8A introduces a **sandbox credential lifecycle control surface** for approved developer apps — placeholder
+statuses, request types, environments, visibility states, readiness checks, timeline seeds, and recommendations. This
+is **metadata and governance only**: no real API keys, secrets, tokens, signing material, authentication runtime, API
+routes, traffic, webhooks, workers, Supabase writes, or money movement.
+
+| Area | Deliverable |
+|------|-------------|
+| Config | `lib/developerCredentialLifecycleConfig.js` — `CREDENTIAL_LIFECYCLE_PHASE`, statuses, request types, environments, visibility, safety rules, timeline (8+ steps with static Step labels), readiness checks (8), recommendations; pure helpers |
+| Console UI | `/dev-console/credential-lifecycle` — DevConsoleLayout, safety banner, summary cards, readiness checklist, timeline, placeholder types, visibility rules, recommendations, related tools |
+| Routes | `lib/developerCenterConfig.js` — `/dev-console/credential-lifecycle` (icon **🪪**) |
+| Cross-links | Workspace, My Apps, Credential Architecture, Auth Simulator, Gateway Simulator, Runtime Activation |
+| Alignment | Optional read-only refs from `lib/developerCredentialArchitectureConfig.js` (Phase 5A type vocabulary) |
+
+### Readiness checks (seeded)
+
+- `app_registered`, `sandbox_activation_approved`, `capability_assigned`, `governance_review_completed`,
+  `credential_architecture_ready`, `auth_simulation_available`, `gateway_simulation_available`,
+  `runtime_activation_blocked_for_live` — each with `passed`, `blocking`, `related_route`, `why_it_matters`.
+
+### Hard constraints (Phase 8A)
+
+- **Placeholder only** — statuses such as `issued_placeholder` may show prefix-shaped documentation; zero entropy and no auth.
+- **No** secret generation, vault writes, live API access, runtime execution, or Supabase mutations from this phase.
+- Config and UI remain **deterministic** (no `Date.now`, `Math.random`, fetch, or storage).
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §35 Phase 8A summary.
+- Phase 5A credential architecture metadata tables and Phase 7C workspace readiness immediately upstream.
+
+## Phase 8B — Credential Governance & Visibility Layer
+
+Phase 8B expands Phase 8A with **metadata-only credential governance** — governance states, developer/admin
+visibility rules, placeholder issuance review outcomes, deterministic history seeds, visibility previews (prefix hints
+only), suspension/revocation teaching models, and risk summaries. Still **no secrets, auth runtime, live API, webhooks,
+workers, Supabase writes, or money movement**.
+
+| Area | Deliverable |
+|------|-------------|
+| Config | `lib/developerCredentialGovernanceConfig.js` — `CREDENTIAL_GOVERNANCE_PHASE`, 8 governance states, 7 visibility rules, 6 review outcomes, 4 actors, safety rules, history (8+ rows), rationale seeds, visibility preview seeds (prefix `tc_sbx_` only), 5 revocation models; pure helpers |
+| Console UI | `/dev-console/credential-lifecycle` — adds 8B sections: governance summary, review readiness, visibility rules, placeholder preview, history, suspension/revocation, rationale cards, risk summary (8A sections retained) |
+| Cross-links | Workspace, Credential Architecture, Auth Simulator, Gateway Simulator, Runtime Activation, App Governance — Credential Lifecycle links with metadata-only governance copy |
+
+### Governance states (seeded)
+
+- `not_requested`, `review_ready`, `pending_admin_review`, `approved_placeholder`,
+  `developer_visible_metadata_only`, `suspended_placeholder`, `revoked_placeholder`, `archived_placeholder`.
+
+### Visibility rules (seeded)
+
+- `developer_can_view_metadata`, `developer_cannot_view_secret`, `admin_can_review_metadata`,
+  `admin_cannot_view_secret_material`, `visibility_requires_approved_app`,
+  `visibility_requires_sandbox_environment`, `live_visibility_blocked`.
+
+### Hard constraints (Phase 8B)
+
+- **Metadata only** — previews show labels, environment, status, and prefix-shaped hints; never key suffixes, tokens, hashes, or encrypted blobs.
+- **No** secret generation, vault writes, authentication runtime, live API access, or Supabase mutations from this phase.
+- Config and UI remain **deterministic** (no `Date.now`, `Math.random`, fetch, or storage).
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §36 Phase 8B summary.
+- Phase 8A sandbox credential lifecycle foundation immediately upstream.
+
+## Phase 8C — Credential Readiness Audit & Governance Hardening
+
+Phase 8C is a **readiness audit and hardening pass** on Phases **8A–8B** — routes, config determinism, placeholder
+safety copy, credential-lifecycle UI wrapping, bidirectional cross-links, and documentation. No new runtime,
+credentials, Supabase writes, workers, webhooks, or money subsystems.
+
+### Scope
+
+| Area | Intent |
+|------|--------|
+| Routes / access | `/dev-console/credential-lifecycle`, workspace, credential-architecture, auth-simulator, gateway-simulator, runtime-activation, app-governance — `RouteAuthGuard` + `developerAccessGate` for approved dev + admin; `/developers` public; Navbar `useDeveloperNavHref` → `/dev-console` when allowed |
+| Config determinism | `lib/developerCredentialLifecycleConfig.js`, `lib/developerCredentialGovernanceConfig.js` — no `Date.now()`, `Math.random()`, fetch, Supabase, localStorage, or crypto; helpers return copies without mutating seeds |
+| Placeholder safety | Seeds and UI must state placeholder only, metadata only, no secret material, no active authentication, no live API access |
+| Console UI | `/dev-console/credential-lifecycle` — Phase 8A + 8B sections, safety banners, mobile-friendly wrapping on prefix hints |
+| Cross-links | Bidirectional links among Workspace, Credential Architecture, Credential Lifecycle, Auth Simulator, Gateway Simulator, Runtime Activation, Developer Governance |
+| Docs | This section + `docs/internal-platform-architecture.md` §37 |
+
+### Validation checklist (8C)
+
+- Approved developer or admin reaches credential-lifecycle and related console routes; unapproved users see `DevConsoleAccessDenied`.
+- Credential-lifecycle page imports config modules only — no network I/O on mount.
+- `SANDBOX_CREDENTIAL_SAFETY_RULES` and `CREDENTIAL_GOVERNANCE_SAFETY_RULES` rendered; primary banner includes required placeholder-safety phrases.
+- Related-tools footers on peer pages link back to Credential Lifecycle with consistent **8A + 8B** labels.
+
+### Hard constraints (Phase 8C)
+
+- **Audit + hardening only** — surgical fixes to broken access paths, cross-links, copy, and wrapping; no feature expansion.
+- **No** API keys, secrets, live APIs, payment/wallet/treasury/fraud, workers/webhooks, credential issuance, runtime execution, or Supabase writes introduced by this phase.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §37 Phase 8C summary.
+- Phase 8B credential governance & visibility layer immediately above.
+
+## Phase 9A — Sandbox API Product Access Layer
+
+Phase 9A introduces a **sandbox API product access control surface** — entitlement previews, capability → product
+mapping, access scopes, governance restrictions, and sandbox usage envelopes. This is **metadata and configuration
+only**: no real endpoints, API execution, credentials, secrets, authentication runtime, webhooks, workers, Supabase
+writes, or money movement.
+
+| Area | Deliverable |
+|------|-------------|
+| Config | `lib/developerProductAccessConfig.js` — `PRODUCT_ACCESS_PHASE`, 14 products, 6 scopes, 8 states, 8 restrictions, 4 environments, 7 governance rules, 14 usage envelopes, 8 readiness checks, 7 recommendations, safety rules; pure helpers |
+| Console UI | `/dev-console/product-access` — DevConsoleLayout, 11 sections (hero, safety banner, summary cards, product grid, capability map, scopes, restrictions, envelopes, readiness, recommendations, related tools) |
+| Routes | `lib/developerCenterConfig.js` — `/dev-console/product-access` (icon **🎫**) |
+| Cross-links | Workspace, Product Catalog, Credential Lifecycle, Auth Simulator, Gateway Simulator, Runtime Activation |
+
+### Products (seeded examples)
+
+- `wallet_funding`, `wallet_balance`, `send_money`, `receive_money`, `withdrawal_requests`, `transaction_history`,
+  `notifications`, `fraud_alerts_placeholder`, `identity_placeholder`, `analytics_placeholder`, `treasury_placeholder`,
+  `sandbox_webhooks_placeholder`, plus `checkout_session_preview` and `wallet_reserve_sim`.
+
+Each row includes `sandbox_status`, `live_status` (blocked), `required_capabilities`, `access_scope`, `governance_level`,
+`risk_level`, `visibility`, and `placeholder: true` with copy stating sandbox only, preview only, no live execution.
+
+### Access scopes (seeded)
+
+- `read_metadata`, `simulate_action`, `preview_capability`, `governance_review`, `audit_visibility`, `analytics_preview`
+  — each with `live_enabled: false`.
+
+### Usage envelopes (seeded)
+
+- `wallet_funding` — preview_funding_limit `$100/day sandbox`, execution disabled.
+- `send_money` — preview_transfer_limit `$50 sandbox`, execution disabled.
+- `treasury_placeholder` — admin review only.
+- `sandbox_webhooks_placeholder` — event preview only.
+- Plus envelopes for balance read, receive, withdrawals, history, notifications, fraud, identity, analytics, checkout,
+  reserve simulation.
+
+### Hard constraints (Phase 9A)
+
+- **Metadata only** — product access rows are not routable entitlements and do not grant capabilities automatically.
+- **No** secret generation, auth runtime, live API access, workers, webhooks, Supabase mutations, or money movement.
+- Config and UI remain **deterministic** (no `Date.now`, `Math.random`, fetch, storage, or crypto).
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §38 Phase 9A summary.
+- Phase 4D product catalog and Phase 8A–8C credential lifecycle immediately upstream.
+
+## Phase 9B — Product Access Governance & Visibility Layer
+
+Phase 9B expands Phase 9A into a **governed entitlement visibility and review system** — entitlement governance
+states, developer/admin visibility rules, product access review outcomes, entitlement history, restriction rationale
+cards, suspension/revocation modeling, sandbox entitlement previews, and governance risk summaries. This remains
+**metadata and configuration only**: no endpoints, API execution, credentials, secrets, authentication runtime,
+webhooks, workers, Supabase writes, or money movement.
+
+| Area | Deliverable |
+|------|-------------|
+| Config | `lib/developerProductGovernanceConfig.js` — `PRODUCT_GOVERNANCE_PHASE`, 8 entitlement states, 8 visibility rules, 6 review outcomes, 4 actors, 8+ history seeds, 6 rationale cards, 8 entitlement preview seeds, 6 revocation models, safety rules; pure helpers |
+| Console UI | `/dev-console/product-access` — sections 9B.1–9B.8 (governance state, review readiness, visibility rules, entitlement preview, history, revocation models, rationale cards, risk summary) atop Phase 9A sections |
+| Cross-links | Workspace, Credential Lifecycle, App Governance, Auth Simulator, Gateway Simulator, Runtime Activation — sandbox product entitlement previews and metadata-only product governance copy |
+
+### Entitlement states (seeded)
+
+- `unavailable`, `review_ready`, `pending_governance_review`, `approved_sandbox_placeholder`,
+  `developer_visible_metadata_only`, `suspended_placeholder`, `revoked_placeholder`, `archived_placeholder`
+
+### Visibility rules (seeded)
+
+- `developer_can_view_metadata`, `developer_cannot_execute`, `developer_cannot_access_live`,
+  `admin_can_review_metadata`, `access_requires_capability`, `access_requires_approved_app`,
+  `sandbox_only_visibility`, `metadata_only_visibility`
+
+### Entitlement preview seeds (examples)
+
+- `wallet_funding`, `send_money`, `treasury_placeholder`, `sandbox_webhooks_placeholder`, plus balance read,
+  receive money, fraud placeholder, checkout session — each with scope, execution disabled, sandbox limit labels;
+  **never** endpoints, tokens, credentials, auth headers, live URLs, or execution payloads.
+
+### Revocation / suspension models (seeded)
+
+- `governance_restriction`, `capability_removed`, `app_suspended_dependency`, `sandbox_review_failed`,
+  `developer_requested_removal`, `emergency_policy_restriction`
+
+### Hard constraints (Phase 9B)
+
+- **Metadata only** — governance rows do not enable APIs, execution, or live access.
+- **No** secret generation, auth runtime, endpoint URLs, workers, webhooks, Supabase mutations, or money movement.
+- Config and UI remain **deterministic** (no `Date.now`, `Math.random`, fetch, storage, or crypto).
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §39 Phase 9B summary.
+- Phase 9A sandbox product access layer immediately below.
+
+## Phase 9C — Product Access Readiness Audit & Governance Hardening
+
+Phase 9C is a **readiness audit and hardening pass** on Phases **9A–9B** — routes, config determinism, metadata-only
+safety copy, product-access UI wrapping, bidirectional cross-links, and documentation. No new runtime, endpoints,
+credentials, Supabase writes, workers, webhooks, or money subsystems.
+
+### Scope
+
+| Area | Intent |
+|------|--------|
+| Routes / access | `/dev-console/product-access`, workspace, product-catalog, credential-lifecycle, auth-simulator, gateway-simulator, runtime-activation, app-governance — `RouteAuthGuard` + `developerAccessGate` for approved dev + admin; `/developers` public; Navbar `useDeveloperNavHref` → `/dev-console` when allowed |
+| Config determinism | `lib/developerProductAccessConfig.js`, `lib/developerProductGovernanceConfig.js` — no `Date.now()`, `Math.random()`, fetch, Supabase, localStorage, or crypto; helpers return copies without mutating seeds |
+| Metadata-only safety | Seeds and UI must state sandbox only, preview only, metadata only, no execution, no endpoints, no live access — never live URLs, tokens, credentials, or execution payloads in preview seeds |
+| Console UI | `/dev-console/product-access` — Phase 9A sections 1–11 + 9B.1–9B.8, safety banners, section 2 governance bridge, mobile-friendly wrapping on config path hints |
+| Cross-links | Bidirectional links among Workspace, Product Catalog, Credential Lifecycle, Auth Simulator, Gateway Simulator, Runtime Activation, Developer Governance, and Product Access |
+| Docs | This section + `docs/internal-platform-architecture.md` §40 |
+
+### Validation checklist (9C)
+
+- Approved developer or admin reaches product-access and related console routes; unapproved users see `DevConsoleAccessDenied`.
+- Product-access page imports config modules only — no network I/O on mount.
+- `PRODUCT_ACCESS_SAFETY_RULES` and `PRODUCT_GOVERNANCE_SAFETY_RULES` rendered; primary banners include required metadata-only phrases.
+- Related-tools footers and teal callout banners on peer pages link back to Product Access with consistent **9A + 9B** labels.
+- Entitlement preview seeds contain product labels, scope, execution disabled, and sandbox limit text only.
+
+### Hard constraints (Phase 9C)
+
+- **Audit + hardening only** — surgical fixes to broken access paths, cross-links, copy, and wrapping; no feature expansion.
+- **No** API keys, secrets, live APIs, payment/wallet/treasury/fraud, workers/webhooks, credential issuance, runtime execution, or Supabase writes introduced by this phase.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §40 Phase 9C summary.
+- Phase 9B product access governance & visibility layer immediately above.
+
+## Phase 10A — Sandbox API Request & Flow Simulation Layer
+
+Phase 10A introduces a **sandbox API request and response simulation layer** that stitches the developer operating
+center into the existing request-lifecycle teaching stack:
+
+Developer app → credential placeholder → product entitlement → simulated request path → sandbox response preview.
+
+| Surface | Role |
+| --- | --- |
+| Config | `lib/developerSandboxRequestFlowConfig.js` — twelve flow stages, ten outcomes, ten failure states, ten request cases, response preview catalog, safety rules |
+| Console UI | `/dev-console/request-simulator` — envelope, stage trace, validation summary, response preview (preview only), failure states, outcome summary |
+| Delegates | Read-only calls into Phase 5B auth, Phase 5C gateway, and Phase 5D execution routing `evaluate*Case` helpers by seeded case keys |
+| Alignment | Read-only imports from Phases 8A–8B (credential), 9A–9B (product access / governance), 4D catalog `product_key` rows |
+
+### Modeled flow (configuration only)
+
+1. **developer_request_selected** — operator picks a seeded `SANDBOX_REQUEST_CASES` row.
+2. **credential_placeholder_checked** — Phase 8A lifecycle posture (`approved_placeholder` / `issued_placeholder`).
+3. **product_entitlement_checked** — Phase 9A access state visibility.
+4. **capability_scope_checked** — capability ↔ product alignment (no automatic grant).
+5. **auth_simulation_linked** — `evaluateAuthSimulationCase(auth_case_key)`.
+6. **gateway_simulation_linked** — `evaluateGatewaySimulationCase(gateway_case_key)`.
+7. **execution_routing_linked** — `evaluateExecutionRoutingCase(routing_case_key)`.
+8. **request_payload_shape_checked** — deterministic JSON preview field validation.
+9. **sandbox_response_selected** — `SANDBOX_RESPONSE_PREVIEWS` body (labeled preview only).
+10. **audit_preview_prepared** — append-only narrative placeholders.
+11. **observability_preview_prepared** — Phase 2E/2F correlation vocabulary (no emitter).
+12. **simulated_response_returned** — terminal or non-terminal outcome for console display only.
+
+`route_preview` strings are prefixed **`[preview only]`** — they do not register HTTP routes or activate endpoints.
+
+### Seeded request cases (keys)
+
+- `request.wallet.balance.preview`
+- `request.wallet.funding.simulate`
+- `request.send.money.simulate`
+- `request.transaction.history.preview`
+- `request.notifications.preview`
+- `request.fraud.alerts.placeholder`
+- `request.analytics.summary.preview`
+- `request.webhook.event.preview`
+- `request.treasury.placeholder.blocked`
+- `request.live.environment.blocked`
+
+### Hard constraints (Phase 10A)
+
+- **Simulation + metadata only** — no real endpoints, API traffic, auth runtime, credentials, secrets, middleware, webhooks, workers, Supabase writes, money, treasury, or fraud execution.
+- **Deterministic** — no `Date.now()`, `Math.random()`, `fetch`, storage, or crypto; startup alignment asserts auth/gateway/routing case keys and catalog `product_key` references.
+- **Response previews** — never include secrets, tokens, live URLs, real balances, execution ids, or production transaction ids.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §41 Phase 10A summary.
+- Phase 9C product access readiness audit immediately above.
+- Phases 5B–5D authentication, gateway, and execution routing simulations.
+
+## Phase 10B — Request Governance & Observability Layer
+
+Phase 10B adds **request governance, observability vocabulary, and audit trail seeds** on top of Phase 10A sandbox
+request flow simulation. The layer teaches how sandbox request rehearsals would be reviewed, correlated, and narrated
+in audit trails — without executing HTTP traffic, emitting telemetry, writing logs, or activating endpoints.
+
+| Surface | Role |
+| --- | --- |
+| Config | `lib/developerRequestGovernanceConfig.js` — eight governance states, eight visibility rules, six review outcomes, six actors, ten observability signals, nine audit trail seeds, eight restriction rationales, six blocking models, safety rules |
+| Console UI | `/dev-console/request-simulator` sections **10B.1–10B.8** — governance summary, review outcomes, visibility rules, observability signals, audit trail, blocking models, rationales, risk summary |
+| Alignment | Read-only `SANDBOX_REQUEST_CASE_KEYS` from Phase 10A; vocabulary bridges to Phase 2E observability and Phase 2F event-store teaching seeds |
+| Delegates | Auth and gateway simulation actors reference Phase 5B/5C evaluate*Case linkage — trace narration only |
+
+### Modeled governance (configuration only)
+
+1. **Governance states** — from `request_not_modeled` through `developer_visible_request_metadata`, suspension, revocation, and archive placeholders.
+2. **Visibility rules** — developers see request metadata only; execution and live traffic denied; entitlement and credential placeholder prerequisites.
+3. **Observability signals** — static correlation labels mapped to Phase 10A stage keys (`developer_request_selected` through `simulated_response_returned`) with Phase 2E anchor vocabulary.
+4. **Audit trail seeds** — nine deterministic append-only narrative rows with static step labels (no clock timestamps).
+5. **Blocking models** — entitlement, credential, auth denial, gateway denial, routing block, and environment isolation teaching paths.
+6. **Restriction rationales** — explain metadata-only visibility, operator review gates, sandbox boundary, and observability-without-emitters.
+
+### Hard constraints (Phase 10B)
+
+- **Simulation + metadata only** — no real endpoints, API traffic, auth runtime, credentials, secrets, middleware, webhooks, workers, Supabase writes, telemetry emitters, audit ingestion, money, treasury, or fraud execution.
+- **Deterministic** — no `Date.now()`, `Math.random()`, `fetch`, storage, or crypto; startup alignment asserts array counts and preview seed keys.
+- **Observability** — signals and audit trails are vocabulary only — they do not create sessions, metrics, or production correlation ids.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §42 Phase 10B summary.
+- Phase 10A sandbox API request & flow simulation layer immediately above.
+- Phases 2E–2F observability and runtime-state blueprints (teaching vocabulary only).
+
+## Phase 10C — Request Simulation Readiness Audit & Governance Hardening
+
+Phase 10C is a **readiness audit and hardening pass** on Phases **10A–10B** — routes, config determinism,
+simulation-safety copy, request-simulator UI wrapping, bidirectional cross-links, failure-to-governance mapping, and
+documentation. No new runtime, endpoints, credentials, Supabase writes, workers, webhooks, or money subsystems.
+
+### Scope
+
+| Area | Intent |
+|------|--------|
+| Routes / access | `/dev-console/request-simulator`, workspace, product-access, product-catalog, credential-lifecycle, auth-simulator, gateway-simulator, execution-routing, runtime-activation, app-governance — `RouteAuthGuard` + `developerAccessGate` for approved dev + admin; `/developers` public; Navbar `useDeveloperNavHref` → `/dev-console` when allowed |
+| Config determinism | `lib/developerSandboxRequestFlowConfig.js`, `lib/developerRequestGovernanceConfig.js` — no `Date.now()`, `Math.random()`, fetch, Supabase, localStorage, or crypto; helpers return copies without mutating seeds; `REQUEST_FAILURE_GOVERNANCE_LINKS` maps every `failure_key` to blocking models and rationales |
+| Simulation safety | Seeds and UI must state simulation only, metadata only, preview only, no execution, no live request traffic, no endpoint activation, no money movement — never live URLs, tokens, credentials, or execution payloads in preview seeds |
+| Observability / audit | `REQUEST_OBSERVABILITY_SIGNALS` and `REQUEST_AUDIT_TRAIL_SEEDS` use static step labels (no clocks); signals correlate to Phase 10A stage keys; blocking models map to failure keys and outcomes |
+| Console UI | `/dev-console/request-simulator` — Phase 10A sections 3–9 + 10B.1–10B.8, consolidated safety banners, failure cards show 10B blocking/rationale links, mobile-friendly wrapping on mono paths and JSON previews |
+| Cross-links | Bidirectional links among Workspace, Product Catalog, Product Access, Credential Lifecycle, Auth Simulator, Gateway Simulator, Execution Routing, Runtime Activation, Developer Governance, and Request Simulator with consistent **10A + 10B** labels |
+| Docs | This section + `docs/internal-platform-architecture.md` §43 |
+
+### Validation checklist (10C)
+
+- Approved developer or admin reaches request-simulator and related console routes; unapproved users see `DevConsoleAccessDenied`.
+- Request-simulator page imports config modules only — no network I/O on mount for simulation evaluation.
+- `SANDBOX_REQUEST_SAFETY_RULES` and `REQUEST_GOVERNANCE_SAFETY_RULES` rendered; primary banners include required simulation-safety phrases.
+- Every `SANDBOX_REQUEST_FAILURE_STATES` `failure_key` has a `REQUEST_FAILURE_GOVERNANCE_LINKS` row validated at module startup.
+- Related-tools footers and callout banners on peer pages link back to Request Simulator with consistent **10A + 10B** labels.
+- `evaluateSandboxRequestCase` blocking stages align with governance blocking model narration.
+
+### Hard constraints (Phase 10C)
+
+- **Audit + hardening only** — surgical fixes to broken access paths, cross-links, copy, failure mapping, and wrapping; no feature expansion.
+- **No** API keys, secrets, live APIs, payment/wallet/treasury/fraud, workers/webhooks, credential issuance, runtime execution, or Supabase writes introduced by this phase.
+
+### Cross-references
+
+- `docs/internal-platform-architecture.md` — §43 Phase 10C summary.
+- Phase 10B request governance & observability layer immediately above.
 

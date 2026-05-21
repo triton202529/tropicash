@@ -20,7 +20,7 @@ export default function DevConsoleAppsPage() {
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
         <Link
           href="/dev-console/apps-register"
-          className="font-semibold text-emerald-800 underline decoration-emerald-600/40 underline-offset-2 hover:decoration-emerald-700"
+          className="font-semibold text-tropicash-green-hover underline decoration-tropicash-green/40 underline-offset-2 hover:decoration-tropicash-green-hover"
         >
           Register Developer App
         </Link>
@@ -67,26 +67,26 @@ export default function DevConsoleAppsPage() {
         </p>
         <ul className="mt-4 list-disc space-y-1.5 pl-5 text-sm text-slate-700">
           <li>
-            <Link href="/dev-console/apps-register" className="font-semibold text-emerald-800 underline">
+            <Link href="/dev-console/apps-register" className="font-semibold text-tropicash-green-hover underline">
               Register App
             </Link>{" "}
             — create org and sandbox app rows.
           </li>
           <li>
-            <Link href="/dev-console/my-apps" className="font-semibold text-emerald-800 underline">
+            <Link href="/dev-console/my-apps" className="font-semibold text-tropicash-green-hover underline">
               My Apps
             </Link>{" "}
             — statuses, reviews, lifecycle, capability requests.
           </li>
           <li>
-            <Link href="/dev-console/app-capabilities" className="font-semibold text-emerald-800 underline">
+            <Link href="/dev-console/app-capabilities" className="font-semibold text-tropicash-green-hover underline">
               App Capabilities
             </Link>{" "}
             — sandbox capability requests (admin assigns in governance).
           </li>
           {showGovernanceLink ? (
             <li>
-              <Link href="/dev-console/app-governance" className="font-semibold text-emerald-800 underline">
+              <Link href="/dev-console/app-governance" className="font-semibold text-tropicash-green-hover underline">
                 Developer Governance
               </Link>{" "}
               — admin review queue for sandbox activation, live upgrades, and capability requests.

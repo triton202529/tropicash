@@ -20,8 +20,8 @@ import { useUser } from "../../lib/userContext";
  *   • Show a "Construction" banner so users know nothing here is functional.
  *   • Expose an environment badge area for future sandbox/live toggling.
  *
- * NOTE: Auth gating is handled centrally by components/RouteAuthGuard.jsx,
- * which redirects unauthenticated /dev-console/* visitors to /login.
+ * Session + approved developer access (Phase 6C) are enforced in
+ * components/RouteAuthGuard.jsx before any dev-console page mounts.
  */
 
 const sidebarLinkBase =
@@ -41,6 +41,76 @@ const mobileTabActive =
 function isRouteActive(currentPath, routePath) {
   if (routePath === "/dev-console") return currentPath === "/dev-console";
   return currentPath === routePath || currentPath.startsWith(`${routePath}/`);
+}
+
+function DevConsoleDeniedShell({ title, subtitle, children }) {
+  return (
+    <DevConsoleDeniedShellPage title={title} subtitle={subtitle}>
+      {children}
+    </DevConsoleDeniedShellPage>
+  );
+}
+
+export function DevConsoleAccessDenied({ title, subtitle, reason }) {
+  return (
+    <>
+      <Navbar />
+      <DevConsoleDeniedShell title={title} subtitle={subtitle}>
+        <div
+          role="status"
+          className="tropicash-surface rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8"
+        >
+          <h2 className="text-lg font-bold text-amber-950 sm:text-xl">
+            Developer Console access required
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-amber-950 sm:text-base">
+            {reason}
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-700">
+            Approval grants entry to the Developer Console shell only — it does not
+            create organizations, apps, or API keys.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/developers/request-access"
+              className="inline-flex rounded-lg bg-tropicash-green px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-tropicash-green-hover"
+            >
+              Request developer access
+            </Link>
+            <Link
+              href="/developers"
+              className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Developer Portal
+            </Link>
+          </div>
+        </div>
+      </DevConsoleDeniedShell>
+    </>
+  );
+}
+
+function DevConsoleDeniedShellPage({ title, subtitle, children }) {
+  return (
+    <div className="min-h-[calc(100vh-4rem)] px-3 py-6 sm:px-5 sm:py-8">
+      <div className="mx-auto w-full max-w-2xl">
+        <header className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-tropicash-green-hover">
+            Developer Console
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">
+              {subtitle}
+            </p>
+          ) : null}
+        </header>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export default function DevConsoleLayout({
@@ -117,10 +187,9 @@ export default function DevConsoleLayout({
 
           {/* Main content */}
           <section className="flex w-full min-w-0 flex-col">
-            {/* Top header */}
             <header className="mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                <p className="text-xs font-semibold uppercase tracking-wide text-tropicash-green-hover">
                   Developer Console
                 </p>
                 <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
@@ -132,7 +201,6 @@ export default function DevConsoleLayout({
                   </p>
                 ) : null}
               </div>
-              {/* Environment badge area (future sandbox/live toggle lives here) */}
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-sky-800">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-500" aria-hidden />
@@ -144,7 +212,6 @@ export default function DevConsoleLayout({
               </div>
             </header>
 
-            {/* Mobile section nav */}
             <nav
               aria-label="Developer Console sections"
               className="mb-5 -mx-1 overflow-x-auto md:hidden"
@@ -169,7 +236,6 @@ export default function DevConsoleLayout({
               </ul>
             </nav>
 
-            {/* Construction banner — applies to every console page */}
             <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950 sm:px-5 sm:py-3.5 sm:text-[0.9375rem]">
               <strong className="font-semibold text-amber-900">
                 Developer Console infrastructure is currently under construction.

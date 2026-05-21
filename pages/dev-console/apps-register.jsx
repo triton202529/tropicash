@@ -156,12 +156,22 @@ export default function DevConsoleAppsRegisterPage() {
       });
       setRequestingAppId(null);
       if (error) {
+        console.log("[governance-debug] apps-register sandbox activation failed", {
+          app_id: app.id,
+          message: error.message,
+        });
         setReviewMessage({
           type: "error",
           text: error.message || "Could not submit sandbox activation request.",
         });
         return;
       }
+      console.log("[governance-debug] apps-register sandbox activation submitted", {
+        review_id: data?.id,
+        status: data?.status,
+        review_type: data?.review_type,
+        app_id: data?.app_id,
+      });
       setReviewMessage({
         type: "success",
         text: `Sandbox activation requested for “${app.app_name}”.`,
@@ -327,7 +337,7 @@ export default function DevConsoleAppsRegisterPage() {
       >
         <p className="text-sm text-slate-600">
           You need an account session to use this page.{" "}
-          <Link href="/login" className="font-semibold text-emerald-700 underline">
+          <Link href="/login" className="font-semibold text-tropicash-green-hover underline">
             Go to login
           </Link>
           .
@@ -640,11 +650,11 @@ export default function DevConsoleAppsRegisterPage() {
       </section>
 
       <p className="text-sm text-slate-600">
-        <Link href="/dev-console/my-apps" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/my-apps" className="font-semibold text-tropicash-green-hover underline">
           My Apps
         </Link>
         {" · "}
-        <Link href="/dev-console/apps" className="font-semibold text-emerald-700 underline">
+        <Link href="/dev-console/apps" className="font-semibold text-tropicash-green-hover underline">
           Apps overview
         </Link>
       </p>

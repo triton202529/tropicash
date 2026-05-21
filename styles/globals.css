@@ -10,6 +10,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-tropicash-green: #159669;
+  --color-tropicash-green-hover: #0f8f63;
+  --color-tropicash-green-tint: #d1fae5;
 }
 
 @media (prefers-color-scheme: dark) {
