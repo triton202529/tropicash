@@ -656,6 +656,14 @@ export default function AdminSecurityPage() {
             <Link href="/admin/audit" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               View Admin Audit Trail
             </Link>
+            {" · "}
+            <Link href="/admin/risk" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Open Risk Intelligence
+            </Link>
+            {" · "}
+            <Link href="/admin/risk-cases" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Risk Review Queue
+            </Link>
           </p>
         </div>
 

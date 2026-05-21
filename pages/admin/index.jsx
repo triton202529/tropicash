@@ -411,6 +411,16 @@ export default function AdminIndexPage() {
         </p>
         <ul style={{ margin: "0 0 1.5rem", paddingLeft: "1.25rem", fontSize: "0.95rem", color: "#64748b" }}>
           <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/risk" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Risk Intelligence
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/risk-cases" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Risk Review Queue
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/security" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Security Console
             </Link>
