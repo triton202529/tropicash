@@ -426,6 +426,11 @@ export default function AdminIndexPage() {
             </Link>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/kyc" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              KYC Review
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/audit" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Admin Audit Trail
             </Link>
@@ -473,6 +478,11 @@ export default function AdminIndexPage() {
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/treasury" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Treasury
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/treasury-intelligence" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Treasury Intelligence
             </Link>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>

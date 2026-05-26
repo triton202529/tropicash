@@ -162,6 +162,9 @@ export default function Navbar() {
                     <button type="button" onClick={() => router.push("/security")} className={dropdownItemClass}>
                       Security
                     </button>
+                    <button type="button" onClick={() => router.push("/kyc")} className={dropdownItemClass}>
+                      Verify Identity
+                    </button>
                     <button type="button" onClick={() => router.push("/support")} className={dropdownItemClass}>
                       Support
                     </button>
@@ -197,6 +200,9 @@ export default function Navbar() {
                         </button>
                         <button type="button" onClick={() => router.push("/admin/feedback")} className={dropdownItemClass}>
                           Tester feedback
+                        </button>
+                        <button type="button" onClick={() => router.push("/admin/kyc")} className={dropdownItemClass}>
+                          KYC Review
                         </button>
                         <button type="button" onClick={() => router.push("/admin/logs")} className={dropdownItemClass}>
                           Operational logs

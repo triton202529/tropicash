@@ -697,7 +697,10 @@ export default function AdminTreasuryPage() {
               Treasury &amp; Reconciliation
             </h1>
             <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b", lineHeight: 1.5, maxWidth: "44rem" }}>
-              Read-only admin snapshot. Last refreshed at {generatedLabel}.
+              Read-only admin snapshot. Last refreshed at {generatedLabel}.{" "}
+              <Link href="/admin/treasury-intelligence" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+                Open Treasury Intelligence
+              </Link>
             </p>
           </div>
           <button
