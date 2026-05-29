@@ -4,6 +4,20 @@ import { supabase } from "../../lib/supabaseClient";
 import { useUser } from "../../lib/userContext";
 import { isAdminUser } from "../../lib/adminAccess";
 import Navbar from "../../components/Navbar";
+import TreasuryIntelligenceGroup from "../../components/admin/treasury/TreasuryIntelligenceGroup";
+import TreasuryIntelligenceQuickNav from "../../components/admin/treasury/TreasuryIntelligenceQuickNav";
+import TreasurySectionShell, {
+  treasurySectionStatusMessage,
+} from "../../components/admin/treasury/TreasurySectionShell";
+import { treasuryFocusRingClass, cardBase, sectionHeading, treasuryBadgeStyle, treasurySectionStyle, treasuryExecutiveSectionStyle, treasurySectionIntroStyle, treasuryKpiGridStyle, treasuryKpiGridMediumStyle, treasuryKpiGridWideStyle, treasurySummaryTextStyle, treasurySummaryLabelStyle, treasurySummaryBlockStyle, treasuryPanelHighlightStyle, treasuryListStyle, treasuryListItemStyle, treasuryKpiLabelStyle, treasuryKpiCardStyle, treasuryInnerKpiTileStyle, treasuryCardPaddingStyle } from "../../components/admin/treasury/treasuryStyles";
+import {
+  deriveExecutiveGroupStatus,
+  deriveForecastGroupStatus,
+  deriveHealthGroupStatus,
+  deriveReportsGroupStatus,
+  deriveRiskGroupStatus,
+} from "../../components/admin/treasury/groupStatus";
+
 import {
   calculateTreasuryExplainability,
   buildTreasuryBoardTimeline,
@@ -39,20 +53,14 @@ import {
 } from "../../lib/treasuryIntelligence";
 
 const pageWrap = {
-  padding: "2rem 1.25rem 3rem",
+  padding: "1.25rem 1rem 2.5rem",
   maxWidth: "1100px",
+  width: "100%",
   margin: "0 auto",
   minHeight: "calc(100vh - 3.5rem)",
   background: "transparent",
   boxSizing: "border-box",
   overflowX: "hidden",
-};
-
-const cardBase = {
-  background: "#ffffff",
-  borderRadius: "14px",
-  border: "1px solid #e2e8f0",
-  boxShadow: "0 8px 25px rgba(15, 23, 42, 0.08)",
 };
 
 const btnOption = {
@@ -91,15 +99,6 @@ const btnSm = {
   marginTop: "0.25rem",
 };
 
-const sectionHeading = {
-  margin: "0 0 0.65rem",
-  fontSize: "0.8rem",
-  fontWeight: 700,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  color: "#94a3b8",
-};
-
 function formatMoney(value) {
   const n = Number(value);
   const safe = Number.isFinite(n) ? n : 0;
@@ -122,17 +121,7 @@ function riskLevelBadge(level) {
     low: { bg: "#ecfdf5", fg: "#166534", border: "#bbf7d0" },
   };
   const pal = styles[key] || styles.low;
-  return {
-    display: "inline-block",
-    padding: "0.18rem 0.55rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function severityBadge(severity) {
@@ -144,18 +133,7 @@ function severityBadge(severity) {
     low: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.low;
-  return {
-    display: "inline-block",
-    padding: "0.12rem 0.45rem",
-    borderRadius: "999px",
-    fontSize: "0.62rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-    whiteSpace: "nowrap",
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function scoreColor(score) {
@@ -254,18 +232,7 @@ function readinessLevelBadge(level) {
     not_ready: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.not_ready;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function operatingPostureLabel(posture) {
@@ -296,18 +263,7 @@ function operatingPostureBadge(posture) {
     active_review: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.increased_monitoring;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryJourneyLabel(journey) {
@@ -332,18 +288,7 @@ function treasuryJourneyBadge(journey) {
     weakening: { bg: "#fef2f2", fg: "#b91c1c", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function boardMomentumLabel(momentum) {
@@ -366,18 +311,7 @@ function boardMomentumBadge(momentum) {
     deteriorating: { bg: "#fef2f2", fg: "#b91c1c", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function narrativeToneLabel(tone) {
@@ -400,18 +334,7 @@ function narrativeToneBadge(tone) {
     elevated_attention: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function narrativeOutlookLabel(outlook) {
@@ -434,18 +357,7 @@ function narrativeOutlookBadge(outlook) {
     cautious: { bg: "#fef2f2", fg: "#b91c1c", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function briefingExecutiveStatusLabel(status) {
@@ -468,18 +380,7 @@ function briefingExecutiveStatusBadge(status) {
     elevated_attention: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function briefingExecutivePriorityLabel(priority) {
@@ -502,18 +403,7 @@ function briefingExecutivePriorityBadge(priority) {
     elevated_review: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.maintain_monitoring;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function briefingExecutiveOutlookLabel(outlook) {
@@ -536,18 +426,7 @@ function briefingExecutiveOutlookBadge(outlook) {
     cautious: { bg: "#fef2f2", fg: "#b91c1c", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function readinessIndexLaunchSignalLabel(signal) {
@@ -570,18 +449,7 @@ function readinessIndexLaunchSignalBadge(signal) {
     elevated_monitoring: { bg: "#fffbeb", fg: "#92400e", border: "#fcd34d" },
   };
   const pal = styles[key] || styles.hold_position;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function readinessIndexLaunchPostureLabel(posture) {
@@ -604,18 +472,7 @@ function readinessIndexLaunchPostureBadge(posture) {
     elevated_review: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.continue_testing;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function readinessIndexDriverTypeLabel(type) {
@@ -638,18 +495,7 @@ function readinessIndexDriverTypeBadge(type) {
     integrity: { bg: "#faf5ff", fg: "#7e22ce", border: "#e9d5ff" },
   };
   const pal = styles[key] || { bg: "#f1f5f9", fg: "#475569", border: "#e2e8f0" };
-  return {
-    display: "inline-block",
-    padding: "0.18rem 0.5rem",
-    borderRadius: "999px",
-    fontSize: "0.64rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function commandCenterStatusLabel(status) {
@@ -672,18 +518,7 @@ function commandCenterStatusBadge(status) {
     active_review: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.monitored;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function commandCenterOperatingPictureLabel(picture) {
@@ -706,18 +541,7 @@ function commandCenterOperatingPictureBadge(picture) {
     elevated_monitoring: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.cautious_launch;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function commandCenterPriorityLevelLabel(level) {
@@ -740,18 +564,7 @@ function commandCenterPriorityLevelBadge(level) {
     high: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.moderate;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function commandCenterAttentionSignalLabel(signal) {
@@ -774,18 +587,7 @@ function commandCenterAttentionSignalBadge(signal) {
     active_oversight: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.increased_review;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function commandCenterHealthSignalLabel(signal) {
@@ -808,18 +610,7 @@ function commandCenterHealthSignalBadge(signal) {
     resilient: { bg: "#f0fdf4", fg: "#15803d", border: "#86efac" },
   };
   const pal = styles[key] || styles.watch;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryConditionLabel(condition) {
@@ -879,18 +670,7 @@ function driftStatusBadge(status) {
     meaningful_shift: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.unchanged;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function stabilityAssessmentLabel(assessment) {
@@ -942,18 +722,7 @@ function stabilityLevelBadge(level) {
     unstable: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.unstable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function operatingConfidenceLabel(confidence) {
@@ -984,18 +753,7 @@ function operatingConfidenceBadge(confidence) {
     low: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.low;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryConsistencyLabel(consistency) {
@@ -1062,18 +820,7 @@ function scalingReadinessLevelBadge(level) {
     not_ready: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.not_ready;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function launchCapacityLabel(capacity) {
@@ -1114,18 +861,7 @@ function operatingToleranceBadge(tolerance) {
     fragile: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.fragile;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryIntegrityLevelLabel(level) {
@@ -1150,18 +886,7 @@ function treasuryIntegrityLevelBadge(level) {
     weak: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.weak;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function signalTrustLevelLabel(level) {
@@ -1184,18 +909,7 @@ function signalTrustLevelBadge(level) {
     low: { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.low;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryReliabilityLabel(reliability) {
@@ -1243,18 +957,7 @@ function governanceLevelBadge(level) {
     reactive: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.developing;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function oversightPostureLabel(posture) {
@@ -1277,18 +980,7 @@ function oversightPostureBadge(posture) {
     active_oversight: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.routine_monitoring;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryOversightLabel(oversight) {
@@ -1349,18 +1041,7 @@ function treasuryOperatingModeBadge(mode) {
     elevated_monitoring_mode: { bg: "#fffbeb", fg: "#92400e", border: "#fcd34d" },
   };
   const pal = styles[key] || styles.observation_mode;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function launchReadinessLevelLabel(level) {
@@ -1383,18 +1064,7 @@ function launchReadinessLevelBadge(level) {
     controlled_growth_ready: { bg: "#ecfdf5", fg: "#047857", border: "#bbf7d0" },
   };
   const pal = styles[key] || styles.testing_only;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function treasuryPostureLabel(posture) {
@@ -1417,18 +1087,7 @@ function treasuryPostureBadge(posture) {
     elevated_attention: { bg: "#fffbeb", fg: "#92400e", border: "#fcd34d" },
   };
   const pal = styles[key] || styles.cautious;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function recommendedMonitoringLevelLabel(level) {
@@ -1452,18 +1111,7 @@ function treasuryMomentumBadgeStyle(momentum) {
     stable: { bg: "#f1f5f9", fg: "#334155", border: "#e2e8f0" },
   };
   const pal = styles[key] || styles.stable;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function HistorySparkline({ dataPoints, color = "#0ea5e9", height = 36, width = 120 }) {
@@ -1659,19 +1307,7 @@ function executiveStatusBadge(status) {
     high_attention: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.stable_monitoring;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-    whiteSpace: "nowrap",
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function monitoringPriorityLabel(priority) {
@@ -1732,19 +1368,7 @@ function alertPriorityBadge(priority) {
     high: { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" },
   };
   const pal = styles[key] || styles.low;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-    whiteSpace: "nowrap",
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function runwayEstimateLabel(runway) {
@@ -1775,19 +1399,7 @@ function driverTypeBadge(type) {
     negative: { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca", label: "Negative" },
   };
   const pal = styles[key] || styles.warning;
-  return {
-    display: "inline-block",
-    padding: "0.12rem 0.45rem",
-    borderRadius: "999px",
-    fontSize: "0.62rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-    whiteSpace: "nowrap",
-    label: pal.label,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function formatDelta(value, { prefix = "", suffix = "", invertColor = false } = {}) {
@@ -1866,18 +1478,7 @@ function unifiedConditionBadge(condition) {
     watch: { bg: "#fffbeb", fg: "#92400e", border: "#fcd34d" },
   };
   const pal = styles[key] || styles.watch;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function operatingRecommendationLabel(recommendation) {
@@ -1908,35 +1509,13 @@ function operatingRecommendationBadge(recommendation) {
     elevated_attention: { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" },
   };
   const pal = styles[key] || styles.continue_monitoring;
-  return {
-    display: "inline-block",
-    padding: "0.22rem 0.65rem",
-    borderRadius: "999px",
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    background: pal.bg,
-    color: pal.fg,
-    border: `1px solid ${pal.border}`,
-  };
+  return treasuryBadgeStyle(pal);
 }
 
 function KpiCard({ label, value, subtitle, valueColor }) {
   return (
-    <div style={{ ...cardBase, padding: "1rem 1.1rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-      <p
-        style={{
-          margin: 0,
-          fontSize: "0.7rem",
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "#94a3b8",
-        }}
-      >
-        {label}
-      </p>
+    <div style={treasuryKpiCardStyle}>
+      <p style={treasuryKpiLabelStyle}>{label}</p>
       <p
         style={{
           margin: 0,
@@ -1949,7 +1528,7 @@ function KpiCard({ label, value, subtitle, valueColor }) {
         {value}
       </p>
       {subtitle ? (
-        <p style={{ margin: 0, fontSize: "0.72rem", color: "#64748b", lineHeight: 1.4 }}>{subtitle}</p>
+        <p style={{ margin: 0, fontSize: "0.8125rem", color: "#64748b", lineHeight: 1.5 }}>{subtitle}</p>
       ) : null}
     </div>
   );
@@ -1998,7 +1577,7 @@ function BoardTimelineSparkline({ series }) {
 
 function SkeletonKpi() {
   return (
-    <div style={{ ...cardBase, padding: "1rem 1.1rem" }}>
+    <div style={treasuryKpiCardStyle}>
       <div
         style={{
           height: "0.6rem",
@@ -2012,6 +1591,7 @@ function SkeletonKpi() {
     </div>
   );
 }
+
 
 export default function AdminTreasuryIntelligencePage() {
   const { user, profile, loading: authLoading } = useUser();
@@ -2034,6 +1614,11 @@ export default function AdminTreasuryIntelligencePage() {
   const [simulationResult, setSimulationResult] = useState(null);
   const [reportPreview, setReportPreview] = useState(null);
   const [reportCopyNote, setReportCopyNote] = useState(null);
+  const [activeGroupId, setActiveGroupId] = useState("executive-command-center");
+
+  const handleGroupActivate = useCallback((id) => {
+    setActiveGroupId(id);
+  }, []);
 
   const load = useCallback(async () => {
     if (!user?.id || !isAdminUser(user, profile)) return;
@@ -2759,6 +2344,21 @@ export default function AdminTreasuryIntelligencePage() {
     simWithdrawalSpike,
   ]);
 
+  const executiveGroupStatus = useMemo(
+    () => deriveExecutiveGroupStatus(treasuryCommandCenter, unifiedTreasuryScore),
+    [treasuryCommandCenter, unifiedTreasuryScore],
+  );
+  const healthGroupStatus = useMemo(
+    () => deriveHealthGroupStatus(treasuryStability, treasuryDrift, trends),
+    [treasuryStability, treasuryDrift, trends],
+  );
+  const riskGroupStatus = useMemo(
+    () => deriveRiskGroupStatus(alertClassification, alerts),
+    [alertClassification, alerts],
+  );
+  const forecastGroupStatus = useMemo(() => deriveForecastGroupStatus(), []);
+  const reportsGroupStatus = useMemo(() => deriveReportsGroupStatus(), []);
+
   const kpiCards = useMemo(() => {
     if (!health) return null;
     return [
@@ -2842,7 +2442,7 @@ export default function AdminTreasuryIntelligencePage() {
   return (
     <>
       <Navbar />
-      <div style={pageWrap}>
+      <div style={pageWrap} className="max-w-full sm:px-5 sm:pb-12 md:px-6 md:pb-14">
         <div style={{ marginBottom: "1.25rem" }}>
           <Link href="/admin" style={{ color: "#38bdf8", fontWeight: 600, fontSize: "0.9rem" }}>
             ← Admin home
@@ -2880,9 +2480,12 @@ export default function AdminTreasuryIntelligencePage() {
             type="button"
             onClick={() => void load()}
             disabled={loading}
+            aria-busy={loading || undefined}
+            className={`min-h-[44px] px-3 py-2 sm:px-3.5 ${treasuryFocusRingClass}`}
             style={{
               ...btnSm,
               marginTop: 0,
+              minHeight: "44px",
               opacity: loading ? 0.65 : 1,
               cursor: loading ? "not-allowed" : "pointer",
             }}
@@ -2926,19 +2529,33 @@ export default function AdminTreasuryIntelligencePage() {
           <p style={{ margin: "0 0 1rem", fontSize: "0.78rem", color: "#64748b" }}>{saveNote}</p>
         ) : null}
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury Command Center</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <TreasuryIntelligenceQuickNav activeId={activeGroupId} onNavigate={handleGroupActivate} />
+
+        <TreasuryIntelligenceGroup
+          id="executive-command-center"
+          title="Executive Command Center"
+          description="What leadership should see first — unified score, briefing, and readiness at a glance."
+          priorityLabel="Start here"
+          recommendedFirst
+          sectionCount={4}
+          statusLabel={executiveGroupStatus.label}
+          statusVariant={executiveGroupStatus.variant}
+          defaultOpen
+          onActivate={handleGroupActivate}
+        >
+        {() => (
+        <>
+        <section style={treasuryExecutiveSectionStyle}>
+          <h3 style={sectionHeading}>Treasury Command Center</h3>
+          <p style={treasurySectionIntroStyle}>
             The executive one-page treasury operating view — synthesizing unified score, board timeline, daily
             narrative, executive briefing, and readiness index into a single leadership-ready command picture. Read-only
             and advisory only. No automation or financial mutations.
           </p>
           {!treasuryCommandCenter ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury command center…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury command center…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   marginBottom: "1rem",
@@ -2973,140 +2590,40 @@ export default function AdminTreasuryIntelligencePage() {
                   marginBottom: "1rem",
                 }}
               >
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Command status
                   </p>
                   <span style={commandCenterStatusBadge(treasuryCommandCenter.treasuryCommandStatus)}>
                     {commandCenterStatusLabel(treasuryCommandCenter.treasuryCommandStatus)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Operating picture
                   </p>
                   <span style={commandCenterOperatingPictureBadge(treasuryCommandCenter.treasuryOperatingPicture)}>
                     {commandCenterOperatingPictureLabel(treasuryCommandCenter.treasuryOperatingPicture)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Priority level
                   </p>
                   <span style={commandCenterPriorityLevelBadge(treasuryCommandCenter.treasuryPriorityLevel)}>
                     {commandCenterPriorityLevelLabel(treasuryCommandCenter.treasuryPriorityLevel)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Attention signal
                   </p>
                   <span style={commandCenterAttentionSignalBadge(treasuryCommandCenter.treasuryAttentionSignal)}>
                     {commandCenterAttentionSignalLabel(treasuryCommandCenter.treasuryAttentionSignal)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Health signal
                   </p>
                   <span style={commandCenterHealthSignalBadge(treasuryCommandCenter.treasuryHealthSignal)}>
@@ -3135,11 +2652,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Executive actions
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryCommandCenter.executiveActions.map((item, idx) => (
                       <li
                         key={`command-center-action-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -3162,11 +2679,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Watch areas
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryCommandCenter.watchAreas.map((item, idx) => (
                       <li
                         key={`command-center-watch-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -3189,11 +2706,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Strengths
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryCommandCenter.strengths.map((item, idx) => (
                       <li
                         key={`command-center-strength-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -3216,11 +2733,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Concerns
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryCommandCenter.concerns.map((item, idx) => (
                       <li
                         key={`command-center-concern-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -3249,7 +2766,7 @@ export default function AdminTreasuryIntelligencePage() {
                 >
                   Summary
                 </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
+                <p style={treasurySummaryTextStyle}>
                   {treasuryCommandCenter.summary}
                 </p>
               </div>
@@ -3257,19 +2774,17 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Unified treasury score</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasuryExecutiveSectionStyle}>
+          <h3 style={sectionHeading}>Unified treasury score</h3>
+          <p style={treasurySectionIntroStyle}>
             A single executive synthesis of all treasury intelligence — answering how healthy and operationally ready
             treasury is overall, and what the single treasury story is right now. Read-only and advisory only. No
             automation or financial mutations.
           </p>
           {!unifiedTreasuryScore ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading unified treasury score…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading unified treasury score…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -3284,56 +2799,16 @@ export default function AdminTreasuryIntelligencePage() {
                   subtitle="Executive treasury rating"
                   valueColor={scoreColor(unifiedTreasuryScore.unifiedTreasuryScore)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Treasury grade
                   </p>
                   <span style={treasuryGradeBadge(unifiedTreasuryScore.treasuryGrade)}>
                     {unifiedTreasuryScore.treasuryGrade}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Treasury story
                   </p>
                   <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>
@@ -3346,56 +2821,16 @@ export default function AdminTreasuryIntelligencePage() {
                   subtitle={`${unifiedTreasuryScore.confidence}% signal availability`}
                   valueColor={operatingConfidenceColor(unifiedTreasuryScore.treasuryConfidence)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Treasury condition
                   </p>
                   <span style={unifiedConditionBadge(unifiedTreasuryScore.treasuryCondition)}>
                     {unifiedConditionLabel(unifiedTreasuryScore.treasuryCondition)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Operating recommendation
                   </p>
                   <span style={operatingRecommendationBadge(unifiedTreasuryScore.operatingRecommendation)}>
@@ -3418,9 +2853,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Strengths
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {unifiedTreasuryScore.strengths.map((item, idx) => (
-                      <li key={`unified-strength-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`unified-strength-${idx}`} style={treasuryListItemStyle}>
                         {item}
                       </li>
                     ))}
@@ -3442,9 +2877,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Concern areas
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {unifiedTreasuryScore.concernAreas.map((item, idx) => (
-                      <li key={`unified-concern-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`unified-concern-${idx}`} style={treasuryListItemStyle}>
                         {item}
                       </li>
                     ))}
@@ -3466,9 +2901,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Recommendations
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {unifiedTreasuryScore.recommendations.map((item, idx) => (
-                      <li key={`unified-rec-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`unified-rec-${idx}`} style={treasuryListItemStyle}>
                         {item}
                       </li>
                     ))}
@@ -3496,7 +2931,7 @@ export default function AdminTreasuryIntelligencePage() {
                 >
                   Board summary
                 </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
+                <p style={treasurySummaryTextStyle}>
                   {unifiedTreasuryScore.boardSummary}
                 </p>
               </div>
@@ -3504,501 +2939,16 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury board timeline</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            The story of treasury across snapshots — how it has evolved from an executive perspective and what leadership
-            would remember. Read-only and advisory only. No automation or financial mutations.
-          </p>
-          {!boardTimeline ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury board timeline…</p>
-            </div>
-          ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
-                  gap: "0.75rem",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Treasury journey
-                  </p>
-                  <span style={treasuryJourneyBadge(boardTimeline.treasuryJourney)}>
-                    {treasuryJourneyLabel(boardTimeline.treasuryJourney)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Momentum
-                  </p>
-                  <span style={boardMomentumBadge(boardTimeline.treasuryMomentum)}>
-                    {boardMomentumLabel(boardTimeline.treasuryMomentum)}
-                  </span>
-                </div>
-                <KpiCard
-                  label="Timeline confidence"
-                  value={`${boardTimeline.confidence}/100`}
-                  subtitle={`${boardTimeline.boardTimeline.length} snapshot${boardTimeline.boardTimeline.length === 1 ? "" : "s"} observed`}
-                  valueColor={scoreColor(boardTimeline.confidence)}
-                />
-              </div>
-
-              {boardTimeline.boardTimeline.length > 1 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Treasury score trend
-                  </p>
-                  <BoardTimelineSparkline series={boardTimeline.boardTimeline} />
-                </div>
-              ) : null}
-
-              {boardTimeline.executiveMilestones.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Executive milestones
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {boardTimeline.executiveMilestones.map((item, idx) => (
-                      <li key={`board-milestone-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {boardTimeline.notablePeriods.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Notable periods
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {boardTimeline.notablePeriods.map((item, idx) => (
-                      <li key={`board-notable-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {boardTimeline.boardTimeline.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Timeline
-                  </p>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))",
-                      gap: "0.65rem",
-                    }}
-                  >
-                    {boardTimeline.boardTimeline.map((period, idx) => (
-                      <div
-                        key={`board-period-${idx}`}
-                        style={{
-                          padding: "0.85rem 0.9rem",
-                          borderRadius: "12px",
-                          background: "#f8fafc",
-                          border: "1px solid #f1f5f9",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "0.45rem",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: "0.5rem",
-                          }}
-                        >
-                          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b" }}>
-                            {formatWhen(period.date)}
-                          </span>
-                          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: scoreColor(period.treasuryScore) }}>
-                            {period.treasuryScore}/100
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                          <span style={unifiedConditionBadge(period.treasuryCondition)}>
-                            {unifiedConditionLabel(period.treasuryCondition)}
-                          </span>
-                          <span style={operatingPostureBadge(period.operatingPosture)}>
-                            {operatingPostureLabel(period.operatingPosture)}
-                          </span>
-                        </div>
-                        <p style={{ margin: 0, fontSize: "0.8rem", color: "#475569", lineHeight: 1.45 }}>
-                          {period.narrative}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  padding: "0.85rem 1rem",
-                  borderRadius: "10px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <p
-                  style={{
-                    margin: "0 0 0.4rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
-                  Summary
-                </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                  {boardTimeline.summary}
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury daily narrative</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            A single, leadership-ready treasury story — what treasury leadership would say happened today, in a calm
-            institutional voice. Read-only and advisory only. No automation or financial mutations.
-          </p>
-          {!treasuryNarrative ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury daily narrative…</p>
-            </div>
-          ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: "0.65rem",
-                  marginBottom: "0.85rem",
-                }}
-              >
-                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "1.05rem",
-                      fontWeight: 700,
-                      color: "#0f172a",
-                      lineHeight: 1.4,
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    {treasuryNarrative.treasuryHeadline}
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                    <span style={narrativeToneBadge(treasuryNarrative.treasuryTone)}>
-                      {narrativeToneLabel(treasuryNarrative.treasuryTone)}
-                    </span>
-                    <span style={narrativeOutlookBadge(treasuryNarrative.treasuryOutlook)}>
-                      {narrativeOutlookLabel(treasuryNarrative.treasuryOutlook)}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ flex: "0 0 auto", textAlign: "right" }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Confidence
-                  </p>
-                  <p
-                    style={{
-                      margin: "0.15rem 0 0",
-                      fontSize: "1.15rem",
-                      fontWeight: 800,
-                      color: scoreColor(treasuryNarrative.confidence),
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {treasuryNarrative.confidence}/100
-                  </p>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
-                  gap: "0.75rem",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Treasury tone
-                  </p>
-                  <span style={narrativeToneBadge(treasuryNarrative.treasuryTone)}>
-                    {narrativeToneLabel(treasuryNarrative.treasuryTone)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Treasury outlook
-                  </p>
-                  <span style={narrativeOutlookBadge(treasuryNarrative.treasuryOutlook)}>
-                    {narrativeOutlookLabel(treasuryNarrative.treasuryOutlook)}
-                  </span>
-                </div>
-              </div>
-
-              {treasuryNarrative.keyTakeaways.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Key takeaways
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryNarrative.keyTakeaways.map((item, idx) => (
-                      <li key={`narrative-takeaway-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {treasuryNarrative.operationalNarrative.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Operational narrative
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryNarrative.operationalNarrative.map((item, idx) => (
-                      <li key={`narrative-operational-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  padding: "0.85rem 1rem",
-                  borderRadius: "10px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  marginBottom: "0.85rem",
-                }}
-              >
-                <p
-                  style={{
-                    margin: "0 0 0.4rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
-                  Daily treasury story
-                </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                  {treasuryNarrative.dailyTreasuryStory}
-                </p>
-              </div>
-
-              <div
-                style={{
-                  padding: "0.85rem 1rem",
-                  borderRadius: "10px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <p
-                  style={{
-                    margin: "0 0 0.4rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
-                  Summary
-                </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                  {treasuryNarrative.summary}
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury executive briefing</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasuryExecutiveSectionStyle}>
+          <h3 style={sectionHeading}>Treasury executive briefing</h3>
+          <p style={treasurySectionIntroStyle}>
             A sixty-second leadership digest compressing unified score, narrative, timeline, and monitoring signals into
             what treasury leadership should know now. Read-only and advisory only. No automation or financial mutations.
           </p>
           {!treasuryExecutiveBriefing ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury executive briefing…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury executive briefing…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "flex",
@@ -4069,84 +3019,24 @@ export default function AdminTreasuryIntelligencePage() {
                   marginBottom: "1rem",
                 }}
               >
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Executive status
                   </p>
                   <span style={briefingExecutiveStatusBadge(treasuryExecutiveBriefing.executiveStatus)}>
                     {briefingExecutiveStatusLabel(treasuryExecutiveBriefing.executiveStatus)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Executive priority
                   </p>
                   <span style={briefingExecutivePriorityBadge(treasuryExecutiveBriefing.executivePriority)}>
                     {briefingExecutivePriorityLabel(treasuryExecutiveBriefing.executivePriority)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Executive outlook
                   </p>
                   <span style={briefingExecutiveOutlookBadge(treasuryExecutiveBriefing.executiveOutlook)}>
@@ -4169,11 +3059,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Key leadership points
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryExecutiveBriefing.keyLeadershipPoints.map((item, idx) => (
                       <li
                         key={`briefing-leadership-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -4196,9 +3086,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Action focus
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryExecutiveBriefing.actionFocus.map((item, idx) => (
-                      <li key={`briefing-action-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`briefing-action-${idx}`} style={treasuryListItemStyle}>
                         {item}
                       </li>
                     ))}
@@ -4226,7 +3116,7 @@ export default function AdminTreasuryIntelligencePage() {
                 >
                   Briefing summary
                 </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
+                <p style={treasurySummaryTextStyle}>
                   {treasuryExecutiveBriefing.briefingSummary}
                 </p>
               </div>
@@ -4234,19 +3124,17 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury Readiness Index</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasuryExecutiveSectionStyle}>
+          <h3 style={sectionHeading}>Treasury Readiness Index</h3>
+          <p style={treasurySectionIntroStyle}>
             A launch-facing treasury readiness signal answering whether treasury is ready for current launch
             conditions and what launch posture leadership should use today. Read-only and advisory only. No automation
             or financial mutations.
           </p>
           {!treasuryReadinessIndexResult ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury readiness index…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury readiness index…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -4261,28 +3149,8 @@ export default function AdminTreasuryIntelligencePage() {
                   subtitle="Launch readiness rating"
                   valueColor={scoreColor(treasuryReadinessIndexResult.treasuryReadinessIndex)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Treasury Launch Signal
                   </p>
                   <span style={readinessIndexLaunchSignalBadge(treasuryReadinessIndexResult.treasuryLaunchSignal)}>
@@ -4295,56 +3163,16 @@ export default function AdminTreasuryIntelligencePage() {
                   subtitle={`${treasuryReadinessIndexResult.confidence}% signal availability`}
                   valueColor={operatingConfidenceColor(treasuryReadinessIndexResult.launchConfidence)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Treasury Launch Condition
                   </p>
                   <span style={unifiedConditionBadge(treasuryReadinessIndexResult.treasuryLaunchCondition)}>
                     {unifiedConditionLabel(treasuryReadinessIndexResult.treasuryLaunchCondition)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Recommended Launch Posture
                   </p>
                   <span
@@ -4415,11 +3243,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Watch Areas
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryReadinessIndexResult.watchAreas.map((item, idx) => (
                       <li
                         key={`readiness-index-watch-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -4442,11 +3270,11 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Recommendations
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryReadinessIndexResult.recommendations.map((item, idx) => (
                       <li
                         key={`readiness-index-rec-${idx}`}
-                        style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}
+                        style={treasuryListItemStyle}
                       >
                         {item}
                       </li>
@@ -4475,449 +3303,39 @@ export default function AdminTreasuryIntelligencePage() {
                 >
                   Summary
                 </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
+                <p style={treasurySummaryTextStyle}>
                   {treasuryReadinessIndexResult.summary}
                 </p>
               </div>
             </div>
           )}
         </section>
+        </>
+        )}
+        </TreasuryIntelligenceGroup>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Executive summary</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Leadership-friendly synthesis of treasury health, trends, forecast, and operational guidance — read-only and
-            advisory only.
-          </p>
-          {!executiveSummary ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading executive summary…</p>
-            </div>
-          ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: "0.65rem",
-                  marginBottom: "0.85rem",
-                }}
-              >
-                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "1.05rem",
-                      fontWeight: 700,
-                      color: "#0f172a",
-                      lineHeight: 1.4,
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    {executiveSummary.headline}
-                  </p>
-                  <span style={executiveStatusBadge(executiveSummary.executiveStatus)}>
-                    {executiveStatusLabel(executiveSummary.executiveStatus)}
-                  </span>
-                </div>
-                <div style={{ flex: "0 0 auto", textAlign: "right" }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Confidence
-                  </p>
-                  <p
-                    style={{
-                      margin: "0.15rem 0 0",
-                      fontSize: "1.15rem",
-                      fontWeight: 800,
-                      color:
-                        executiveSummary.confidence >= 80
-                          ? "#047857"
-                          : executiveSummary.confidence >= 50
-                            ? "#92400e"
-                            : "#64748b",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {executiveSummary.confidence}%
-                  </p>
-                </div>
-              </div>
-
-              <p style={{ margin: "0 0 1rem", fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                {executiveSummary.summary}
-              </p>
-
-              {executiveSummary.keyMetrics.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Key metrics
-                  </p>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 130px), 1fr))",
-                      gap: "0.55rem",
-                    }}
-                  >
-                    {executiveSummary.keyMetrics.map((m) => (
-                      <div
-                        key={m.label}
-                        style={{
-                          padding: "0.55rem 0.65rem",
-                          borderRadius: "10px",
-                          background: "#f8fafc",
-                          border: "1px solid #f1f5f9",
-                        }}
-                      >
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "0.64rem",
-                            fontWeight: 700,
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
-                            color: "#94a3b8",
-                          }}
-                        >
-                          {m.label}
-                        </p>
-                        <p
-                          style={{
-                            margin: "0.2rem 0 0",
-                            fontSize: "0.88rem",
-                            fontWeight: 700,
-                            color: "#0f172a",
-                            fontVariantNumeric: "tabular-nums",
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          {m.value}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
-                  gap: "0.85rem",
-                }}
-              >
-                {executiveSummary.keyRisks.length > 0 ? (
-                  <div>
-                    <p
-                      style={{
-                        margin: "0 0 0.45rem",
-                        fontSize: "0.7rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      Key risks
-                    </p>
-                    <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                      {executiveSummary.keyRisks.map((risk, idx) => (
-                        <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                          {risk}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {executiveSummary.keyStrengths.length > 0 ? (
-                  <div>
-                    <p
-                      style={{
-                        margin: "0 0 0.45rem",
-                        fontSize: "0.7rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      Key strengths
-                    </p>
-                    <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                      {executiveSummary.keyStrengths.map((strength, idx) => (
-                        <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                          {strength}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {executiveSummary.nextFocus.length > 0 ? (
-                  <div>
-                    <p
-                      style={{
-                        margin: "0 0 0.45rem",
-                        fontSize: "0.7rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      Next focus
-                    </p>
-                    <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                      {executiveSummary.nextFocus.map((item, idx) => (
-                        <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury historical analytics</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Historical trend visibility from snapshot history — read-only and advisory only. No automation or financial
-            mutations.
-          </p>
-          {!historicalAnalytics ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading historical analytics…</p>
-            </div>
-          ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: "0.65rem",
-                  marginBottom: "0.85rem",
-                }}
-              >
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55, flex: "1 1 280px" }}>
-                  {historicalAnalytics.analyticsSummary}
-                </p>
-                <div style={{ flex: "0 0 auto", textAlign: "right" }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Confidence
-                  </p>
-                  <p
-                    style={{
-                      margin: "0.15rem 0 0",
-                      fontSize: "1.15rem",
-                      fontWeight: 800,
-                      color:
-                        historicalAnalytics.confidence >= 80
-                          ? "#047857"
-                          : historicalAnalytics.confidence >= 50
-                            ? "#92400e"
-                            : "#64748b",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {historicalAnalytics.confidence}%
-                  </p>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
-                  gap: "0.75rem",
-                  marginBottom: "1rem",
-                }}
-              >
-                {[
-                  {
-                    key: "health",
-                    label: "Health trend",
-                    trend: historicalAnalytics.historicalHealthTrend,
-                    sparkColor: "#0ea5e9",
-                  },
-                  {
-                    key: "risk",
-                    label: "Risk trend",
-                    trend: historicalAnalytics.historicalRiskTrend,
-                    sparkColor: "#f59e0b",
-                  },
-                  {
-                    key: "exposure",
-                    label: "Exposure trend",
-                    trend: historicalAnalytics.exposureTrend,
-                    sparkColor: "#8b5cf6",
-                  },
-                  {
-                    key: "liability",
-                    label: "Liability trend",
-                    trend: historicalAnalytics.liabilityTrend,
-                    sparkColor: "#6366f1",
-                  },
-                  {
-                    key: "resilience",
-                    label: "Resilience trend",
-                    trend: historicalAnalytics.resilienceTrend,
-                    sparkColor: "#10b981",
-                  },
-                ].map(({ key, label, trend, sparkColor }) => (
-                  <div
-                    key={key}
-                    style={{
-                      padding: "0.75rem 0.85rem",
-                      borderRadius: "10px",
-                      background: "#f8fafc",
-                      border: "1px solid #f1f5f9",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.45rem",
-                    }}
-                  >
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "0.64rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.05em",
-                        textTransform: "uppercase",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      {label}
-                    </p>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: historicalTrendColor(trend?.direction),
-                        textTransform: "capitalize",
-                      }}
-                    >
-                      {historicalTrendLabel(trend?.direction)}
-                    </p>
-                    {trend?.dataPoints?.length > 1 ? (
-                      <HistorySparkline dataPoints={trend.dataPoints} color={sparkColor} />
-                    ) : null}
-                    <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{trend?.summary}</p>
-                  </div>
-                ))}
-              </div>
-
-              {historicalAnalytics.volatilityIndicators.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Volatility indicators
-                  </p>
-                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
-                    {historicalAnalytics.volatilityIndicators.map((indicator, idx) => (
-                      <li
-                        key={`${indicator.label}-${idx}`}
-                        style={{
-                          padding: "0.6rem 0.75rem",
-                          borderRadius: "8px",
-                          background: "#ffffff",
-                          border: "1px solid #e2e8f0",
-                        }}
-                      >
-                        <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
-                          {indicator.label}
-                        </p>
-                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-                          {indicator.description}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {historicalAnalytics.notableChanges.length > 0 ? (
-                <div>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Notable changes
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {historicalAnalytics.notableChanges.map((note, idx) => (
-                      <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {note}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury monitoring dashboard</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <TreasuryIntelligenceGroup
+          id="treasury-health-monitoring"
+          title="Treasury Health & Monitoring"
+          description="Operational snapshots, drift, stability, narrative, and alert history."
+          priorityLabel="Review after command center"
+          sectionCount={10}
+          statusLabel={healthGroupStatus.label}
+          statusVariant={healthGroupStatus.variant}
+          onActivate={handleGroupActivate}
+        >
+        {() => (
+        <>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury monitoring dashboard</h3>
+          <p style={treasurySectionIntroStyle}>
             Operational snapshot-to-snapshot visibility — read-only and advisory only. No automation or financial
             mutations.
           </p>
           {!monitoringDashboard ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading monitoring dashboard…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading monitoring dashboard…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "flex",
@@ -4928,7 +3346,7 @@ export default function AdminTreasuryIntelligencePage() {
                   marginBottom: "0.85rem",
                 }}
               >
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55, flex: "1 1 280px" }}>
+                <p style={{ ...treasurySummaryTextStyle, flex: "1 1 280px" }}>
                   {monitoringDashboard.dashboardSummary}
                 </p>
                 <div style={{ flex: "0 0 auto", display: "flex", flexWrap: "wrap", gap: "0.65rem", alignItems: "flex-start" }}>
@@ -5106,9 +3524,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Recent movements
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {monitoringDashboard.recentMovements.map((movement, idx) => (
-                      <li key={`movement-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`movement-${idx}`} style={treasuryListItemStyle}>
                         {movement}
                       </li>
                     ))}
@@ -5119,113 +3537,145 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury readiness</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            High-level operational readiness and posture — read-only and advisory only. No automation or financial
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury historical analytics</h3>
+          <p style={treasurySectionIntroStyle}>
+            Historical trend visibility from snapshot history — read-only and advisory only. No automation or financial
             mutations.
           </p>
-          {!treasuryReadiness ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury readiness…</p>
-            </div>
+          {!historicalAnalytics ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading historical analytics…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "0.65rem",
+                  marginBottom: "0.85rem",
+                }}
+              >
+                <p style={{ ...treasurySummaryTextStyle, flex: "1 1 280px" }}>
+                  {historicalAnalytics.analyticsSummary}
+                </p>
+                <div style={{ flex: "0 0 auto", textAlign: "right" }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Confidence
+                  </p>
+                  <p
+                    style={{
+                      margin: "0.15rem 0 0",
+                      fontSize: "1.15rem",
+                      fontWeight: 800,
+                      color:
+                        historicalAnalytics.confidence >= 80
+                          ? "#047857"
+                          : historicalAnalytics.confidence >= 50
+                            ? "#92400e"
+                            : "#64748b",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {historicalAnalytics.confidence}%
+                  </p>
+                </div>
+              </div>
+
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
                   gap: "0.75rem",
                   marginBottom: "1rem",
                 }}
               >
-                <KpiCard
-                  label="Readiness score"
-                  value={String(treasuryReadiness.readinessScore)}
-                  subtitle="0–100 composite"
-                  valueColor={scoreColor(treasuryReadiness.readinessScore)}
-                />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
+                {[
+                  {
+                    key: "health",
+                    label: "Health trend",
+                    trend: historicalAnalytics.historicalHealthTrend,
+                    sparkColor: "#0ea5e9",
+                  },
+                  {
+                    key: "risk",
+                    label: "Risk trend",
+                    trend: historicalAnalytics.historicalRiskTrend,
+                    sparkColor: "#f59e0b",
+                  },
+                  {
+                    key: "exposure",
+                    label: "Exposure trend",
+                    trend: historicalAnalytics.exposureTrend,
+                    sparkColor: "#8b5cf6",
+                  },
+                  {
+                    key: "liability",
+                    label: "Liability trend",
+                    trend: historicalAnalytics.liabilityTrend,
+                    sparkColor: "#6366f1",
+                  },
+                  {
+                    key: "resilience",
+                    label: "Resilience trend",
+                    trend: historicalAnalytics.resilienceTrend,
+                    sparkColor: "#10b981",
+                  },
+                ].map(({ key, label, trend, sparkColor }) => (
+                  <div
+                    key={key}
                     style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
+                      padding: "0.75rem 0.85rem",
+                      borderRadius: "10px",
+                      background: "#f8fafc",
+                      border: "1px solid #f1f5f9",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.45rem",
                     }}
                   >
-                    Readiness level
-                  </p>
-                  <span style={readinessLevelBadge(treasuryReadiness.readinessLevel)}>
-                    {readinessLevelLabel(treasuryReadiness.readinessLevel)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Operating posture
-                  </p>
-                  <span style={operatingPostureBadge(treasuryReadiness.operatingPosture)}>
-                    {operatingPostureLabel(treasuryReadiness.operatingPosture)}
-                  </span>
-                </div>
-                <KpiCard
-                  label="Treasury condition"
-                  value={treasuryConditionLabel(treasuryReadiness.treasuryCondition)}
-                  subtitle="Current advisory state"
-                  valueColor={treasuryConditionColor(treasuryReadiness.treasuryCondition)}
-                />
-                <KpiCard
-                  label="Confidence"
-                  value={`${treasuryReadiness.confidence}%`}
-                  subtitle="Signal availability"
-                  valueColor={
-                    treasuryReadiness.confidence >= 80
-                      ? "#047857"
-                      : treasuryReadiness.confidence >= 50
-                        ? "#92400e"
-                        : "#64748b"
-                  }
-                />
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.64rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      {label}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.95rem",
+                        fontWeight: 700,
+                        color: historicalTrendColor(trend?.direction),
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {historicalTrendLabel(trend?.direction)}
+                    </p>
+                    {trend?.dataPoints?.length > 1 ? (
+                      <HistorySparkline dataPoints={trend.dataPoints} color={sparkColor} />
+                    ) : null}
+                    <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{trend?.summary}</p>
+                  </div>
+                ))}
               </div>
 
-              <p style={{ margin: "0 0 1rem", fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                {treasuryReadiness.summary}
-              </p>
-
-              {treasuryReadiness.readinessDrivers.length > 0 ? (
+              {historicalAnalytics.volatilityIndicators.length > 0 ? (
                 <div style={{ marginBottom: "1rem" }}>
                   <p
                     style={{
@@ -5237,120 +3687,68 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Readiness drivers
+                    Volatility indicators
                   </p>
                   <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
-                    {treasuryReadiness.readinessDrivers.map((driver, idx) => {
-                      const pal = readinessDriverTypeStyle(driver.type);
-                      return (
-                        <li
-                          key={`driver-${idx}`}
-                          style={{
-                            padding: "0.65rem 0.75rem",
-                            borderRadius: "8px",
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.45rem", marginBottom: "0.3rem" }}>
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
-                              {driver.type}
-                            </span>
-                            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>{driver.title}</span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-                            {driver.explanation}
-                          </p>
-                        </li>
-                      );
-                    })}
+                    {historicalAnalytics.volatilityIndicators.map((indicator, idx) => (
+                      <li
+                        key={`${indicator.label}-${idx}`}
+                        style={{
+                          padding: "0.6rem 0.75rem",
+                          borderRadius: "8px",
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
+                          {indicator.label}
+                        </p>
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+                          {indicator.description}
+                        </p>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               ) : null}
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
-                  gap: "1rem",
-                }}
-              >
-                {treasuryReadiness.watchAreas.length > 0 ? (
-                  <div>
-                    <p
-                      style={{
-                        margin: "0 0 0.45rem",
-                        fontSize: "0.7rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      Watch areas
-                    </p>
-                    <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                      {treasuryReadiness.watchAreas.map((area, idx) => (
-                        <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                          {area}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {treasuryReadiness.recommendations.length > 0 ? (
-                  <div>
-                    <p
-                      style={{
-                        margin: "0 0 0.45rem",
-                        fontSize: "0.7rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      Recommendations
-                    </p>
-                    <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                      {treasuryReadiness.recommendations.map((rec, idx) => (
-                        <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                          {rec}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
+              {historicalAnalytics.notableChanges.length > 0 ? (
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Notable changes
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {historicalAnalytics.notableChanges.map((note, idx) => (
+                      <li key={idx} style={treasuryListItemStyle}>
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury drift detection</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury drift detection</h3>
+          <p style={treasurySectionIntroStyle}>
             Snapshot-to-snapshot change awareness — what changed and whether treasury meaningfully drifted from prior
             operating conditions. Read-only and advisory only.
           </p>
           {!treasuryDrift ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury drift assessment…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury drift assessment…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -5359,28 +3757,8 @@ export default function AdminTreasuryIntelligencePage() {
                   marginBottom: "1rem",
                 }}
               >
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Drift status
                   </p>
                   <span style={driftStatusBadge(treasuryDrift.driftStatus)}>
@@ -5449,19 +3827,7 @@ export default function AdminTreasuryIntelligencePage() {
                               marginBottom: "0.3rem",
                             }}
                           >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
+                            <span style={treasuryBadgeStyle(pal)}>
                               {driver.type}
                             </span>
                             <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
@@ -5497,9 +3863,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Meaningful changes
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryDrift.meaningfulChanges.map((change, idx) => (
-                      <li key={`drift-change-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`drift-change-${idx}`} style={treasuryListItemStyle}>
                         {change}
                       </li>
                     ))}
@@ -5507,23 +3873,21 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>{treasuryDrift.summary}</p>
+              <p style={treasurySummaryTextStyle}>{treasuryDrift.summary}</p>
             </div>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury stability</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury stability</h3>
+          <p style={treasurySectionIntroStyle}>
             Stability score and operating confidence synthesize trends, readiness, drift, monitoring, and historical
             signals — read-only and advisory only. No automation or financial mutations.
           </p>
           {!treasuryStability ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury stability assessment…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury stability assessment…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -5538,56 +3902,16 @@ export default function AdminTreasuryIntelligencePage() {
                   subtitle="0–100 composite"
                   valueColor={scoreColor(treasuryStability.stabilityScore)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Stability level
                   </p>
                   <span style={stabilityLevelBadge(treasuryStability.stabilityLevel)}>
                     {stabilityLevelLabel(treasuryStability.stabilityLevel)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Operating confidence
                   </p>
                   <span style={operatingConfidenceBadge(treasuryStability.operatingConfidence)}>
@@ -5656,19 +3980,7 @@ export default function AdminTreasuryIntelligencePage() {
                               marginBottom: "0.3rem",
                             }}
                           >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
+                            <span style={treasuryBadgeStyle(pal)}>
                               {driver.type}
                             </span>
                             <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
@@ -5699,9 +4011,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Caution areas
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryStability.cautionAreas.map((area, idx) => (
-                      <li key={`stability-caution-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`stability-caution-${idx}`} style={treasuryListItemStyle}>
                         {area}
                       </li>
                     ))}
@@ -5709,25 +4021,422 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
+              <p style={treasurySummaryTextStyle}>
                 {treasuryStability.summary}
               </p>
             </div>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury scaling readiness</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Soft-launch capacity and scaling readiness synthesize health, readiness, stability, drift, and monitoring
-            signals — read-only and advisory only. No automation or financial mutations.
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury daily narrative</h3>
+          <p style={treasurySectionIntroStyle}>
+            A single, leadership-ready treasury story — what treasury leadership would say happened today, in a calm
+            institutional voice. Read-only and advisory only. No automation or financial mutations.
           </p>
-          {!treasuryScalingReadiness ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury scaling readiness assessment…</p>
-            </div>
+          {!treasuryNarrative ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury daily narrative…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "0.65rem",
+                  marginBottom: "0.85rem",
+                }}
+              >
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "1.05rem",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      lineHeight: 1.4,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {treasuryNarrative.treasuryHeadline}
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                    <span style={narrativeToneBadge(treasuryNarrative.treasuryTone)}>
+                      {narrativeToneLabel(treasuryNarrative.treasuryTone)}
+                    </span>
+                    <span style={narrativeOutlookBadge(treasuryNarrative.treasuryOutlook)}>
+                      {narrativeOutlookLabel(treasuryNarrative.treasuryOutlook)}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ flex: "0 0 auto", textAlign: "right" }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Confidence
+                  </p>
+                  <p
+                    style={{
+                      margin: "0.15rem 0 0",
+                      fontSize: "1.15rem",
+                      fontWeight: 800,
+                      color: scoreColor(treasuryNarrative.confidence),
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {treasuryNarrative.confidence}/100
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
+                  gap: "0.75rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Treasury tone
+                  </p>
+                  <span style={narrativeToneBadge(treasuryNarrative.treasuryTone)}>
+                    {narrativeToneLabel(treasuryNarrative.treasuryTone)}
+                  </span>
+                </div>
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Treasury outlook
+                  </p>
+                  <span style={narrativeOutlookBadge(treasuryNarrative.treasuryOutlook)}>
+                    {narrativeOutlookLabel(treasuryNarrative.treasuryOutlook)}
+                  </span>
+                </div>
+              </div>
+
+              {treasuryNarrative.keyTakeaways.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Key takeaways
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {treasuryNarrative.keyTakeaways.map((item, idx) => (
+                      <li key={`narrative-takeaway-${idx}`} style={treasuryListItemStyle}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {treasuryNarrative.operationalNarrative.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Operational narrative
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {treasuryNarrative.operationalNarrative.map((item, idx) => (
+                      <li key={`narrative-operational-${idx}`} style={treasuryListItemStyle}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  marginBottom: "0.85rem",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 0.4rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Daily treasury story
+                </p>
+                <p style={treasurySummaryTextStyle}>
+                  {treasuryNarrative.dailyTreasuryStory}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 0.4rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Summary
+                </p>
+                <p style={treasurySummaryTextStyle}>
+                  {treasuryNarrative.summary}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury board timeline</h3>
+          <p style={treasurySectionIntroStyle}>
+            The story of treasury across snapshots — how it has evolved from an executive perspective and what leadership
+            would remember. Read-only and advisory only. No automation or financial mutations.
+          </p>
+          {!boardTimeline ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury board timeline…" />
+          ) : (
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
+                  gap: "0.75rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Treasury journey
+                  </p>
+                  <span style={treasuryJourneyBadge(boardTimeline.treasuryJourney)}>
+                    {treasuryJourneyLabel(boardTimeline.treasuryJourney)}
+                  </span>
+                </div>
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Momentum
+                  </p>
+                  <span style={boardMomentumBadge(boardTimeline.treasuryMomentum)}>
+                    {boardMomentumLabel(boardTimeline.treasuryMomentum)}
+                  </span>
+                </div>
+                <KpiCard
+                  label="Timeline confidence"
+                  value={`${boardTimeline.confidence}/100`}
+                  subtitle={`${boardTimeline.boardTimeline.length} snapshot${boardTimeline.boardTimeline.length === 1 ? "" : "s"} observed`}
+                  valueColor={scoreColor(boardTimeline.confidence)}
+                />
+              </div>
+
+              {boardTimeline.boardTimeline.length > 1 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Treasury score trend
+                  </p>
+                  <BoardTimelineSparkline series={boardTimeline.boardTimeline} />
+                </div>
+              ) : null}
+
+              {boardTimeline.executiveMilestones.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Executive milestones
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {boardTimeline.executiveMilestones.map((item, idx) => (
+                      <li key={`board-milestone-${idx}`} style={treasuryListItemStyle}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {boardTimeline.notablePeriods.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Notable periods
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {boardTimeline.notablePeriods.map((item, idx) => (
+                      <li key={`board-notable-${idx}`} style={treasuryListItemStyle}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {boardTimeline.boardTimeline.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Timeline
+                  </p>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))",
+                      gap: "0.65rem",
+                    }}
+                  >
+                    {boardTimeline.boardTimeline.map((period, idx) => (
+                      <div
+                        key={`board-period-${idx}`}
+                        style={{
+                          padding: "0.85rem 0.9rem",
+                          borderRadius: "12px",
+                          background: "#f8fafc",
+                          border: "1px solid #f1f5f9",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.45rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "0.5rem",
+                          }}
+                        >
+                          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b" }}>
+                            {formatWhen(period.date)}
+                          </span>
+                          <span style={{ fontSize: "0.95rem", fontWeight: 800, color: scoreColor(period.treasuryScore) }}>
+                            {period.treasuryScore}/100
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                          <span style={unifiedConditionBadge(period.treasuryCondition)}>
+                            {unifiedConditionLabel(period.treasuryCondition)}
+                          </span>
+                          <span style={operatingPostureBadge(period.operatingPosture)}>
+                            {operatingPostureLabel(period.operatingPosture)}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: "0.8rem", color: "#475569", lineHeight: 1.45 }}>
+                          {period.narrative}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 0.4rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Summary
+                </p>
+                <p style={treasurySummaryTextStyle}>
+                  {boardTimeline.summary}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury readiness</h3>
+          <p style={treasurySectionIntroStyle}>
+            High-level operational readiness and posture — read-only and advisory only. No automation or financial
+            mutations.
+          </p>
+          {!treasuryReadiness ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury readiness…" />
+          ) : (
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -5737,88 +4446,52 @@ export default function AdminTreasuryIntelligencePage() {
                 }}
               >
                 <KpiCard
-                  label="Scaling readiness score"
-                  value={String(treasuryScalingReadiness.scalingReadinessScore)}
+                  label="Readiness score"
+                  value={String(treasuryReadiness.readinessScore)}
                   subtitle="0–100 composite"
-                  valueColor={scoreColor(treasuryScalingReadiness.scalingReadinessScore)}
+                  valueColor={scoreColor(treasuryReadiness.readinessScore)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Scaling readiness level
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Readiness level
                   </p>
-                  <span style={scalingReadinessLevelBadge(treasuryScalingReadiness.scalingReadinessLevel)}>
-                    {scalingReadinessLevelLabel(treasuryScalingReadiness.scalingReadinessLevel)}
+                  <span style={readinessLevelBadge(treasuryReadiness.readinessLevel)}>
+                    {readinessLevelLabel(treasuryReadiness.readinessLevel)}
+                  </span>
+                </div>
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Operating posture
+                  </p>
+                  <span style={operatingPostureBadge(treasuryReadiness.operatingPosture)}>
+                    {operatingPostureLabel(treasuryReadiness.operatingPosture)}
                   </span>
                 </div>
                 <KpiCard
-                  label="Launch capacity"
-                  value={launchCapacityLabel(treasuryScalingReadiness.launchCapacity)}
-                  subtitle="Soft-launch advisory scope"
-                  valueColor={launchCapacityColor(treasuryScalingReadiness.launchCapacity)}
+                  label="Treasury condition"
+                  value={treasuryConditionLabel(treasuryReadiness.treasuryCondition)}
+                  subtitle="Current advisory state"
+                  valueColor={treasuryConditionColor(treasuryReadiness.treasuryCondition)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Operating tolerance
-                  </p>
-                  <span style={operatingToleranceBadge(treasuryScalingReadiness.operatingTolerance)}>
-                    {operatingToleranceLabel(treasuryScalingReadiness.operatingTolerance)}
-                  </span>
-                </div>
                 <KpiCard
-                  label="Scaling confidence"
-                  value={`${treasuryScalingReadiness.scalingConfidence}%`}
+                  label="Confidence"
+                  value={`${treasuryReadiness.confidence}%`}
                   subtitle="Signal availability"
                   valueColor={
-                    treasuryScalingReadiness.scalingConfidence >= 80
+                    treasuryReadiness.confidence >= 80
                       ? "#047857"
-                      : treasuryScalingReadiness.scalingConfidence >= 50
+                      : treasuryReadiness.confidence >= 50
                         ? "#92400e"
                         : "#64748b"
                   }
                 />
               </div>
 
-              {treasuryScalingReadiness.readinessDrivers.length > 0 ? (
+              <p style={{ ...treasurySummaryTextStyle, margin: "0 0 1rem" }}>
+                {treasuryReadiness.summary}
+              </p>
+
+              {treasuryReadiness.readinessDrivers.length > 0 ? (
                 <div style={{ marginBottom: "1rem" }}>
                   <p
                     style={{
@@ -5833,11 +4506,11 @@ export default function AdminTreasuryIntelligencePage() {
                     Readiness drivers
                   </p>
                   <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
-                    {treasuryScalingReadiness.readinessDrivers.map((driver, idx) => {
-                      const pal = stabilityDriverTypeStyle(driver.type);
+                    {treasuryReadiness.readinessDrivers.map((driver, idx) => {
+                      const pal = readinessDriverTypeStyle(driver.type);
                       return (
                         <li
-                          key={`scaling-driver-${idx}`}
+                          key={`driver-${idx}`}
                           style={{
                             padding: "0.65rem 0.75rem",
                             borderRadius: "8px",
@@ -5845,33 +4518,11 @@ export default function AdminTreasuryIntelligencePage() {
                             border: "1px solid #e2e8f0",
                           }}
                         >
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              alignItems: "center",
-                              gap: "0.45rem",
-                              marginBottom: "0.3rem",
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.45rem", marginBottom: "0.3rem" }}>
+                            <span style={treasuryBadgeStyle(pal)}>
                               {driver.type}
                             </span>
-                            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
-                              {driver.title}
-                            </span>
+                            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>{driver.title}</span>
                           </div>
                           <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
                             {driver.explanation}
@@ -5883,171 +4534,384 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              {treasuryScalingReadiness.watchAreas.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Watch areas
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryScalingReadiness.watchAreas.map((area, idx) => (
-                      <li key={`scaling-watch-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {area}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
+                  gap: "1rem",
+                }}
+              >
+                {treasuryReadiness.watchAreas.length > 0 ? (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 0.45rem",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Watch areas
+                    </p>
+                    <ul style={treasuryListStyle}>
+                      {treasuryReadiness.watchAreas.map((area, idx) => (
+                        <li key={idx} style={treasuryListItemStyle}>
+                          {area}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
-              {treasuryScalingReadiness.recommendations.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Recommendations
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryScalingReadiness.recommendations.map((rec, idx) => (
-                      <li key={`scaling-rec-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {rec}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                {treasuryScalingReadiness.summary}
-              </p>
+                {treasuryReadiness.recommendations.length > 0 ? (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 0.45rem",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Recommendations
+                    </p>
+                    <ul style={treasuryListStyle}>
+                      {treasuryReadiness.recommendations.map((rec, idx) => (
+                        <li key={idx} style={treasuryListItemStyle}>
+                          {rec}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury integrity &amp; trust</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Treasury integrity and trust synthesize stability, readiness, drift, historical analytics, and monitoring
-            signals — read-only and advisory only. No automation or financial mutations.
-          </p>
-          {!treasuryIntegrity ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury integrity assessment…</p>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Key indicators</h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+              gap: "0.85rem",
+            }}
+          >
+            {kpiCards
+              ? kpiCards.map((c) => (
+                  <KpiCard key={c.key} label={c.label} value={c.value} subtitle={c.subtitle} valueColor={c.valueColor} />
+                ))
+              : Array.from({ length: 6 }).map((_, i) => <SkeletonKpi key={i} />)}
+          </div>
+        </section>
+
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury alerts</h3>
+          {!health ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading alerts…" />
+          ) : alerts.length === 0 ? (
+            <div style={{ ...cardBase, padding: "1.25rem", textAlign: "center" }}>
+              <p style={{ margin: 0, color: "#047857", fontWeight: 600, fontSize: "0.9rem" }}>
+                No active treasury alerts
+              </p>
+              <p style={{ margin: "0.35rem 0 0", color: "#64748b", fontSize: "0.82rem" }}>
+                Health signals are within normal thresholds.
+              </p>
             </div>
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.65rem" }}>
+              {alerts.map((a) => (
+                <li key={a.code} style={{ ...cardBase, padding: "0.85rem 1rem" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
+                    <span style={severityBadge(a.severity)}>{a.severity}</span>
+                    <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.9rem" }}>{a.title}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>{a.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Snapshot history</h3>
+          <p style={{ margin: "0 0 0.65rem", fontSize: "0.78rem", color: "#64748b" }}>
+            Newest first — read-only observability records.
+          </p>
+          {!health && history.length === 0 ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading history…" />
+          ) : history.length === 0 ? (
+            <div style={{ ...cardBase, padding: "1.25rem", textAlign: "center" }}>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>No snapshots yet.</p>
+            </div>
+          ) : (
+            <div style={{ ...cardBase, overflowX: "auto", WebkitOverflowScrolling: "touch", maxWidth: "100%" }}>
+              <table style={{ width: "100%", minWidth: "640px", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc" }}>
+                    {[
+                      { key: "created", label: "Created", align: "left" },
+                      { key: "score", label: "Score", align: "right" },
+                      { key: "risk", label: "Risk", align: "left" },
+                      { key: "liab", label: "Liabilities", align: "right" },
+                      { key: "exp", label: "Exposure", align: "right" },
+                      { key: "reasons", label: "Reasons", align: "right" },
+                    ].map((h) => (
+                      <th
+                        key={h.key}
+                        style={{
+                          textAlign: h.align,
+                          padding: "0.55rem 0.65rem",
+                          fontSize: "0.66rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.05em",
+                          textTransform: "uppercase",
+                          color: "#94a3b8",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {h.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((row) => {
+                    const reasonCount = (row.reasons || []).length;
+                    return (
+                      <tr key={row.id} style={{ borderTop: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "0.55rem 0.65rem", color: "#475569", whiteSpace: "nowrap" }}>
+                          <span style={{ display: "block", fontWeight: 600, color: "#0f172a" }}>
+                            {formatWhen(row.createdAt)}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.55rem 0.65rem",
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color: scoreColor(row.healthScore),
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {row.healthScore}
+                        </td>
+                        <td style={{ padding: "0.55rem 0.65rem" }}>
+                          <span style={riskLevelBadge(row.treasuryRiskLevel)}>{row.treasuryRiskLevel}</span>
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.55rem 0.65rem",
+                            textAlign: "right",
+                            fontVariantNumeric: "tabular-nums",
+                            color: "#0f172a",
+                          }}
+                        >
+                          {formatMoney(row.totalWalletLiabilities)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.55rem 0.65rem",
+                            textAlign: "right",
+                            fontVariantNumeric: "tabular-nums",
+                            color: "#0f172a",
+                          }}
+                        >
+                          {formatMoney(row.pendingWithdrawalExposure)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.55rem 0.65rem",
+                            textAlign: "right",
+                            fontVariantNumeric: "tabular-nums",
+                            color: reasonCount > 0 ? "#92400e" : "#64748b",
+                            fontWeight: reasonCount > 0 ? 700 : 400,
+                          }}
+                          title={reasonCount > 0 ? `${reasonCount} penalty reason(s)` : "No penalty reasons"}
+                        >
+                          {reasonCount}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+        </>
+        )}
+        </TreasuryIntelligenceGroup>
+
+        <TreasuryIntelligenceGroup
+          id="treasury-risk-governance"
+          title="Treasury Risk & Governance"
+          description="Alert classification, governance oversight, integrity signals, and operational guidance."
+          sectionCount={4}
+          statusLabel={riskGroupStatus.label}
+          statusVariant={riskGroupStatus.variant}
+          onActivate={handleGroupActivate}
+        >
+        {() => (
+        <>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury alert classification</h3>
+          <p style={treasurySectionIntroStyle}>
+            Read-only advisory classification of treasury alerts by category, priority, and suggested review cadence.
+            No wallet, payout, withdrawal, or database mutations.
+          </p>
+          {!alertClassification ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading alert classification…" />
+          ) : (
+            <>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
                   gap: "0.75rem",
-                  marginBottom: "1rem",
+                  marginBottom: "0.85rem",
                 }}
               >
                 <KpiCard
-                  label="Treasury integrity score"
-                  value={String(treasuryIntegrity.treasuryIntegrityScore)}
-                  subtitle="0–100 composite"
-                  valueColor={scoreColor(treasuryIntegrity.treasuryIntegrityScore)}
-                />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Treasury integrity level
-                  </p>
-                  <span style={treasuryIntegrityLevelBadge(treasuryIntegrity.treasuryIntegrityLevel)}>
-                    {treasuryIntegrityLevelLabel(treasuryIntegrity.treasuryIntegrityLevel)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Signal trust level
-                  </p>
-                  <span style={signalTrustLevelBadge(treasuryIntegrity.signalTrustLevel)}>
-                    {signalTrustLevelLabel(treasuryIntegrity.signalTrustLevel)}
-                  </span>
-                </div>
-                <KpiCard
-                  label="Treasury reliability"
-                  value={treasuryReliabilityLabel(treasuryIntegrity.treasuryReliability)}
-                  subtitle="Advisory reliability"
-                  valueColor={treasuryReliabilityColor(treasuryIntegrity.treasuryReliability)}
+                  label="Alert priority"
+                  value={monitoringPriorityLabel(alertClassification.alertPriority)}
+                  subtitle="Overall classified priority"
+                  valueColor={monitoringPriorityColor(alertClassification.alertPriority)}
                 />
                 <KpiCard
-                  label="Consistency assessment"
-                  value={integrityConsistencyLabel(treasuryIntegrity.consistencyAssessment)}
-                  subtitle="Signal consistency"
-                  valueColor={integrityConsistencyColor(treasuryIntegrity.consistencyAssessment)}
+                  label="Classified alerts"
+                  value={String(alertClassification.classifiedAlerts?.length || 0)}
+                  subtitle="Category-tagged items"
+                  valueColor="#0f172a"
                 />
                 <KpiCard
                   label="Confidence"
-                  value={`${treasuryIntegrity.confidence}%`}
-                  subtitle="Signal availability"
+                  value={
+                    alertClassification.confidence >= 80
+                      ? `High (${alertClassification.confidence}%)`
+                      : alertClassification.confidence >= 50
+                        ? `Moderate (${alertClassification.confidence}%)`
+                        : `${alertClassification.confidence}%`
+                  }
+                  subtitle="Signal agreement & data depth"
                   valueColor={
-                    treasuryIntegrity.confidence >= 80
+                    alertClassification.confidence >= 80
                       ? "#047857"
-                      : treasuryIntegrity.confidence >= 50
+                      : alertClassification.confidence >= 50
                         ? "#92400e"
                         : "#64748b"
                   }
                 />
               </div>
 
-              {treasuryIntegrity.integrityDrivers.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
+              <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    marginBottom: "0.45rem",
+                  }}
+                >
+                  <span style={alertPriorityBadge(alertClassification.alertPriority)}>
+                    {monitoringPriorityLabel(alertClassification.alertPriority)} priority
+                  </span>
+                </div>
+                <p
+                  style={{
+                    margin: "0 0 0.35rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Summary
+                </p>
+                <p style={{ margin: 0, fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
+                  {alertClassification.alertSummary}
+                </p>
+              </div>
+
+              {alertClassification.classifiedAlerts?.length > 0 ? (
+                <div style={{ ...cardBase, overflowX: "auto", WebkitOverflowScrolling: "touch", marginBottom: "0.85rem", maxWidth: "100%" }}>
+                  <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc" }}>
+                        {[
+                          { key: "priority", label: "Priority", align: "left" },
+                          { key: "category", label: "Category", align: "left" },
+                          { key: "title", label: "Alert", align: "left" },
+                          { key: "review", label: "Suggested review", align: "left" },
+                          { key: "reason", label: "Reason", align: "left" },
+                        ].map((h) => (
+                          <th
+                            key={h.key}
+                            style={{
+                              textAlign: h.align,
+                              padding: "0.55rem 0.65rem",
+                              fontSize: "0.66rem",
+                              fontWeight: 700,
+                              letterSpacing: "0.05em",
+                              textTransform: "uppercase",
+                              color: "#94a3b8",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {h.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {alertClassification.classifiedAlerts.map((item, idx) => (
+                        <tr key={`${item.title}-${idx}`} style={{ borderTop: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "0.55rem 0.65rem", whiteSpace: "nowrap" }}>
+                            <span style={alertPriorityBadge(item.priority)}>{monitoringPriorityLabel(item.priority)}</span>
+                          </td>
+                          <td style={{ padding: "0.55rem 0.65rem", color: "#475569", whiteSpace: "nowrap" }}>
+                            {alertCategoryLabel(item.category)}
+                          </td>
+                          <td style={{ padding: "0.55rem 0.65rem", color: "#0f172a", minWidth: "160px" }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}>
+                              {item.severity ? <span style={severityBadge(item.severity)}>{item.severity}</span> : null}
+                              <span style={{ fontWeight: 600 }}>{item.title}</span>
+                            </div>
+                            {item.message ? (
+                              <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.4 }}>
+                                {item.message}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td
+                            style={{
+                              padding: "0.55rem 0.65rem",
+                              color: suggestedReviewColor(item.suggestedReview),
+                              fontWeight: 600,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {suggestedReviewLabel(item.suggestedReview)}
+                          </td>
+                          <td style={{ padding: "0.55rem 0.65rem", color: "#475569", lineHeight: 1.4, minWidth: "180px" }}>
+                            {item.reason}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {alertClassification.routingSuggestions?.length > 0 ? (
+                <div style={{ ...cardBase, padding: "1rem 1.1rem", background: "#f8fafc" }}>
                   <p
                     style={{
                       margin: "0 0 0.55rem",
@@ -6058,126 +4922,31 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Integrity drivers
+                    Routing suggestions
                   </p>
-                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
-                    {treasuryIntegrity.integrityDrivers.map((driver, idx) => {
-                      const pal = stabilityDriverTypeStyle(driver.type);
-                      return (
-                        <li
-                          key={`integrity-driver-${idx}`}
-                          style={{
-                            padding: "0.65rem 0.75rem",
-                            borderRadius: "8px",
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              alignItems: "center",
-                              gap: "0.45rem",
-                              marginBottom: "0.3rem",
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
-                              {driver.type}
-                            </span>
-                            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
-                              {driver.title}
-                            </span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-                            {driver.explanation}
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : null}
-
-              {treasuryIntegrity.concernAreas.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Concern areas
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryIntegrity.concernAreas.map((area, idx) => (
-                      <li key={`integrity-concern-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {area}
+                  <ul style={{ margin: 0, padding: "0 0 0 1.1rem", color: "#475569", fontSize: "0.82rem", lineHeight: 1.5 }}>
+                    {alertClassification.routingSuggestions.map((suggestion, idx) => (
+                      <li key={`route-${idx}`} style={{ marginBottom: "0.35rem" }}>
+                        {suggestion}
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
-
-              {treasuryIntegrity.recommendations.length > 0 ? (
-                <div style={{ marginBottom: "1rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.45rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Recommendations
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryIntegrity.recommendations.map((rec, idx) => (
-                      <li key={`integrity-rec-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {rec}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                {treasuryIntegrity.summary}
-              </p>
-            </div>
+            </>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury governance &amp; oversight</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury governance &amp; oversight</h3>
+          <p style={treasurySectionIntroStyle}>
             Treasury governance and oversight answer what level of treasury oversight operations should maintain —
             read-only and advisory only. No automation or financial mutations.
           </p>
           {!treasuryGovernance ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury governance assessment…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury governance assessment…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -6192,56 +4961,16 @@ export default function AdminTreasuryIntelligencePage() {
                   subtitle="0–100 composite"
                   valueColor={scoreColor(treasuryGovernance.governanceScore)}
                 />
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Governance level
                   </p>
                   <span style={governanceLevelBadge(treasuryGovernance.governanceLevel)}>
                     {governanceLevelLabel(treasuryGovernance.governanceLevel)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
                     Oversight posture
                   </p>
                   <span style={oversightPostureBadge(treasuryGovernance.oversightPosture)}>
@@ -6310,19 +5039,7 @@ export default function AdminTreasuryIntelligencePage() {
                               marginBottom: "0.3rem",
                             }}
                           >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
+                            <span style={treasuryBadgeStyle(pal)}>
                               {driver.type}
                             </span>
                             <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
@@ -6353,9 +5070,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Watch areas
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryGovernance.watchAreas.map((area, idx) => (
-                      <li key={`governance-watch-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`governance-watch-${idx}`} style={treasuryListItemStyle}>
                         {area}
                       </li>
                     ))}
@@ -6377,9 +5094,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Governance recommendations
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+                  <ul style={treasuryListStyle}>
                     {treasuryGovernance.governanceRecommendations.map((rec, idx) => (
-                      <li key={`governance-rec-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                      <li key={`governance-rec-${idx}`} style={treasuryListItemStyle}>
                         {rec}
                       </li>
                     ))}
@@ -6387,25 +5104,23 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
+              <p style={treasurySummaryTextStyle}>
                 {treasuryGovernance.summary}
               </p>
             </div>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury operating mode</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Treasury operating mode answers what operating mode treasury should be in — read-only and
-            advisory only. No automation or financial mutations.
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury integrity &amp; trust</h3>
+          <p style={treasurySectionIntroStyle}>
+            Treasury integrity and trust synthesize stability, readiness, drift, historical analytics, and monitoring
+            signals — read-only and advisory only. No automation or financial mutations.
           </p>
-          {!treasuryOperatingMode ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading treasury operating mode assessment…</p>
-            </div>
+          {!treasuryIntegrity ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury integrity assessment…" />
           ) : (
-            <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
                   display: "grid",
@@ -6414,117 +5129,55 @@ export default function AdminTreasuryIntelligencePage() {
                   marginBottom: "1rem",
                 }}
               >
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Operating mode
+                <KpiCard
+                  label="Treasury integrity score"
+                  value={String(treasuryIntegrity.treasuryIntegrityScore)}
+                  subtitle="0–100 composite"
+                  valueColor={scoreColor(treasuryIntegrity.treasuryIntegrityScore)}
+                />
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Treasury integrity level
                   </p>
-                  <span style={treasuryOperatingModeBadge(treasuryOperatingMode.treasuryOperatingMode)}>
-                    {treasuryOperatingModeLabel(treasuryOperatingMode.treasuryOperatingMode)}
+                  <span style={treasuryIntegrityLevelBadge(treasuryIntegrity.treasuryIntegrityLevel)}>
+                    {treasuryIntegrityLevelLabel(treasuryIntegrity.treasuryIntegrityLevel)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Launch readiness level
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Signal trust level
                   </p>
-                  <span style={launchReadinessLevelBadge(treasuryOperatingMode.launchReadinessLevel)}>
-                    {launchReadinessLevelLabel(treasuryOperatingMode.launchReadinessLevel)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    padding: "0.75rem 0.85rem",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #f1f5f9",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "0.35rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.64rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Treasury posture
-                  </p>
-                  <span style={treasuryPostureBadge(treasuryOperatingMode.treasuryPosture)}>
-                    {treasuryPostureLabel(treasuryOperatingMode.treasuryPosture)}
+                  <span style={signalTrustLevelBadge(treasuryIntegrity.signalTrustLevel)}>
+                    {signalTrustLevelLabel(treasuryIntegrity.signalTrustLevel)}
                   </span>
                 </div>
                 <KpiCard
-                  label="Operating confidence"
-                  value={operatingConfidenceLabel(treasuryOperatingMode.operatingConfidence)}
-                  subtitle="Advisory confidence band"
-                  valueColor={operatingConfidenceColor(treasuryOperatingMode.operatingConfidence)}
+                  label="Treasury reliability"
+                  value={treasuryReliabilityLabel(treasuryIntegrity.treasuryReliability)}
+                  subtitle="Advisory reliability"
+                  valueColor={treasuryReliabilityColor(treasuryIntegrity.treasuryReliability)}
                 />
                 <KpiCard
-                  label="Monitoring level"
-                  value={recommendedMonitoringLevelLabel(treasuryOperatingMode.recommendedMonitoringLevel)}
-                  subtitle="Suggested review rhythm"
-                  valueColor={recommendedMonitoringLevelColor(treasuryOperatingMode.recommendedMonitoringLevel)}
+                  label="Consistency assessment"
+                  value={integrityConsistencyLabel(treasuryIntegrity.consistencyAssessment)}
+                  subtitle="Signal consistency"
+                  valueColor={integrityConsistencyColor(treasuryIntegrity.consistencyAssessment)}
                 />
                 <KpiCard
                   label="Confidence"
-                  value={`${treasuryOperatingMode.confidence}%`}
+                  value={`${treasuryIntegrity.confidence}%`}
                   subtitle="Signal availability"
                   valueColor={
-                    treasuryOperatingMode.confidence >= 80
+                    treasuryIntegrity.confidence >= 80
                       ? "#047857"
-                      : treasuryOperatingMode.confidence >= 50
+                      : treasuryIntegrity.confidence >= 50
                         ? "#92400e"
                         : "#64748b"
                   }
                 />
               </div>
 
-              {treasuryOperatingMode.postureDrivers.length > 0 ? (
+              {treasuryIntegrity.integrityDrivers.length > 0 ? (
                 <div style={{ marginBottom: "1rem" }}>
                   <p
                     style={{
@@ -6536,14 +5189,14 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Posture drivers
+                    Integrity drivers
                   </p>
                   <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
-                    {treasuryOperatingMode.postureDrivers.map((driver, idx) => {
+                    {treasuryIntegrity.integrityDrivers.map((driver, idx) => {
                       const pal = stabilityDriverTypeStyle(driver.type);
                       return (
                         <li
-                          key={`operating-driver-${idx}`}
+                          key={`integrity-driver-${idx}`}
                           style={{
                             padding: "0.65rem 0.75rem",
                             borderRadius: "8px",
@@ -6560,19 +5213,7 @@ export default function AdminTreasuryIntelligencePage() {
                               marginBottom: "0.3rem",
                             }}
                           >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                fontSize: "0.58rem",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                background: pal.bg,
-                                color: pal.fg,
-                                border: `1px solid ${pal.border}`,
-                              }}
-                            >
+                            <span style={treasuryBadgeStyle(pal)}>
                               {driver.type}
                             </span>
                             <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
@@ -6589,7 +5230,7 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              {treasuryOperatingMode.watchAreas.length > 0 ? (
+              {treasuryIntegrity.concernAreas.length > 0 ? (
                 <div style={{ marginBottom: "1rem" }}>
                   <p
                     style={{
@@ -6601,11 +5242,11 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Watch areas
+                    Concern areas
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryOperatingMode.watchAreas.map((area, idx) => (
-                      <li key={`operating-watch-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                  <ul style={treasuryListStyle}>
+                    {treasuryIntegrity.concernAreas.map((area, idx) => (
+                      <li key={`integrity-concern-${idx}`} style={treasuryListItemStyle}>
                         {area}
                       </li>
                     ))}
@@ -6613,7 +5254,7 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              {treasuryOperatingMode.recommendations.length > 0 ? (
+              {treasuryIntegrity.recommendations.length > 0 ? (
                 <div style={{ marginBottom: "1rem" }}>
                   <p
                     style={{
@@ -6627,9 +5268,9 @@ export default function AdminTreasuryIntelligencePage() {
                   >
                     Recommendations
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
-                    {treasuryOperatingMode.recommendations.map((rec, idx) => (
-                      <li key={`operating-rec-${idx}`} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                  <ul style={treasuryListStyle}>
+                    {treasuryIntegrity.recommendations.map((rec, idx) => (
+                      <li key={`integrity-rec-${idx}`} style={treasuryListItemStyle}>
                         {rec}
                       </li>
                     ))}
@@ -6637,39 +5278,215 @@ export default function AdminTreasuryIntelligencePage() {
                 </div>
               ) : null}
 
-              <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", lineHeight: 1.55 }}>
-                {treasuryOperatingMode.summary}
+              <p style={treasurySummaryTextStyle}>
+                {treasuryIntegrity.summary}
               </p>
             </div>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Key indicators</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
-              gap: "0.85rem",
-            }}
-          >
-            {kpiCards
-              ? kpiCards.map((c) => (
-                  <KpiCard key={c.key} label={c.label} value={c.value} subtitle={c.subtitle} valueColor={c.valueColor} />
-                ))
-              : Array.from({ length: 6 }).map((_, i) => <SkeletonKpi key={i} />)}
-          </div>
-        </section>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury operational guidance</h3>
+          <p style={treasurySectionIntroStyle}>
+            Read-only operational prioritization from health, trends, forecast, resilience, and simulator signals.
+            Advisory only — no wallet, payout, withdrawal, or database mutations.
+          </p>
+          {!operationalGuidance ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading operational guidance…" />
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
+                  gap: "0.75rem",
+                  marginBottom: "0.85rem",
+                }}
+              >
+                <KpiCard
+                  label="Operational status"
+                  value={operationalStatusLabel(operationalGuidance.operationalStatus)}
+                  subtitle="Current treasury posture"
+                  valueColor={operationalStatusColor(operationalGuidance.operationalStatus)}
+                />
+                <KpiCard
+                  label="Monitoring priority"
+                  value={monitoringPriorityLabel(operationalGuidance.monitoringPriority)}
+                  subtitle="Suggested review cadence"
+                  valueColor={monitoringPriorityColor(operationalGuidance.monitoringPriority)}
+                />
+                <KpiCard
+                  label="Confidence"
+                  value={
+                    operationalGuidance.confidence >= 80
+                      ? `High (${operationalGuidance.confidence}%)`
+                      : operationalGuidance.confidence >= 50
+                        ? `Moderate (${operationalGuidance.confidence}%)`
+                        : `${operationalGuidance.confidence}%`
+                  }
+                  subtitle="Signal agreement & data depth"
+                  valueColor={
+                    operationalGuidance.confidence >= 80
+                      ? "#047857"
+                      : operationalGuidance.confidence >= 50
+                        ? "#92400e"
+                        : "#64748b"
+                  }
+                />
+              </div>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury trends</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+              <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
+                <p
+                  style={{
+                    margin: "0 0 0.35rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Summary
+                </p>
+                <p style={{ margin: 0, fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
+                  {operationalGuidance.summary}
+                </p>
+              </div>
+
+              {operationalGuidance.priorities.length > 0 ? (
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Monitoring priorities
+                  </p>
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
+                    {operationalGuidance.priorities.map((item, idx) => (
+                      <li key={`${item.title}-${idx}`} style={{ ...cardBase, padding: "0.75rem 1rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: "0.45rem",
+                            marginBottom: "0.3rem",
+                          }}
+                        >
+                          <span style={severityBadge(item.severity)}>{item.severity}</span>
+                          <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.88rem" }}>{item.title}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                          {item.explanation}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {operationalGuidance.recommendedChecks.length > 0 ? (
+                <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Recommended checks
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
+                    {operationalGuidance.recommendedChecks.map((check, idx) => (
+                      <li key={idx} style={treasuryListItemStyle}>
+                        {check}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {operationalGuidance.watchItems.length > 0 ? (
+                <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Watch items
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
+                    {operationalGuidance.watchItems.map((item, idx) => (
+                      <li key={idx} style={treasuryListItemStyle}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {operationalGuidance.observations.length > 0 ? (
+                <div style={{ ...cardBase, padding: "1rem 1.1rem", background: "#f8fafc" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Observations
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
+                    {operationalGuidance.observations.map((obs, idx) => (
+                      <li key={idx} style={treasuryListItemStyle}>
+                        {obs}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+        </>
+        )}
+        </TreasuryIntelligenceGroup>
+
+        <TreasuryIntelligenceGroup
+          id="treasury-forecasting-scenarios"
+          title="Treasury Forecasting & Scenarios"
+          description="Trends, forecasts, scenarios, simulator, scaling posture, and resilience."
+          sectionCount={7}
+          statusLabel={forecastGroupStatus.label}
+          statusVariant={forecastGroupStatus.variant}
+          onActivate={handleGroupActivate}
+        >
+        {() => (
+        <>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury trends</h3>
+          <p style={treasurySectionIntroStyle}>
             Early warning signals from snapshot history over the last 7 days. Monitor closely — not an automatic action.
           </p>
           {!trends ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading trends…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading trends…" />
           ) : (
             <>
               <div
@@ -6759,16 +5576,14 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury forecast</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury forecast</h3>
+          <p style={treasurySectionIntroStyle}>
             Conservative 7-day operational outlook from snapshot trends — not a financial prediction. Advisory only;
             no automated treasury actions.
           </p>
           {!forecast ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading forecast…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading forecast…" />
           ) : (
             <>
               <div
@@ -6841,16 +5656,14 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury scenarios</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury scenarios</h3>
+          <p style={treasurySectionIntroStyle}>
             What-if analysis from current baseline, trends, and forecast — advisory only. No wallet, payout, or
             funding mutations.
           </p>
           {!scenarios ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading scenarios…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading scenarios…" />
           ) : (
             <>
               <div
@@ -6907,7 +5720,7 @@ export default function AdminTreasuryIntelligencePage() {
                 </p>
               </div>
 
-              <div style={{ ...cardBase, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{ ...cardBase, overflowX: "auto", WebkitOverflowScrolling: "touch", maxWidth: "100%" }}>
                 <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                   <thead>
                     <tr style={{ background: "#f8fafc" }}>
@@ -6992,266 +5805,14 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury resilience</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Stress and resilience assessment from health, trends, forecast, and scenarios — advisory only. No wallet,
-            payout, or funding mutations.
-          </p>
-          {!resilience ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading resilience…</p>
-            </div>
-          ) : (
-            <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
-                  gap: "0.75rem",
-                  marginBottom: "0.85rem",
-                }}
-              >
-                <KpiCard
-                  label="Resilience score"
-                  value={String(resilience.resilienceScore)}
-                  subtitle="0–100 composite under sustained pressure"
-                  valueColor={scoreColor(resilience.resilienceScore)}
-                />
-                <KpiCard
-                  label="Resilience level"
-                  value={resilienceLevelLabel(resilience.resilienceLevel)}
-                  subtitle="Weak · moderate · strong · resilient"
-                  valueColor={resilienceLevelColor(resilience.resilienceLevel)}
-                />
-                <KpiCard
-                  label="Survivability"
-                  value={String(resilience.survivabilityScore)}
-                  subtitle={`Recovery: ${recoveryDifficultyLabel(resilience.recoveryDifficulty).toLowerCase()}`}
-                  valueColor={scoreColor(resilience.survivabilityScore)}
-                />
-                <KpiCard
-                  label="Treasury tolerance"
-                  value={treasuryToleranceLabel(resilience.treasuryTolerance)}
-                  subtitle="Capacity for sustained pressure"
-                  valueColor={treasuryToleranceColor(resilience.treasuryTolerance)}
-                />
-                <KpiCard
-                  label="Resilience confidence"
-                  value={
-                    resilience.confidence >= 80
-                      ? `High (${resilience.confidence}%)`
-                      : resilience.confidence >= 50
-                        ? `Moderate (${resilience.confidence}%)`
-                        : `${resilience.confidence}%`
-                  }
-                  subtitle="Data depth & signal agreement"
-                  valueColor={
-                    resilience.confidence >= 80
-                      ? "#047857"
-                      : resilience.confidence >= 50
-                        ? "#92400e"
-                        : "#64748b"
-                  }
-                />
-                <KpiCard
-                  label="Runway estimate"
-                  value={runwayEstimateLabel(resilience.runwayEstimate)}
-                  subtitle={`Liquidity buffer ${resilience.liquidityBufferScore}`}
-                  valueColor={runwayEstimateColor(resilience.runwayEstimate)}
-                />
-              </div>
-
-              <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: resilience.warnings?.length ? "0.75rem" : 0 }}>
-                <p style={{ margin: "0 0 0.35rem", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
-                  Resilience summary
-                </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
-                  {resilience.summary}
-                </p>
-              </div>
-
-              {resilience.warnings?.length > 0 ? (
-                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
-                  {resilience.warnings.map((w, idx) => (
-                    <li key={`${w.code}-${idx}`} style={{ ...cardBase, padding: "0.75rem 1rem", background: "#f8fafc" }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.45rem", marginBottom: w.severity ? "0.3rem" : 0 }}>
-                        {w.severity ? <span style={severityBadge(w.severity)}>{w.severity}</span> : null}
-                      </div>
-                      <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {w.message}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury explainability</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Human-readable reasoning for treasury health, risk, and confidence — strictly read-only and advisory. No
-            wallet, payout, or funding mutations.
-          </p>
-          {!explainability ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading explainability…</p>
-            </div>
-          ) : (
-            <>
-              <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
-                <p
-                  style={{
-                    margin: "0 0 0.35rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
-                  Treasury summary
-                </p>
-                <p style={{ margin: "0 0 0.65rem", fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
-                  {explainability.summary}
-                </p>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.82rem",
-                    color: "#475569",
-                    lineHeight: 1.45,
-                    borderTop: "1px solid #f1f5f9",
-                    paddingTop: "0.65rem",
-                  }}
-                >
-                  <span style={{ fontWeight: 700, color: "#0f172a" }}>Risk: </span>
-                  {explainability.riskExplanation}
-                </p>
-              </div>
-
-              {explainability.topDrivers.length > 0 ? (
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Top drivers
-                  </p>
-                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
-                    {explainability.topDrivers.map((driver, idx) => {
-                      const badge = driverTypeBadge(driver.type);
-                      return (
-                        <li key={`${driver.title}-${idx}`} style={{ ...cardBase, padding: "0.75rem 1rem" }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              alignItems: "center",
-                              gap: "0.45rem",
-                              marginBottom: "0.3rem",
-                            }}
-                          >
-                            <span style={badge}>{badge.label}</span>
-                            <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.88rem" }}>{driver.title}</span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                            {driver.impact}
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : null}
-
-              {explainability.recommendations.length > 0 ? (
-                <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Recommendations
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
-                    {explainability.recommendations.map((rec, idx) => (
-                      <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {rec}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {explainability.decisionTrace.length > 0 ? (
-                <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Decision trace
-                  </p>
-                  <ol style={{ margin: 0, paddingLeft: "1.25rem", display: "grid", gap: "0.35rem" }}>
-                    {explainability.decisionTrace.map((step, idx) => (
-                      <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ) : null}
-
-              <div style={{ ...cardBase, padding: "1rem 1.1rem", background: "#f8fafc" }}>
-                <p
-                  style={{
-                    margin: "0 0 0.35rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
-                  Confidence explanation
-                </p>
-                <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                  {explainability.confidenceExplanation}
-                </p>
-              </div>
-            </>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury decision simulator</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury decision simulator</h3>
+          <p style={treasurySectionIntroStyle}>
             Read-only what-if analysis from current treasury baseline — adjust inputs and run a simulation. No wallet,
             payout, withdrawal, or database mutations.
           </p>
           {!health ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading simulator baseline…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading simulator baseline…" />
           ) : (
             <>
               <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
@@ -7452,7 +6013,7 @@ export default function AdminTreasuryIntelligencePage() {
                       </p>
                       <ol style={{ margin: 0, paddingLeft: "1.25rem", display: "grid", gap: "0.35rem" }}>
                         {simulationResult.decisionTrace.map((step, idx) => (
-                          <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                          <li key={idx} style={treasuryListItemStyle}>
                             {step}
                           </li>
                         ))}
@@ -7471,16 +6032,358 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury operational guidance</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Read-only operational prioritization from health, trends, forecast, resilience, and simulator signals.
-            Advisory only — no wallet, payout, withdrawal, or database mutations.
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury scaling readiness</h3>
+          <p style={treasurySectionIntroStyle}>
+            Soft-launch capacity and scaling readiness synthesize health, readiness, stability, drift, and monitoring
+            signals — read-only and advisory only. No automation or financial mutations.
           </p>
-          {!operationalGuidance ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading operational guidance…</p>
+          {!treasuryScalingReadiness ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury scaling readiness assessment…" />
+          ) : (
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+                  gap: "0.75rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <KpiCard
+                  label="Scaling readiness score"
+                  value={String(treasuryScalingReadiness.scalingReadinessScore)}
+                  subtitle="0–100 composite"
+                  valueColor={scoreColor(treasuryScalingReadiness.scalingReadinessScore)}
+                />
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Scaling readiness level
+                  </p>
+                  <span style={scalingReadinessLevelBadge(treasuryScalingReadiness.scalingReadinessLevel)}>
+                    {scalingReadinessLevelLabel(treasuryScalingReadiness.scalingReadinessLevel)}
+                  </span>
+                </div>
+                <KpiCard
+                  label="Launch capacity"
+                  value={launchCapacityLabel(treasuryScalingReadiness.launchCapacity)}
+                  subtitle="Soft-launch advisory scope"
+                  valueColor={launchCapacityColor(treasuryScalingReadiness.launchCapacity)}
+                />
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Operating tolerance
+                  </p>
+                  <span style={operatingToleranceBadge(treasuryScalingReadiness.operatingTolerance)}>
+                    {operatingToleranceLabel(treasuryScalingReadiness.operatingTolerance)}
+                  </span>
+                </div>
+                <KpiCard
+                  label="Scaling confidence"
+                  value={`${treasuryScalingReadiness.scalingConfidence}%`}
+                  subtitle="Signal availability"
+                  valueColor={
+                    treasuryScalingReadiness.scalingConfidence >= 80
+                      ? "#047857"
+                      : treasuryScalingReadiness.scalingConfidence >= 50
+                        ? "#92400e"
+                        : "#64748b"
+                  }
+                />
+              </div>
+
+              {treasuryScalingReadiness.readinessDrivers.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Readiness drivers
+                  </p>
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
+                    {treasuryScalingReadiness.readinessDrivers.map((driver, idx) => {
+                      const pal = stabilityDriverTypeStyle(driver.type);
+                      return (
+                        <li
+                          key={`scaling-driver-${idx}`}
+                          style={{
+                            padding: "0.65rem 0.75rem",
+                            borderRadius: "8px",
+                            background: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              alignItems: "center",
+                              gap: "0.45rem",
+                              marginBottom: "0.3rem",
+                            }}
+                          >
+                            <span style={treasuryBadgeStyle(pal)}>
+                              {driver.type}
+                            </span>
+                            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
+                              {driver.title}
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+                            {driver.explanation}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+
+              {treasuryScalingReadiness.watchAreas.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Watch areas
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {treasuryScalingReadiness.watchAreas.map((area, idx) => (
+                      <li key={`scaling-watch-${idx}`} style={treasuryListItemStyle}>
+                        {area}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {treasuryScalingReadiness.recommendations.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Recommendations
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {treasuryScalingReadiness.recommendations.map((rec, idx) => (
+                      <li key={`scaling-rec-${idx}`} style={treasuryListItemStyle}>
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <p style={treasurySummaryTextStyle}>
+                {treasuryScalingReadiness.summary}
+              </p>
             </div>
+          )}
+        </section>
+
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury operating mode</h3>
+          <p style={treasurySectionIntroStyle}>
+            Treasury operating mode answers what operating mode treasury should be in — read-only and
+            advisory only. No automation or financial mutations.
+          </p>
+          {!treasuryOperatingMode ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading treasury operating mode assessment…" />
+          ) : (
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+                  gap: "0.75rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Operating mode
+                  </p>
+                  <span style={treasuryOperatingModeBadge(treasuryOperatingMode.treasuryOperatingMode)}>
+                    {treasuryOperatingModeLabel(treasuryOperatingMode.treasuryOperatingMode)}
+                  </span>
+                </div>
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Launch readiness level
+                  </p>
+                  <span style={launchReadinessLevelBadge(treasuryOperatingMode.launchReadinessLevel)}>
+                    {launchReadinessLevelLabel(treasuryOperatingMode.launchReadinessLevel)}
+                  </span>
+                </div>
+                <div style={treasuryInnerKpiTileStyle}>
+                  <p style={treasuryKpiLabelStyle}>
+                    Treasury posture
+                  </p>
+                  <span style={treasuryPostureBadge(treasuryOperatingMode.treasuryPosture)}>
+                    {treasuryPostureLabel(treasuryOperatingMode.treasuryPosture)}
+                  </span>
+                </div>
+                <KpiCard
+                  label="Operating confidence"
+                  value={operatingConfidenceLabel(treasuryOperatingMode.operatingConfidence)}
+                  subtitle="Advisory confidence band"
+                  valueColor={operatingConfidenceColor(treasuryOperatingMode.operatingConfidence)}
+                />
+                <KpiCard
+                  label="Monitoring level"
+                  value={recommendedMonitoringLevelLabel(treasuryOperatingMode.recommendedMonitoringLevel)}
+                  subtitle="Suggested review rhythm"
+                  valueColor={recommendedMonitoringLevelColor(treasuryOperatingMode.recommendedMonitoringLevel)}
+                />
+                <KpiCard
+                  label="Confidence"
+                  value={`${treasuryOperatingMode.confidence}%`}
+                  subtitle="Signal availability"
+                  valueColor={
+                    treasuryOperatingMode.confidence >= 80
+                      ? "#047857"
+                      : treasuryOperatingMode.confidence >= 50
+                        ? "#92400e"
+                        : "#64748b"
+                  }
+                />
+              </div>
+
+              {treasuryOperatingMode.postureDrivers.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.55rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Posture drivers
+                  </p>
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}>
+                    {treasuryOperatingMode.postureDrivers.map((driver, idx) => {
+                      const pal = stabilityDriverTypeStyle(driver.type);
+                      return (
+                        <li
+                          key={`operating-driver-${idx}`}
+                          style={{
+                            padding: "0.65rem 0.75rem",
+                            borderRadius: "8px",
+                            background: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              alignItems: "center",
+                              gap: "0.45rem",
+                              marginBottom: "0.3rem",
+                            }}
+                          >
+                            <span style={treasuryBadgeStyle(pal)}>
+                              {driver.type}
+                            </span>
+                            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
+                              {driver.title}
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+                            {driver.explanation}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+
+              {treasuryOperatingMode.watchAreas.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Watch areas
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {treasuryOperatingMode.watchAreas.map((area, idx) => (
+                      <li key={`operating-watch-${idx}`} style={treasuryListItemStyle}>
+                        {area}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {treasuryOperatingMode.recommendations.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Recommendations
+                  </p>
+                  <ul style={treasuryListStyle}>
+                    {treasuryOperatingMode.recommendations.map((rec, idx) => (
+                      <li key={`operating-rec-${idx}`} style={treasuryListItemStyle}>
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <p style={treasurySummaryTextStyle}>
+                {treasuryOperatingMode.summary}
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury resilience</h3>
+          <p style={treasurySectionIntroStyle}>
+            Stress and resilience assessment from health, trends, forecast, and scenarios — advisory only. No wallet,
+            payout, or funding mutations.
+          </p>
+          {!resilience ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading resilience…" />
           ) : (
             <>
               <div
@@ -7492,37 +6395,106 @@ export default function AdminTreasuryIntelligencePage() {
                 }}
               >
                 <KpiCard
-                  label="Operational status"
-                  value={operationalStatusLabel(operationalGuidance.operationalStatus)}
-                  subtitle="Current treasury posture"
-                  valueColor={operationalStatusColor(operationalGuidance.operationalStatus)}
+                  label="Resilience score"
+                  value={String(resilience.resilienceScore)}
+                  subtitle="0–100 composite under sustained pressure"
+                  valueColor={scoreColor(resilience.resilienceScore)}
                 />
                 <KpiCard
-                  label="Monitoring priority"
-                  value={monitoringPriorityLabel(operationalGuidance.monitoringPriority)}
-                  subtitle="Suggested review cadence"
-                  valueColor={monitoringPriorityColor(operationalGuidance.monitoringPriority)}
+                  label="Resilience level"
+                  value={resilienceLevelLabel(resilience.resilienceLevel)}
+                  subtitle="Weak · moderate · strong · resilient"
+                  valueColor={resilienceLevelColor(resilience.resilienceLevel)}
                 />
                 <KpiCard
-                  label="Confidence"
+                  label="Survivability"
+                  value={String(resilience.survivabilityScore)}
+                  subtitle={`Recovery: ${recoveryDifficultyLabel(resilience.recoveryDifficulty).toLowerCase()}`}
+                  valueColor={scoreColor(resilience.survivabilityScore)}
+                />
+                <KpiCard
+                  label="Treasury tolerance"
+                  value={treasuryToleranceLabel(resilience.treasuryTolerance)}
+                  subtitle="Capacity for sustained pressure"
+                  valueColor={treasuryToleranceColor(resilience.treasuryTolerance)}
+                />
+                <KpiCard
+                  label="Resilience confidence"
                   value={
-                    operationalGuidance.confidence >= 80
-                      ? `High (${operationalGuidance.confidence}%)`
-                      : operationalGuidance.confidence >= 50
-                        ? `Moderate (${operationalGuidance.confidence}%)`
-                        : `${operationalGuidance.confidence}%`
+                    resilience.confidence >= 80
+                      ? `High (${resilience.confidence}%)`
+                      : resilience.confidence >= 50
+                        ? `Moderate (${resilience.confidence}%)`
+                        : `${resilience.confidence}%`
                   }
-                  subtitle="Signal agreement & data depth"
+                  subtitle="Data depth & signal agreement"
                   valueColor={
-                    operationalGuidance.confidence >= 80
+                    resilience.confidence >= 80
                       ? "#047857"
-                      : operationalGuidance.confidence >= 50
+                      : resilience.confidence >= 50
                         ? "#92400e"
                         : "#64748b"
                   }
                 />
+                <KpiCard
+                  label="Runway estimate"
+                  value={runwayEstimateLabel(resilience.runwayEstimate)}
+                  subtitle={`Liquidity buffer ${resilience.liquidityBufferScore}`}
+                  valueColor={runwayEstimateColor(resilience.runwayEstimate)}
+                />
               </div>
 
+              <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: resilience.warnings?.length ? "0.75rem" : 0 }}>
+                <p style={{ margin: "0 0 0.35rem", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
+                  Resilience summary
+                </p>
+                <p style={{ margin: 0, fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
+                  {resilience.summary}
+                </p>
+              </div>
+
+              {resilience.warnings?.length > 0 ? (
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
+                  {resilience.warnings.map((w, idx) => (
+                    <li key={`${w.code}-${idx}`} style={{ ...cardBase, padding: "0.75rem 1rem", background: "#f8fafc" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.45rem", marginBottom: w.severity ? "0.3rem" : 0 }}>
+                        {w.severity ? <span style={severityBadge(w.severity)}>{w.severity}</span> : null}
+                      </div>
+                      <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                        {w.message}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </section>
+        </>
+        )}
+        </TreasuryIntelligenceGroup>
+
+        <TreasuryIntelligenceGroup
+          id="reports-explainability"
+          title="Reports & Explainability"
+          description="Explainability, report preparation, executive summaries, and score rationale."
+          sectionCount={4}
+          statusLabel={reportsGroupStatus.label}
+          statusVariant={reportsGroupStatus.variant}
+          onActivate={handleGroupActivate}
+        >
+        {() => (
+        <>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury explainability</h3>
+          <p style={treasurySectionIntroStyle}>
+            Human-readable reasoning for treasury health, risk, and confidence — strictly read-only and advisory. No
+            wallet, payout, or funding mutations.
+          </p>
+          {!explainability ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading explainability…" />
+          ) : (
+            <>
               <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
                 <p
                   style={{
@@ -7534,14 +6506,27 @@ export default function AdminTreasuryIntelligencePage() {
                     color: "#94a3b8",
                   }}
                 >
-                  Summary
+                  Treasury summary
                 </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
-                  {operationalGuidance.summary}
+                <p style={{ margin: "0 0 0.65rem", fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
+                  {explainability.summary}
+                </p>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.82rem",
+                    color: "#475569",
+                    lineHeight: 1.45,
+                    borderTop: "1px solid #f1f5f9",
+                    paddingTop: "0.65rem",
+                  }}
+                >
+                  <span style={{ fontWeight: 700, color: "#0f172a" }}>Risk: </span>
+                  {explainability.riskExplanation}
                 </p>
               </div>
 
-              {operationalGuidance.priorities.length > 0 ? (
+              {explainability.topDrivers.length > 0 ? (
                 <div style={{ marginBottom: "0.85rem" }}>
                   <p
                     style={{
@@ -7553,33 +6538,36 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Monitoring priorities
+                    Top drivers
                   </p>
                   <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
-                    {operationalGuidance.priorities.map((item, idx) => (
-                      <li key={`${item.title}-${idx}`} style={{ ...cardBase, padding: "0.75rem 1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                            gap: "0.45rem",
-                            marginBottom: "0.3rem",
-                          }}
-                        >
-                          <span style={severityBadge(item.severity)}>{item.severity}</span>
-                          <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.88rem" }}>{item.title}</span>
-                        </div>
-                        <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                          {item.explanation}
-                        </p>
-                      </li>
-                    ))}
+                    {explainability.topDrivers.map((driver, idx) => {
+                      const badge = driverTypeBadge(driver.type);
+                      return (
+                        <li key={`${driver.title}-${idx}`} style={{ ...cardBase, padding: "0.75rem 1rem" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              alignItems: "center",
+                              gap: "0.45rem",
+                              marginBottom: "0.3rem",
+                            }}
+                          >
+                            <span style={badge}>{badge.label}</span>
+                            <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.88rem" }}>{driver.title}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                            {driver.impact}
+                          </p>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : null}
 
-              {operationalGuidance.recommendedChecks.length > 0 ? (
+              {explainability.recommendations.length > 0 ? (
                 <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
                   <p
                     style={{
@@ -7591,19 +6579,19 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Recommended checks
+                    Recommendations
                   </p>
                   <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
-                    {operationalGuidance.recommendedChecks.map((check, idx) => (
-                      <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {check}
+                    {explainability.recommendations.map((rec, idx) => (
+                      <li key={idx} style={treasuryListItemStyle}>
+                        {rec}
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
 
-              {operationalGuidance.watchItems.length > 0 ? (
+              {explainability.decisionTrace.length > 0 ? (
                 <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
                   <p
                     style={{
@@ -7615,55 +6603,47 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Watch items
+                    Decision trace
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
-                    {operationalGuidance.watchItems.map((item, idx) => (
-                      <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {item}
+                  <ol style={{ margin: 0, paddingLeft: "1.25rem", display: "grid", gap: "0.35rem" }}>
+                    {explainability.decisionTrace.map((step, idx) => (
+                      <li key={idx} style={treasuryListItemStyle}>
+                        {step}
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
               ) : null}
 
-              {operationalGuidance.observations.length > 0 ? (
-                <div style={{ ...cardBase, padding: "1rem 1.1rem", background: "#f8fafc" }}>
-                  <p
-                    style={{
-                      margin: "0 0 0.55rem",
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Observations
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: "1.15rem", display: "grid", gap: "0.4rem" }}>
-                    {operationalGuidance.observations.map((obs, idx) => (
-                      <li key={idx} style={{ fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
-                        {obs}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+              <div style={{ ...cardBase, padding: "1rem 1.1rem", background: "#f8fafc" }}>
+                <p
+                  style={{
+                    margin: "0 0 0.35rem",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Confidence explanation
+                </p>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>
+                  {explainability.confidenceExplanation}
+                </p>
+              </div>
             </>
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury report prep</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Treasury report prep</h3>
+          <p style={treasurySectionIntroStyle}>
             Generate a read-only advisory report from current treasury intelligence outputs for leadership review or
             documentation. No file export, PDF generation, or automated actions.
           </p>
           {!health || !executiveSummary || !operationalGuidance ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading report inputs…</p>
-            </div>
+            <TreasurySectionShell loading={loading} loadingLabel="Loading report inputs…" />
           ) : (
             <>
               <div
@@ -7712,7 +6692,7 @@ export default function AdminTreasuryIntelligencePage() {
               ) : null}
 
               {reportPreview ? (
-                <div style={{ ...cardBase, padding: "1.15rem 1.25rem" }}>
+                <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
                   <div
                     style={{
                       display: "flex",
@@ -8117,161 +7097,81 @@ export default function AdminTreasuryIntelligencePage() {
           )}
         </section>
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury alert classification</h2>
-          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
-            Read-only advisory classification of treasury alerts by category, priority, and suggested review cadence.
-            No wallet, payout, withdrawal, or database mutations.
+        <section style={treasurySectionStyle}>
+          <h3 style={sectionHeading}>Executive summary</h3>
+          <p style={treasurySectionIntroStyle}>
+            Leadership-friendly synthesis of treasury health, trends, forecast, and operational guidance — read-only and
+            advisory only.
           </p>
-          {!alertClassification ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading alert classification…</p>
-            </div>
+          {!executiveSummary ? (
+            <TreasurySectionShell loading={loading} loadingLabel="Loading executive summary…" />
           ) : (
-            <>
+            <div style={{ ...cardBase, ...treasuryCardPaddingStyle }}>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 160px), 1fr))",
-                  gap: "0.75rem",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "0.65rem",
                   marginBottom: "0.85rem",
                 }}
               >
-                <KpiCard
-                  label="Alert priority"
-                  value={monitoringPriorityLabel(alertClassification.alertPriority)}
-                  subtitle="Overall classified priority"
-                  valueColor={monitoringPriorityColor(alertClassification.alertPriority)}
-                />
-                <KpiCard
-                  label="Classified alerts"
-                  value={String(alertClassification.classifiedAlerts?.length || 0)}
-                  subtitle="Category-tagged items"
-                  valueColor="#0f172a"
-                />
-                <KpiCard
-                  label="Confidence"
-                  value={
-                    alertClassification.confidence >= 80
-                      ? `High (${alertClassification.confidence}%)`
-                      : alertClassification.confidence >= 50
-                        ? `Moderate (${alertClassification.confidence}%)`
-                        : `${alertClassification.confidence}%`
-                  }
-                  subtitle="Signal agreement & data depth"
-                  valueColor={
-                    alertClassification.confidence >= 80
-                      ? "#047857"
-                      : alertClassification.confidence >= 50
-                        ? "#92400e"
-                        : "#64748b"
-                  }
-                />
-              </div>
-
-              <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "0.85rem" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    marginBottom: "0.45rem",
-                  }}
-                >
-                  <span style={alertPriorityBadge(alertClassification.alertPriority)}>
-                    {monitoringPriorityLabel(alertClassification.alertPriority)} priority
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: "0 0 0.45rem",
+                      fontSize: "1.05rem",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      lineHeight: 1.4,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {executiveSummary.headline}
+                  </p>
+                  <span style={executiveStatusBadge(executiveSummary.executiveStatus)}>
+                    {executiveStatusLabel(executiveSummary.executiveStatus)}
                   </span>
                 </div>
-                <p
-                  style={{
-                    margin: "0 0 0.35rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
-                  Summary
-                </p>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "#0f172a", lineHeight: 1.5, fontWeight: 500 }}>
-                  {alertClassification.alertSummary}
-                </p>
+                <div style={{ flex: "0 0 auto", textAlign: "right" }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Confidence
+                  </p>
+                  <p
+                    style={{
+                      margin: "0.15rem 0 0",
+                      fontSize: "1.15rem",
+                      fontWeight: 800,
+                      color:
+                        executiveSummary.confidence >= 80
+                          ? "#047857"
+                          : executiveSummary.confidence >= 50
+                            ? "#92400e"
+                            : "#64748b",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {executiveSummary.confidence}%
+                  </p>
+                </div>
               </div>
 
-              {alertClassification.classifiedAlerts?.length > 0 ? (
-                <div style={{ ...cardBase, overflowX: "auto", WebkitOverflowScrolling: "touch", marginBottom: "0.85rem" }}>
-                  <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {[
-                          { key: "priority", label: "Priority", align: "left" },
-                          { key: "category", label: "Category", align: "left" },
-                          { key: "title", label: "Alert", align: "left" },
-                          { key: "review", label: "Suggested review", align: "left" },
-                          { key: "reason", label: "Reason", align: "left" },
-                        ].map((h) => (
-                          <th
-                            key={h.key}
-                            style={{
-                              textAlign: h.align,
-                              padding: "0.55rem 0.65rem",
-                              fontSize: "0.66rem",
-                              fontWeight: 700,
-                              letterSpacing: "0.05em",
-                              textTransform: "uppercase",
-                              color: "#94a3b8",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {h.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {alertClassification.classifiedAlerts.map((item, idx) => (
-                        <tr key={`${item.title}-${idx}`} style={{ borderTop: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "0.55rem 0.65rem", whiteSpace: "nowrap" }}>
-                            <span style={alertPriorityBadge(item.priority)}>{monitoringPriorityLabel(item.priority)}</span>
-                          </td>
-                          <td style={{ padding: "0.55rem 0.65rem", color: "#475569", whiteSpace: "nowrap" }}>
-                            {alertCategoryLabel(item.category)}
-                          </td>
-                          <td style={{ padding: "0.55rem 0.65rem", color: "#0f172a", minWidth: "160px" }}>
-                            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}>
-                              {item.severity ? <span style={severityBadge(item.severity)}>{item.severity}</span> : null}
-                              <span style={{ fontWeight: 600 }}>{item.title}</span>
-                            </div>
-                            {item.message ? (
-                              <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.4 }}>
-                                {item.message}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td
-                            style={{
-                              padding: "0.55rem 0.65rem",
-                              color: suggestedReviewColor(item.suggestedReview),
-                              fontWeight: 600,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {suggestedReviewLabel(item.suggestedReview)}
-                          </td>
-                          <td style={{ padding: "0.55rem 0.65rem", color: "#475569", lineHeight: 1.4, minWidth: "180px" }}>
-                            {item.reason}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
+              <p style={{ ...treasurySummaryTextStyle, margin: "0 0 1rem" }}>
+                {executiveSummary.summary}
+              </p>
 
-              {alertClassification.routingSuggestions?.length > 0 ? (
-                <div style={{ ...cardBase, padding: "1rem 1.1rem", background: "#f8fafc" }}>
+              {executiveSummary.keyMetrics.length > 0 ? (
+                <div style={{ marginBottom: "1rem" }}>
                   <p
                     style={{
                       margin: "0 0 0.55rem",
@@ -8282,163 +7182,147 @@ export default function AdminTreasuryIntelligencePage() {
                       color: "#94a3b8",
                     }}
                   >
-                    Routing suggestions
+                    Key metrics
                   </p>
-                  <ul style={{ margin: 0, padding: "0 0 0 1.1rem", color: "#475569", fontSize: "0.82rem", lineHeight: 1.5 }}>
-                    {alertClassification.routingSuggestions.map((suggestion, idx) => (
-                      <li key={`route-${idx}`} style={{ marginBottom: "0.35rem" }}>
-                        {suggestion}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Treasury alerts</h2>
-          {!health ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading alerts…</p>
-            </div>
-          ) : alerts.length === 0 ? (
-            <div style={{ ...cardBase, padding: "1.25rem", textAlign: "center" }}>
-              <p style={{ margin: 0, color: "#047857", fontWeight: 600, fontSize: "0.9rem" }}>
-                No active treasury alerts
-              </p>
-              <p style={{ margin: "0.35rem 0 0", color: "#64748b", fontSize: "0.82rem" }}>
-                Health signals are within normal thresholds.
-              </p>
-            </div>
-          ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.65rem" }}>
-              {alerts.map((a) => (
-                <li key={a.code} style={{ ...cardBase, padding: "0.85rem 1rem" }}>
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
-                    <span style={severityBadge(a.severity)}>{a.severity}</span>
-                    <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.9rem" }}>{a.title}</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.45 }}>{a.message}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={sectionHeading}>Snapshot history</h2>
-          <p style={{ margin: "0 0 0.65rem", fontSize: "0.78rem", color: "#64748b" }}>
-            Newest first — read-only observability records.
-          </p>
-          {!health && history.length === 0 ? (
-            <div style={{ ...cardBase, padding: "1rem" }}>
-              <p style={{ margin: 0, color: "#64748b" }}>Loading history…</p>
-            </div>
-          ) : history.length === 0 ? (
-            <div style={{ ...cardBase, padding: "1.25rem", textAlign: "center" }}>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>No snapshots yet.</p>
-            </div>
-          ) : (
-            <div style={{ ...cardBase, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <table style={{ width: "100%", minWidth: "640px", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    {[
-                      { key: "created", label: "Created", align: "left" },
-                      { key: "score", label: "Score", align: "right" },
-                      { key: "risk", label: "Risk", align: "left" },
-                      { key: "liab", label: "Liabilities", align: "right" },
-                      { key: "exp", label: "Exposure", align: "right" },
-                      { key: "reasons", label: "Reasons", align: "right" },
-                    ].map((h) => (
-                      <th
-                        key={h.key}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 130px), 1fr))",
+                      gap: "0.55rem",
+                    }}
+                  >
+                    {executiveSummary.keyMetrics.map((m) => (
+                      <div
+                        key={m.label}
                         style={{
-                          textAlign: h.align,
                           padding: "0.55rem 0.65rem",
-                          fontSize: "0.66rem",
-                          fontWeight: 700,
-                          letterSpacing: "0.05em",
-                          textTransform: "uppercase",
-                          color: "#94a3b8",
-                          whiteSpace: "nowrap",
+                          borderRadius: "10px",
+                          background: "#f8fafc",
+                          border: "1px solid #f1f5f9",
                         }}
                       >
-                        {h.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((row) => {
-                    const reasonCount = (row.reasons || []).length;
-                    return (
-                      <tr key={row.id} style={{ borderTop: "1px solid #f1f5f9" }}>
-                        <td style={{ padding: "0.55rem 0.65rem", color: "#475569", whiteSpace: "nowrap" }}>
-                          <span style={{ display: "block", fontWeight: 600, color: "#0f172a" }}>
-                            {formatWhen(row.createdAt)}
-                          </span>
-                        </td>
-                        <td
+                        <p
                           style={{
-                            padding: "0.55rem 0.65rem",
-                            textAlign: "right",
+                            margin: 0,
+                            fontSize: "0.64rem",
                             fontWeight: 700,
-                            color: scoreColor(row.healthScore),
-                            fontVariantNumeric: "tabular-nums",
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            color: "#94a3b8",
                           }}
                         >
-                          {row.healthScore}
-                        </td>
-                        <td style={{ padding: "0.55rem 0.65rem" }}>
-                          <span style={riskLevelBadge(row.treasuryRiskLevel)}>{row.treasuryRiskLevel}</span>
-                        </td>
-                        <td
+                          {m.label}
+                        </p>
+                        <p
                           style={{
-                            padding: "0.55rem 0.65rem",
-                            textAlign: "right",
-                            fontVariantNumeric: "tabular-nums",
+                            margin: "0.2rem 0 0",
+                            fontSize: "0.88rem",
+                            fontWeight: 700,
                             color: "#0f172a",
-                          }}
-                        >
-                          {formatMoney(row.totalWalletLiabilities)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "0.55rem 0.65rem",
-                            textAlign: "right",
                             fontVariantNumeric: "tabular-nums",
-                            color: "#0f172a",
+                            textTransform: "capitalize",
                           }}
                         >
-                          {formatMoney(row.pendingWithdrawalExposure)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "0.55rem 0.65rem",
-                            textAlign: "right",
-                            fontVariantNumeric: "tabular-nums",
-                            color: reasonCount > 0 ? "#92400e" : "#64748b",
-                            fontWeight: reasonCount > 0 ? 700 : 400,
-                          }}
-                          title={reasonCount > 0 ? `${reasonCount} penalty reason(s)` : "No penalty reasons"}
-                        >
-                          {reasonCount}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          {m.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+                  gap: "0.85rem",
+                }}
+              >
+                {executiveSummary.keyRisks.length > 0 ? (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 0.45rem",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Key risks
+                    </p>
+                    <ul style={treasuryListStyle}>
+                      {executiveSummary.keyRisks.map((risk, idx) => (
+                        <li key={idx} style={treasuryListItemStyle}>
+                          {risk}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {executiveSummary.keyStrengths.length > 0 ? (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 0.45rem",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Key strengths
+                    </p>
+                    <ul style={treasuryListStyle}>
+                      {executiveSummary.keyStrengths.map((strength, idx) => (
+                        <li key={idx} style={treasuryListItemStyle}>
+                          {strength}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {executiveSummary.nextFocus.length > 0 ? (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 0.45rem",
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Next focus
+                    </p>
+                    <ul style={treasuryListStyle}>
+                      {executiveSummary.nextFocus.map((item, idx) => (
+                        <li key={idx} style={treasuryListItemStyle}>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
         </section>
 
         <section style={{ marginBottom: "1rem" }}>
-          <h2 style={sectionHeading}>Score explanation</h2>
+          <h3 style={sectionHeading}>Score explanation</h3>
           <div style={{ ...cardBase, padding: "1rem 1.1rem" }}>
+            {!health ? (
+              <p style={{ margin: 0, color: "#64748b", lineHeight: 1.5, fontSize: "0.85rem" }}>
+                {treasurySectionStatusMessage(loading)}
+              </p>
+            ) : (
+              <>
             <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
               Health starts at 100 and subtracts for payout pressure, reconciliation issues, funding failures, negative
               balances, and volume anomalies. Risk level: 80–100 low, 60–79 medium, 40–59 high, 0–39 critical.
@@ -8479,8 +7363,13 @@ export default function AdminTreasuryIntelligencePage() {
                 Open Treasury &amp; Reconciliation →
               </Link>
             </p>
+              </>
+            )}
           </div>
         </section>
+        </>
+        )}
+        </TreasuryIntelligenceGroup>
       </div>
     </>
   );
