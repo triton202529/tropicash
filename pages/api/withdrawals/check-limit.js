@@ -17,6 +17,12 @@ import {
   canServerPerformFinancialAction,
   logServerBlockedFinancialAction,
 } from "../../../lib/serverAccountSecurityGuard";
+import {
+  enforceServerKycForWithdrawal,
+  KYC_WITHDRAWAL_BLOCKED_ERROR,
+  KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE,
+  logServerKycWithdrawalBlocked,
+} from "../../../lib/serverKycWithdrawalGuard";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -79,6 +85,59 @@ export default async function handler(req, res) {
       metadata: {},
     });
     return res.status(500).json({ error: "Server configuration error" });
+  }
+
+  const rawAmount = req.body?.amount;
+  let kycUsagePayload = null;
+  if (rawAmount != null && rawAmount !== "") {
+    const kycGate = await enforceServerKycForWithdrawal({
+      userId,
+      amount: rawAmount,
+      supabaseClient: admin,
+    });
+    if (kycGate.enforcement) {
+      kycUsagePayload = {
+        usedToday: kycGate.enforcement.usedToday ?? null,
+        remainingToday: kycGate.enforcement.remainingToday ?? null,
+        projectedTotal: kycGate.enforcement.projectedTotal ?? null,
+        limit: kycGate.enforcement.limit ?? null,
+        enforcementMode: kycGate.enforcement.mode ?? null,
+        kycStatus: kycGate.enforcement.kycStatus ?? null,
+      };
+    }
+    if (!kycGate.allowed) {
+      if (kycGate.enforcement) {
+        void logServerKycWithdrawalBlocked({
+          userId,
+          amount: Number(rawAmount),
+          enforcement: kycGate.enforcement,
+          supabaseClient: admin,
+        });
+      }
+      void logOperationalEvent({
+        level: "warn",
+        supabaseClient: admin,
+        category: "kyc.withdrawal_blocked",
+        message: "Server blocked withdrawal create due to KYC policy",
+        userId,
+        route: "/api/withdrawals/check-limit",
+        metadata: {
+          amount: Number(rawAmount),
+          kyc_status: kycGate.enforcement?.kycStatus ?? null,
+          enforcement_mode: kycGate.enforcement?.mode ?? null,
+          limit: kycGate.enforcement?.limit ?? null,
+          used_today: kycGate.enforcement?.usedToday ?? null,
+          projected_total: kycGate.enforcement?.projectedTotal ?? null,
+          reason: kycGate.enforcement?.reason ?? null,
+        },
+      });
+      return res.status(403).json({
+        success: false,
+        error: kycGate.error || KYC_WITHDRAWAL_BLOCKED_ERROR,
+        message: kycGate.message || KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE,
+        ...kycUsagePayload,
+      });
+    }
   }
 
   const ip = extractClientIp(req);
@@ -152,5 +211,9 @@ export default async function handler(req, res) {
     });
   }
 
-  return res.status(200).json({ allowed: true, retryAfterSec: null });
+  return res.status(200).json({
+    allowed: true,
+    retryAfterSec: null,
+    ...(kycUsagePayload || {}),
+  });
 }

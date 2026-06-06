@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { enforceKycForWithdrawal } from "../lib/kycRisk";
+import { KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE } from "../lib/serverKycWithdrawalGuard";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
@@ -353,9 +354,24 @@ export default function WithdrawWalletPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
+          body: JSON.stringify({ amount: amt }),
         });
         if (limitRes.status === 403) {
           const payload = await limitRes.json().catch(() => ({}));
+          if (payload?.error === "kyc_withdrawal_blocked") {
+            const msg =
+              typeof payload?.message === "string" && payload.message.trim()
+                ? payload.message.trim()
+                : KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE;
+            setKycBlock({
+              message: msg,
+              showKycLink: true,
+            });
+            setKycWarningMsg(null);
+            setErrorMsg("");
+            setLoadingAction(false);
+            return;
+          }
           if (payload?.error === "account_restricted") {
             const msg =
               typeof payload?.message === "string" && payload.message.trim()
@@ -388,7 +404,7 @@ export default function WithdrawWalletPage() {
       });
     }
 
-    // Withdrawal RPC is gated server-side via POST /api/withdrawals/check-limit (account security + rate limit).
+    // Withdrawal RPC is gated server-side via POST /api/withdrawals/check-limit (KYC, account security, rate limit).
     const { error } = await supabase.rpc("create_withdrawal_request", {
       p_user_id: user.id,
       p_amount: amt,

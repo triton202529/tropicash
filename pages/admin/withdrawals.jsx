@@ -13,6 +13,7 @@ import {
   buildWithdrawalComplianceContext,
   fetchKycLimitPolicies,
   fetchKycStatusMapForUsers,
+  fetchWithdrawalDailyUsageMapForUsers,
 } from "../../lib/kycRisk";
 
 function formatMoney(value) {
@@ -425,6 +426,11 @@ function WithdrawalCompliancePanel({ row, compliance }) {
         <WithdrawalDetail label="Verification tier">{compliance.verificationTier}</WithdrawalDetail>
         <WithdrawalDetail label="KYC risk level">{compliance.kycRiskLevel}</WithdrawalDetail>
         <WithdrawalDetail label="Withdrawal daily limit">{formatMoney(compliance.withdrawalDailyLimit)}</WithdrawalDetail>
+        <WithdrawalDetail label="Used today">{formatMoney(compliance.usedToday)}</WithdrawalDetail>
+        <WithdrawalDetail label="Remaining today">
+          {compliance.remainingToday != null ? formatMoney(compliance.remainingToday) : "—"}
+        </WithdrawalDetail>
+        <WithdrawalDetail label="Projected total">{formatMoney(compliance.projectedTotal)}</WithdrawalDetail>
         <WithdrawalDetail label="Enforcement mode">{compliance.enforcementMode}</WithdrawalDetail>
         <WithdrawalDetail label="Exceeds KYC limit">{compliance.exceedsLimit ? "Yes" : "No"}</WithdrawalDetail>
         <WithdrawalDetail label="Would block if enforced">{compliance.wouldBlockIfEnforced ? "Yes" : "No"}</WithdrawalDetail>
@@ -471,6 +477,7 @@ export default function AdminWithdrawalsPage() {
   const [profilesMap, setProfilesMap] = useState({});
   const [kycMap, setKycMap] = useState({});
   const [kycPoliciesByStatus, setKycPoliciesByStatus] = useState({});
+  const [dailyUsageByUserId, setDailyUsageByUserId] = useState({});
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [fetchErrorDetails, setFetchErrorDetails] = useState(null);
@@ -526,6 +533,7 @@ export default function AdminWithdrawalsPage() {
       setProfilesMap({});
       setKycMap({});
       setKycPoliciesByStatus({});
+      setDailyUsageByUserId({});
       setDataLoading(false);
       return;
     }
@@ -551,11 +559,19 @@ export default function AdminWithdrawalsPage() {
     }
 
     try {
-      const policies = await fetchKycLimitPolicies();
+      const { data: policies } = await fetchKycLimitPolicies();
       setKycPoliciesByStatus(Object.fromEntries((policies || []).map((p) => [p.kyc_status, p])));
     } catch (policyErr) {
       console.warn("[admin/withdrawals] KYC policy fetch failed:", policyErr?.message || policyErr);
       setKycPoliciesByStatus({});
+    }
+
+    try {
+      const usageMap = await fetchWithdrawalDailyUsageMapForUsers(ids);
+      setDailyUsageByUserId(usageMap || {});
+    } catch (usageErr) {
+      console.warn("[admin/withdrawals] daily usage fetch failed:", usageErr?.message || usageErr);
+      setDailyUsageByUserId({});
     }
 
     setDataLoading(false);
@@ -601,10 +617,11 @@ export default function AdminWithdrawalsPage() {
         kycStatus,
         amount: row.amount,
         policy,
+        usedToday: dailyUsageByUserId[row.user_id] ?? 0,
       });
     }
     return map;
-  }, [rows, kycMap, kycPoliciesByStatus]);
+  }, [rows, kycMap, kycPoliciesByStatus, dailyUsageByUserId]);
 
   const setNoteDraft = (id, value) => {
     setAdminNotesDraft((prev) => ({ ...prev, [id]: value }));
