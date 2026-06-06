@@ -4,6 +4,8 @@ import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
+import KycSoftLimitBanner from "../components/KycSoftLimitBanner";
+import KycLimitAdvisory from "../components/KycLimitAdvisory";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { logOperationalError } from "../lib/operationalLogger";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
@@ -705,6 +707,8 @@ export default function FundWalletPage() {
 
         <SoftEnforcementNotice profile={profile} />
 
+        <KycSoftLimitBanner userId={user?.id} />
+
         <div style={{ marginBottom: "1.25rem" }}>
           <SoftLaunchNotice />
         </div>
@@ -957,6 +961,9 @@ export default function FundWalletPage() {
                   : "Sandbox only — use PayPal test accounts."}{" "}
                 Per transaction: minimum $1, maximum $1,000.
               </p>
+              {amountLooksValid ? (
+                <KycLimitAdvisory userId={user?.id} actionType="funding" amount={parsedAmount} />
+              ) : null}
             </div>
 
             {amountLooksValid ? (

@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
-import { supabase } from "../lib/supabaseClient";
+import {
+  fetchMyKycProfile,
+  kycDocumentDisplayName,
+  uploadKycDocument,
+  upsertMyKycProfile,
+} from "../lib/kyc";
 import { useUser } from "../lib/userContext";
 
 const pageWrap = {
@@ -52,6 +57,41 @@ const STATUS_COPY = {
   rejected: "Rejected",
   needs_more_info: "More information needed",
 };
+
+const DOCUMENT_UPLOADS = [
+  { slot: "document_front", label: "Government ID — front", id: "kyc-doc-front" },
+  { slot: "document_back", label: "Government ID — back", id: "kyc-doc-back", hint: "Optional if not applicable" },
+  { slot: "selfie", label: "Selfie / liveness image", id: "kyc-doc-selfie" },
+];
+
+function emptyUploadState() {
+  return {
+    document_front: { status: "idle", fileName: null, error: null },
+    document_back: { status: "idle", fileName: null, error: null },
+    selfie: { status: "idle", fileName: null, error: null },
+  };
+}
+
+function uploadStateFromProfile(row) {
+  const next = emptyUploadState();
+  if (!row) return next;
+  for (const { slot } of DOCUMENT_UPLOADS) {
+    const col =
+      slot === "document_front"
+        ? row.document_front_url
+        : slot === "document_back"
+          ? row.document_back_url
+          : row.selfie_url;
+    if (col) {
+      next[slot] = {
+        status: "uploaded",
+        fileName: kycDocumentDisplayName(col),
+        error: null,
+      };
+    }
+  }
+  return next;
+}
 
 function statusBadgeStyle(status) {
   const key = String(status || "not_started").toLowerCase();
@@ -109,30 +149,33 @@ export default function KycPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [uploadState, setUploadState] = useState(emptyUploadState());
 
   const status = String(profileRow?.status || "not_started").toLowerCase();
-  const editingDisabled = status === "approved";
+  const canEdit = ["not_started", "rejected", "needs_more_info"].includes(status);
+  const editingDisabled = !canEdit;
+  const isUnderReview = status === "submitted" || status === "under_review";
+  const isApproved = status === "approved";
+  const showReviewerNote = (status === "rejected" || status === "needs_more_info") && profileRow?.review_notes;
   const statusLabel = STATUS_COPY[status] || STATUS_COPY.not_started;
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     setErrorMsg(null);
-    const { data, error } = await supabase
-      .from("kyc_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data, error } = await fetchMyKycProfile(user.id);
     if (error) {
       console.error("[kyc] load", error);
       setErrorMsg(error.message || "Could not load verification profile.");
       setProfileRow(null);
       setForm(emptyForm());
+      setUploadState(emptyUploadState());
       setLoading(false);
       return;
     }
     setProfileRow(data || null);
     setForm(rowToForm(data));
+    setUploadState(uploadStateFromProfile(data));
     setLoading(false);
   }, [user?.id]);
 
@@ -169,7 +212,50 @@ export default function KycPage() {
     if (last4.length !== 4) {
       return "Document number (last 4 digits) must be exactly 4 digits.";
     }
+    if (uploadState.document_front.status !== "uploaded") {
+      return "Government ID front photo is required.";
+    }
+    if (uploadState.selfie.status !== "uploaded") {
+      return "Selfie / liveness image is required.";
+    }
     return null;
+  };
+
+  const handleDocumentSelect = async (documentSlot, fileList) => {
+    if (editingDisabled || !user?.id) return;
+    const file = fileList?.[0];
+    if (!file) return;
+
+    setUploadState((prev) => ({
+      ...prev,
+      [documentSlot]: { status: "uploading", fileName: file.name, error: null },
+    }));
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const { path, error } = await uploadKycDocument({ userId: user.id, file, documentSlot });
+    if (error) {
+      console.error("[kyc] upload", documentSlot, error);
+      setUploadState((prev) => ({
+        ...prev,
+        [documentSlot]: {
+          status: "error",
+          fileName: file.name,
+          error: error.message || "Upload failed.",
+        },
+      }));
+      return;
+    }
+
+    setUploadState((prev) => ({
+      ...prev,
+      [documentSlot]: {
+        status: "uploaded",
+        fileName: kycDocumentDisplayName(path) || file.name,
+        error: null,
+      },
+    }));
+    await loadProfile();
   };
 
   const handleSubmit = async (e) => {
@@ -198,12 +284,7 @@ export default function KycPage() {
       status: "submitted",
     };
 
-    let error;
-    if (profileRow?.id) {
-      ({ error } = await supabase.from("kyc_profiles").update(payload).eq("id", profileRow.id));
-    } else {
-      ({ error } = await supabase.from("kyc_profiles").insert(payload));
-    }
+    const { error } = await upsertMyKycProfile(payload);
 
     if (error) {
       console.error("[kyc] submit", error);
@@ -281,10 +362,38 @@ export default function KycPage() {
               {statusLabel}
             </span>
           </div>
-          {profileRow?.review_notes && status !== "approved" ? (
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "#475569", lineHeight: 1.5 }}>
-              <strong>Reviewer note:</strong> {profileRow.review_notes}
+          {isUnderReview ? (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "#1d4ed8", lineHeight: 1.5 }}>
+              Your verification is being reviewed. You cannot edit your submission while it is in progress.
             </p>
+          ) : null}
+          {isApproved ? (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "#047857", lineHeight: 1.5 }}>
+              Your identity is verified. Contact support if you need to update your details.
+            </p>
+          ) : null}
+          {showReviewerNote ? (
+            <div
+              style={{
+                marginTop: "0.75rem",
+                padding: "0.65rem 0.75rem",
+                borderRadius: "8px",
+                background: status === "rejected" ? "#fef2f2" : "#fffbeb",
+                border: `1px solid ${status === "rejected" ? "#fecaca" : "#fcd34d"}`,
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 700, color: "#334155" }}>
+                {status === "rejected" ? "Verification rejected" : "More information requested"}
+              </p>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#475569", lineHeight: 1.5 }}>
+                {profileRow.review_notes}
+              </p>
+              {canEdit ? (
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", color: "#64748b" }}>
+                  Update your details below and resubmit for review.
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -479,22 +588,71 @@ export default function KycPage() {
                   style={{
                     padding: "0.85rem",
                     borderRadius: "10px",
-                    border: "1px dashed #cbd5e1",
+                    border: "1px solid #e2e8f0",
                     background: "#f8fafc",
                   }}
                 >
-                  <p style={{ margin: "0 0 0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "#334155" }}>
-                    Document uploads (coming soon)
+                  <p style={{ margin: "0 0 0.35rem", fontSize: "0.85rem", fontWeight: 600, color: "#334155" }}>
+                    Identity documents
                   </p>
-                  <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b", lineHeight: 1.5 }}>
-                    Photo ID front, back, and selfie uploads will be enabled in a later phase using a private storage
-                    bucket with signed URLs only.
+                  <p style={{ margin: "0 0 0.85rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.5 }}>
+                    Upload clear photos of your ID and a selfie. Files are stored privately and are not publicly
+                    accessible.
                   </p>
-                  <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.1rem", fontSize: "0.8rem", color: "#94a3b8" }}>
-                    <li>Government ID — front</li>
-                    <li>Government ID — back (if applicable)</li>
-                    <li>Selfie verification</li>
-                  </ul>
+                  <div style={{ display: "grid", gap: "0.85rem" }}>
+                    {DOCUMENT_UPLOADS.map(({ slot, label, id, hint }) => {
+                      const slotState = uploadState[slot] || emptyUploadState()[slot];
+                      const isUploading = slotState.status === "uploading";
+                      const isUploaded = slotState.status === "uploaded";
+                      const isError = slotState.status === "error";
+                      return (
+                        <div
+                          key={slot}
+                          style={{
+                            padding: "0.65rem 0.75rem",
+                            borderRadius: "8px",
+                            border: "1px solid #e2e8f0",
+                            background: "#fff",
+                          }}
+                        >
+                          <label style={{ ...labelStyle, marginBottom: "0.25rem" }} htmlFor={id}>
+                            {label}
+                            {slot === "document_back" ? " (optional)" : " *"}
+                          </label>
+                          {hint ? (
+                            <p style={{ margin: "0 0 0.35rem", fontSize: "0.72rem", color: "#94a3b8" }}>{hint}</p>
+                          ) : null}
+                          <input
+                            id={id}
+                            type="file"
+                            accept="image/*"
+                            capture={slot === "selfie" ? "user" : "environment"}
+                            disabled={editingDisabled || saving || isUploading}
+                            onChange={(e) => {
+                              void handleDocumentSelect(slot, e.target.files);
+                              e.target.value = "";
+                            }}
+                            style={{ ...inputStyle, padding: "0.4rem", fontSize: "0.82rem" }}
+                          />
+                          <p
+                            style={{
+                              margin: "0.35rem 0 0",
+                              fontSize: "0.75rem",
+                              color: isError ? "#b91c1c" : isUploaded ? "#047857" : "#64748b",
+                            }}
+                          >
+                            {isUploading
+                              ? "Uploading…"
+                              : isError
+                                ? slotState.error || "Upload failed."
+                                : isUploaded
+                                  ? `On file: ${slotState.fileName}`
+                                  : "No file uploaded yet"}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -516,13 +674,23 @@ export default function KycPage() {
                     opacity: saving ? 0.7 : 1,
                   }}
                 >
-                  {saving ? "Submitting…" : profileRow ? "Update & submit for review" : "Submit for review"}
+                  {saving
+                    ? "Submitting…"
+                    : status === "rejected" || status === "needs_more_info"
+                      ? "Update & resubmit for review"
+                      : profileRow
+                        ? "Update & submit for review"
+                        : "Submit for review"}
                 </button>
-              ) : (
+              ) : isUnderReview ? (
                 <p style={{ marginTop: "1.25rem", fontSize: "0.85rem", color: "#64748b" }}>
-                  Your identity is verified. Contact support if you need to update your details.
+                  Your submission is locked while under review.
                 </p>
-              )}
+              ) : isApproved ? (
+                <p style={{ marginTop: "1.25rem", fontSize: "0.85rem", color: "#64748b" }}>
+                  Verified — editing is disabled.
+                </p>
+              ) : null}
             </fieldset>
           </form>
         )}

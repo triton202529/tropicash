@@ -2,9 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
+import { enforceKycForWithdrawal } from "../lib/kycRisk";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
+import KycSoftLimitBanner from "../components/KycSoftLimitBanner";
+import KycLimitAdvisory from "../components/KycLimitAdvisory";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
@@ -136,6 +139,8 @@ export default function WithdrawWalletPage() {
   const [walletFetchError, setWalletFetchError] = useState(null);
   const [payoutFetchError, setPayoutFetchError] = useState(null);
   const [financialBlock, setFinancialBlock] = useState(null);
+  const [kycWarningMsg, setKycWarningMsg] = useState(null);
+  const [kycBlock, setKycBlock] = useState(null);
 
   const fetchWalletBalance = useCallback(async () => {
     if (!user?.id) return;
@@ -243,6 +248,7 @@ export default function WithdrawWalletPage() {
     e.preventDefault();
     setLoadingAction(true);
     setErrorMsg("");
+    setKycBlock(null);
 
     if (loading) {
       setLoadingAction(false);
@@ -294,6 +300,26 @@ export default function WithdrawWalletPage() {
       setErrorMsg("Insufficient funds.");
       setLoadingAction(false);
       return;
+    }
+
+    const kycEnforcement = await enforceKycForWithdrawal({ userId: user.id, amount: amt });
+    if (!kycEnforcement.allowed) {
+      setKycBlock({
+        message:
+          kycEnforcement.userMessage ||
+          "This withdrawal cannot be submitted due to your identity verification limits.",
+        showKycLink: String(kycEnforcement.kycStatus || "").toLowerCase() !== "approved",
+      });
+      setKycWarningMsg(null);
+      setErrorMsg("");
+      setLoadingAction(false);
+      return;
+    }
+    setKycBlock(null);
+    if (kycEnforcement.exceedsLimit && kycEnforcement.mode === "advisory" && kycEnforcement.userMessage) {
+      setKycWarningMsg(kycEnforcement.userMessage);
+    } else {
+      setKycWarningMsg(null);
     }
 
     const trust = await evaluateTrustCheck({
@@ -635,6 +661,8 @@ export default function WithdrawWalletPage() {
 
         <SoftEnforcementNotice profile={profile} />
 
+        <KycSoftLimitBanner userId={user?.id} />
+
         {Array.isArray(recentWithdrawals) &&
         recentWithdrawals.some((rw) => ["pending", "processing"].includes(String(rw?.status || "").toLowerCase())) ? (
           <div
@@ -853,13 +881,21 @@ export default function WithdrawWalletPage() {
             className="tc-withdraw-in"
             type="number"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {
+              setAmount(e.target.value);
+              setKycBlock(null);
+              setKycWarningMsg(null);
+            }}
             placeholder="0.00"
             min="0"
             step="0.01"
             disabled={formDisabled}
             style={inputField}
           />
+
+          {amountLooksValid && !successBanner ? (
+            <KycLimitAdvisory userId={user?.id} actionType="withdrawal" amount={parsedAmount} />
+          ) : null}
 
           {amountLooksValid && !successBanner ? (
             <p
@@ -990,6 +1026,47 @@ export default function WithdrawWalletPage() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {kycBlock ? (
+          <div
+            role="alert"
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem 0.85rem",
+              borderRadius: "10px",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              fontSize: "0.875rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {kycBlock.message}{" "}
+            {kycBlock.showKycLink ? (
+              <Link href="/kyc" style={{ fontWeight: 700, color: "#991b1b", textDecoration: "underline" }}>
+                Verify identity
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+
+        {kycWarningMsg ? (
+          <div
+            role="status"
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem 0.85rem",
+              borderRadius: "10px",
+              background: "#fffbeb",
+              border: "1px solid #fcd34d",
+              color: "#92400e",
+              fontSize: "0.875rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {kycWarningMsg}
           </div>
         ) : null}
 

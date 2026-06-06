@@ -2,8 +2,8 @@ export const TREASURY_INTELLIGENCE_FALLBACK =
   "Data is still being collected. Treasury intelligence remains advisory.";
 
 export const TREASURY_GROUP_SECTION_COUNTS = {
-  "executive-command-center": 4,
-  "treasury-health-monitoring": 10,
+  "executive-command-center": 5,
+  "treasury-health-monitoring": 11,
   "treasury-risk-governance": 4,
   "treasury-forecasting-scenarios": 7,
   "reports-explainability": 4,
@@ -15,7 +15,7 @@ export const TREASURY_INTELLIGENCE_GROUPS = [
     label: "Executive Command Center",
     title: "Executive Command Center",
     description: "What leadership should see first — unified score, briefing, and readiness at a glance.",
-    sectionCount: 4,
+    sectionCount: 5,
     priorityLabel: "Start here",
     recommendedFirst: true,
     defaultOpen: true,
@@ -25,7 +25,7 @@ export const TREASURY_INTELLIGENCE_GROUPS = [
     label: "Treasury Health & Monitoring",
     title: "Treasury Health & Monitoring",
     description: "Operational snapshots, drift, stability, narrative, and alert history.",
-    sectionCount: 10,
+    sectionCount: 11,
     priorityLabel: "Review after command center",
   },
   {

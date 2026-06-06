@@ -3,6 +3,8 @@ import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
+import KycSoftLimitBanner from "../components/KycSoftLimitBanner";
+import KycLimitAdvisory from "../components/KycLimitAdvisory";
 import { evaluateAndLogFraud } from "../lib/fraudService";
 import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
@@ -490,6 +492,8 @@ export default function SendMoneyPage() {
 
         <SoftEnforcementNotice profile={profile} />
 
+        <KycSoftLimitBanner userId={user?.id} />
+
         {successBanner ? (
           <div
             role="status"
@@ -746,6 +750,10 @@ export default function SendMoneyPage() {
           placeholder="Amount"
           style={{ ...inputField, marginTop: "1rem" }}
         />
+
+        {amountLooksValid ? (
+          <KycLimitAdvisory userId={user?.id} actionType="send" amount={parsedAmount} />
+        ) : null}
 
         {selectedRecipient && amountLooksValid ? (
           <p

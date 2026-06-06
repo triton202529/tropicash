@@ -7,6 +7,8 @@ import { supabase } from "../../lib/supabaseClient";
 import { updateSmartAlertStatus } from "../../lib/smartAlerts";
 import { fetchAdminOperationalSnapshot } from "../../lib/adminOperationalOverview";
 import { fetchAdminSecuritySignalCounts } from "../../lib/adminSecuritySignals";
+import { fetchTreasuryMonitoringChipSummary, fetchTreasuryAdminAttentionSummary } from "../../lib/treasuryOperations";
+import { fetchTreasuryEventChipSummary } from "../../lib/treasuryEventCenter";
 
 const pageWrap = {
   padding: "2rem 1.25rem 3rem",
@@ -109,6 +111,48 @@ const btnXs = {
   marginRight: "0.25rem",
 };
 
+function treasuryAttentionPostureStyle(posture) {
+  const key = String(posture || "").toLowerCase();
+  if (key === "active_review") {
+    return { bg: "#fef2f2", border: "#fca5a5", fg: "#991b1b" };
+  }
+  if (key === "elevated_attention") {
+    return { bg: "#fef3c7", border: "#fde68a", fg: "#b45309" };
+  }
+  if (key === "monitoring") {
+    return { bg: "#eff6ff", border: "#bfdbfe", fg: "#1d4ed8" };
+  }
+  return { bg: "#ecfdf5", border: "#bbf7d0", fg: "#047857" };
+}
+
+function treasuryAdminSeverityStyle(sev) {
+  const key = String(sev || "").toLowerCase();
+  if (key === "high") {
+    return { bg: "#fef2f2", fg: "#991b1b", border: "#fca5a5" };
+  }
+  if (key === "elevated") {
+    return { bg: "#fef3c7", fg: "#b45309", border: "#fde68a" };
+  }
+  if (key === "moderate") {
+    return { bg: "#fffbeb", fg: "#92400e", border: "#fcd34d" };
+  }
+  if (key === "low") {
+    return { bg: "#ecfdf5", fg: "#166534", border: "#bbf7d0" };
+  }
+  return { bg: "#f1f5f9", fg: "#64748b", border: "#e2e8f0" };
+}
+
+function treasuryAttentionPostureLabel(posture) {
+  const key = String(posture || "").toLowerCase();
+  const labels = {
+    quiet: "Quiet",
+    monitoring: "Monitoring",
+    elevated_attention: "Elevated attention",
+    active_review: "Active review",
+  };
+  return labels[key] || "Quiet";
+}
+
 export default function AdminIndexPage() {
   const { user, profile, loading: authLoading } = useUser();
   const [openAlertCount, setOpenAlertCount] = useState(null);
@@ -134,6 +178,54 @@ export default function AdminIndexPage() {
   const [opsError, setOpsError] = useState(null);
   const [opsKpi, setOpsKpi] = useState(null);
   const [opsActivity, setOpsActivity] = useState([]);
+
+  const [treasuryChip, setTreasuryChip] = useState({
+    label: "Treasury: Monitoring",
+    alertReadinessLabel: null,
+    notificationReadinessLabel: null,
+    digestReadinessLabel: null,
+    executiveEscalationLabel: null,
+    decisionSupportLabel: null,
+    institutionalMemoryLabel: null,
+    confidenceLabel: null,
+    consistencyLabel: null,
+    narrativeLabel: null,
+    playbookLabel: null,
+    scenarioResponseLabel: null,
+    timelineLabel: null,
+    priorityLabel: null,
+    coherenceLabel: null,
+    adaptiveCadenceLabel: null,
+    leadershipReadinessLabel: null,
+    metaReasoningLabel: null,
+    decisionTraceLabel: null,
+    recommendationStabilityLabel: null,
+    advisoryDriftLabel: null,
+    regimeLabel: null,
+    outlookLabel: null,
+    href: "/admin/treasury-intelligence",
+    loading: false,
+  });
+
+  const [treasuryAttention, setTreasuryAttention] = useState({
+    alertPosture: "quiet",
+    alertSummary: "Treasury advisory posture loading…",
+    alertCounts: { total: 0, bySeverity: {}, byStatus: {} },
+    treasuryAdminAlerts: [],
+    href: "/admin/treasury-intelligence",
+    loading: true,
+  });
+
+  const [treasuryEventsChip, setTreasuryEventsChip] = useState({
+    label: "Treasury Events: —",
+    subtitle: null,
+    openCases: null,
+    escalatedCases: null,
+    criticalCount: 0,
+    warningCount: 0,
+    href: "/admin/treasury-intelligence#treasury-event-center",
+    loading: true,
+  });
 
   const loadOperational = useCallback(async () => {
     if (!user?.id || !isAdminUser(user, profile)) return;
@@ -236,17 +328,121 @@ export default function AdminIndexPage() {
     }
   }, [user?.id, user, profile]);
 
+  const loadTreasuryChip = useCallback(async () => {
+    if (!user?.id || !isAdminUser(user, profile)) return;
+    setTreasuryChip((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetchTreasuryMonitoringChipSummary(supabase);
+      setTreasuryChip({
+        label: res.label || "Treasury: Monitoring",
+        alertReadinessLabel: res.alertReadinessLabel || null,
+        notificationReadinessLabel: res.notificationReadinessLabel || null,
+        digestReadinessLabel: res.digestReadinessLabel || null,
+        executiveEscalationLabel: res.executiveEscalationLabel || null,
+        decisionSupportLabel: res.decisionSupportLabel || null,
+        institutionalMemoryLabel: res.institutionalMemoryLabel || null,
+        confidenceLabel: res.confidenceLabel || null,
+        consistencyLabel: res.consistencyLabel || null,
+        narrativeLabel: res.narrativeLabel || null,
+        playbookLabel: res.playbookLabel || null,
+        scenarioResponseLabel: res.scenarioResponseLabel || null,
+        timelineLabel: res.timelineLabel || null,
+        priorityLabel: res.priorityLabel || null,
+        coherenceLabel: res.coherenceLabel || null,
+        adaptiveCadenceLabel: res.adaptiveCadenceLabel || null,
+        leadershipReadinessLabel: res.leadershipReadinessLabel || null,
+        metaReasoningLabel: res.metaReasoningLabel || null,
+        decisionTraceLabel: res.decisionTraceLabel || null,
+        recommendationStabilityLabel: res.recommendationStabilityLabel || null,
+        advisoryDriftLabel: res.advisoryDriftLabel || null,
+        regimeLabel: res.regimeLabel || null,
+        outlookLabel: res.outlookLabel || null,
+        href: res.href || "/admin/treasury-intelligence",
+        loading: false,
+        updatedAt: res.updatedAt || null,
+      });
+    } catch {
+      setTreasuryChip({
+        label: "Treasury: Monitoring",
+        href: "/admin/treasury-intelligence",
+        loading: false,
+      });
+    }
+  }, [user?.id, user, profile]);
+
+  const loadTreasuryAttention = useCallback(async () => {
+    if (!user?.id || !isAdminUser(user, profile)) return;
+    setTreasuryAttention((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetchTreasuryAdminAttentionSummary(supabase);
+      setTreasuryAttention({
+        alertPosture: res.alertPosture || "quiet",
+        alertSummary: res.alertSummary || "Treasury advisory posture unavailable.",
+        alertCounts: res.alertCounts || { total: 0, bySeverity: {}, byStatus: {} },
+        treasuryAdminAlerts: res.treasuryAdminAlerts || [],
+        href: res.href || "/admin/treasury-intelligence",
+        updatedAt: res.updatedAt || null,
+        loading: false,
+      });
+    } catch {
+      setTreasuryAttention({
+        alertPosture: "quiet",
+        alertSummary: "Treasury advisory posture unavailable.",
+        alertCounts: { total: 0, bySeverity: {}, byStatus: {} },
+        treasuryAdminAlerts: [],
+        href: "/admin/treasury-intelligence",
+        loading: false,
+      });
+    }
+  }, [user?.id, user, profile]);
+
+  const loadTreasuryEventsChip = useCallback(async () => {
+    if (!user?.id || !isAdminUser(user, profile)) return;
+    setTreasuryEventsChip((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetchTreasuryEventChipSummary(supabase);
+      setTreasuryEventsChip({
+        label: res.label || "Treasury Events: —",
+        subtitle: res.subtitle || null,
+        openCases: res.openCases ?? null,
+        escalatedCases: res.escalatedCases ?? null,
+        criticalCount: res.criticalCount ?? 0,
+        warningCount: res.warningCount ?? 0,
+        href: res.href || "/admin/treasury-intelligence#treasury-event-center",
+        loading: false,
+      });
+    } catch {
+      setTreasuryEventsChip({
+        label: "Treasury Events: —",
+        subtitle: null,
+        openCases: null,
+        escalatedCases: null,
+        criticalCount: 0,
+        warningCount: 0,
+        href: "/admin/treasury-intelligence#treasury-event-center",
+        loading: false,
+      });
+    }
+  }, [user?.id, user, profile]);
+
   useEffect(() => {
     if (authLoading || !user || !isAdminUser(user, profile)) return;
     let cancelled = false;
     (async () => {
-      await Promise.all([loadAlerts(), loadOperational(), loadSecuritySignals()]);
+      await Promise.all([
+        loadAlerts(),
+        loadOperational(),
+        loadSecuritySignals(),
+        loadTreasuryChip(),
+        loadTreasuryAttention(),
+        loadTreasuryEventsChip(),
+      ]);
       if (cancelled) return;
     })();
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, profile, loadAlerts, loadOperational, loadSecuritySignals]);
+  }, [authLoading, user, profile, loadAlerts, loadOperational, loadSecuritySignals, loadTreasuryChip, loadTreasuryAttention, loadTreasuryEventsChip]);
 
   useEffect(() => {
     if (authLoading || !user?.id || !isAdminUser(user, profile)) return;
@@ -431,6 +627,11 @@ export default function AdminIndexPage() {
             </Link>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/kyc-limits" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              KYC Limit Policies
+            </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/audit" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Admin Audit Trail
             </Link>
@@ -484,6 +685,15 @@ export default function AdminIndexPage() {
             <Link href="/admin/treasury-intelligence" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Treasury Intelligence
             </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/treasury-simulation-lab" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Treasury Simulation Lab
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — test treasury advisory behavior against synthetic scenarios
+            </span>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/ledger" style={{ fontWeight: 600, color: "#0ea5e9" }}>
@@ -763,6 +973,296 @@ export default function AdminIndexPage() {
               color: "#94a3b8",
             }}
           >
+            Treasury monitoring
+          </h2>
+          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+            Advisory operating state from the latest treasury operational event — read-only observability only.
+          </p>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.55rem 0.85rem",
+              borderRadius: "10px",
+              border: "1px solid #bae6fd",
+              background: "#f0f9ff",
+            }}
+          >
+            <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#0369a1" }}>
+              {treasuryChip.loading ? "Treasury: …" : treasuryChip.label}
+            </span>
+            {!treasuryChip.loading && treasuryChip.outlookLabel ? (
+              <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 500 }}>
+                · {treasuryChip.outlookLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.regimeLabel ? (
+              <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 500 }}>
+                · {treasuryChip.regimeLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.advisoryDriftLabel ? (
+              <span style={{ color: "#64748b", fontWeight: 500 }}>
+                · {treasuryChip.advisoryDriftLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.recommendationStabilityLabel ? (
+              <span style={{ color: "#64748b", fontWeight: 500 }}>
+                · {treasuryChip.recommendationStabilityLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.decisionTraceLabel ? (
+              <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 500 }}>
+                · {treasuryChip.decisionTraceLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.metaReasoningLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.metaReasoningLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.leadershipReadinessLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.leadershipReadinessLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.adaptiveCadenceLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.adaptiveCadenceLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.coherenceLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.coherenceLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.priorityLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.priorityLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.timelineLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.timelineLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.scenarioResponseLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.scenarioResponseLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.playbookLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.playbookLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.narrativeLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.narrativeLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.consistencyLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.consistencyLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.confidenceLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.confidenceLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.institutionalMemoryLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.institutionalMemoryLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.decisionSupportLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.decisionSupportLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.executiveEscalationLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.executiveEscalationLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.digestReadinessLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.digestReadinessLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.notificationReadinessLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.notificationReadinessLabel}
+              </span>
+            ) : !treasuryChip.loading && treasuryChip.alertReadinessLabel ? (
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                · {treasuryChip.alertReadinessLabel}
+              </span>
+            ) : null}
+          </div>
+          {treasuryChip.updatedAt ? (
+            <p style={{ margin: "0.65rem 0 0", fontSize: "0.72rem", color: "#94a3b8" }}>
+              Updated {formatWhen(treasuryChip.updatedAt)}
+            </p>
+          ) : null}
+          <div
+            style={{
+              display: "inline-flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: "0.25rem",
+              marginTop: "0.75rem",
+              padding: "0.45rem 0.75rem",
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
+              background: "#f8fafc",
+            }}
+          >
+            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}>
+              {treasuryEventsChip.loading ? "Treasury Events: …" : treasuryEventsChip.label}
+            </span>
+            {!treasuryEventsChip.loading && treasuryEventsChip.subtitle ? (
+              <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 500 }}>
+                {treasuryEventsChip.subtitle}
+              </span>
+            ) : null}
+            {!treasuryEventsChip.loading &&
+            treasuryEventsChip.openCases != null &&
+            treasuryEventsChip.escalatedCases != null ? (
+              <span style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                Open treasury cases: {treasuryEventsChip.openCases} · Escalated treasury cases:{" "}
+                {treasuryEventsChip.escalatedCases}
+              </span>
+            ) : null}
+          </div>
+          <p style={{ margin: "0.85rem 0 0", fontSize: "0.82rem" }}>
+            <Link href={treasuryChip.href} style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Open Treasury Intelligence →
+            </Link>
+          </p>
+        </div>
+
+        <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+          <h2
+            style={{
+              margin: "0 0 0.5rem",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#94a3b8",
+            }}
+          >
+            Treasury Attention
+          </h2>
+          <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
+            In-app advisory treasury alerts from latest operational event metadata.{" "}
+            <strong style={{ fontWeight: 700, color: "#64748b" }}>Advisory only</strong> — no emails, push, SMS, or
+            external notifications.
+          </p>
+          {(() => {
+            const pal = treasuryAttentionPostureStyle(treasuryAttention.alertPosture);
+            const elevatedCount =
+              (treasuryAttention.alertCounts?.bySeverity?.elevated || 0) +
+              (treasuryAttention.alertCounts?.bySeverity?.high || 0);
+            return (
+              <>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "0.35rem 0.65rem",
+                      borderRadius: "999px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      background: pal.bg,
+                      color: pal.fg,
+                      border: `1px solid ${pal.border}`,
+                    }}
+                  >
+                    {treasuryAttention.loading
+                      ? "Posture: …"
+                      : `Posture: ${treasuryAttentionPostureLabel(treasuryAttention.alertPosture)}`}
+                  </span>
+                  <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#475569" }}>
+                    {treasuryAttention.loading
+                      ? "…"
+                      : `${treasuryAttention.alertCounts?.total || 0} advisory alert${(treasuryAttention.alertCounts?.total || 0) === 1 ? "" : "s"}`}
+                    {!treasuryAttention.loading && elevatedCount > 0 ? ` · ${elevatedCount} elevated` : ""}
+                  </span>
+                  {!treasuryAttention.loading && treasuryChip.executiveEscalationLabel ? (
+                    <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                      · {treasuryChip.executiveEscalationLabel.replace(/^Treasury executive posture: /, "")}
+                    </span>
+                  ) : !treasuryAttention.loading && treasuryChip.digestReadinessLabel ? (
+                    <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                      · {treasuryChip.digestReadinessLabel.replace(/^Treasury digest: /, "")}
+                    </span>
+                  ) : !treasuryAttention.loading && treasuryChip.notificationReadinessLabel ? (
+                    <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>
+                      · {treasuryChip.notificationReadinessLabel.replace(/^Treasury notifications: /, "")}
+                    </span>
+                  ) : null}
+                </div>
+                <p style={{ margin: "0 0 0.85rem", fontSize: "0.85rem", color: "#334155", lineHeight: 1.5 }}>
+                  {treasuryAttention.loading ? "Loading treasury advisories…" : treasuryAttention.alertSummary}
+                </p>
+                {!treasuryAttention.loading && treasuryAttention.treasuryAdminAlerts?.length > 0 ? (
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
+                    {treasuryAttention.treasuryAdminAlerts.slice(0, 5).map((alert) => {
+                      const sevPal = treasuryAdminSeverityStyle(alert.severity);
+                      return (
+                        <li
+                          key={alert.id}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "10px",
+                            padding: "0.65rem 0.75rem",
+                            background: "#f8fafc",
+                          }}
+                        >
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem", marginBottom: "0.25rem" }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "0.12rem 0.4rem",
+                                borderRadius: "6px",
+                                fontSize: "0.62rem",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                background: sevPal.bg,
+                                color: sevPal.fg,
+                                border: `1px solid ${sevPal.border}`,
+                              }}
+                            >
+                              {alert.severity}
+                            </span>
+                            <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "#0369a1", textTransform: "uppercase" }}>
+                              Advisory only
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: "0.85rem" }}>{alert.title}</p>
+                          <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.4 }}>
+                            {alert.summary}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : !treasuryAttention.loading ? (
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "#64748b" }}>
+                    No treasury advisories at this time — routine monitoring recommended.
+                  </p>
+                ) : null}
+                {treasuryAttention.updatedAt ? (
+                  <p style={{ margin: "0.65rem 0 0", fontSize: "0.72rem", color: "#94a3b8" }}>
+                    Updated {formatWhen(treasuryAttention.updatedAt)}
+                  </p>
+                ) : null}
+                <p style={{ margin: "0.85rem 0 0", fontSize: "0.82rem" }}>
+                  <Link href={treasuryAttention.href} style={{ fontWeight: 600, color: "#0ea5e9" }}>
+                    Open Treasury Intelligence →
+                  </Link>
+                </p>
+              </>
+            );
+          })()}
+        </div>
+
+        <div style={{ ...cardBase, padding: "1.1rem 1.15rem", marginBottom: "1.25rem" }}>
+          <h2
+            style={{
+              margin: "0 0 0.5rem",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#94a3b8",
+            }}
+          >
             Security signals
           </h2>
           <p style={{ margin: "0 0 0.75rem", fontSize: "0.78rem", color: "#64748b", lineHeight: 1.45 }}>
@@ -825,12 +1325,44 @@ export default function AdminIndexPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => void Promise.all([loadAlerts(), loadOperational(), loadSecuritySignals()])}
-                disabled={alertsLoading || opsLoading || secSignalsLoading}
+                onClick={() =>
+                  void Promise.all([
+                    loadAlerts(),
+                    loadOperational(),
+                    loadSecuritySignals(),
+                    loadTreasuryChip(),
+                    loadTreasuryAttention(),
+                    loadTreasuryEventsChip(),
+                  ])
+                }
+                disabled={
+                  alertsLoading ||
+                  opsLoading ||
+                  secSignalsLoading ||
+                  treasuryChip.loading ||
+                  treasuryAttention.loading ||
+                  treasuryEventsChip.loading
+                }
                 style={{
                   ...btnXs,
-                  opacity: alertsLoading || opsLoading || secSignalsLoading ? 0.65 : 1,
-                  cursor: alertsLoading || opsLoading || secSignalsLoading ? "not-allowed" : "pointer",
+                  opacity:
+                    alertsLoading ||
+                    opsLoading ||
+                    secSignalsLoading ||
+                    treasuryChip.loading ||
+                    treasuryAttention.loading ||
+                    treasuryEventsChip.loading
+                      ? 0.65
+                      : 1,
+                  cursor:
+                    alertsLoading ||
+                    opsLoading ||
+                    secSignalsLoading ||
+                    treasuryChip.loading ||
+                    treasuryAttention.loading ||
+                    treasuryEventsChip.loading
+                      ? "not-allowed"
+                      : "pointer",
                 }}
               >
                 Refresh

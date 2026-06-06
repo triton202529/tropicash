@@ -11,6 +11,7 @@ import {
   recomputeAndPersistUserRiskState,
 } from "../../lib/riskFlags";
 import { normalizeAccountFlags, persistAccountControlState } from "../../lib/accountControls";
+import { buildKycRiskProfileFromStatus, fetchKycStatusMapForUsers, fetchKycLimitPolicies, summarizeKycLimitPolicy } from "../../lib/kycRisk";
 
 function formatWhen(iso) {
   if (!iso) return "—";
@@ -44,8 +45,10 @@ function aggregateLogsForUser(userId, logs) {
   };
 }
 
-function mergeProfileRow(agg, profile) {
+function mergeProfileRow(agg, profile, kycStatus, policyRow) {
   const display_name = userLabel(profile, agg.user_id);
+  const kycRisk = buildKycRiskProfileFromStatus(kycStatus || "missing");
+  const policySummary = summarizeKycLimitPolicy(policyRow || kycStatus || "missing");
   return {
     ...agg,
     display_name,
@@ -58,6 +61,11 @@ function mergeProfileRow(agg, profile) {
     profile_account_status: String(profile?.account_status || "active").toLowerCase(),
     profile_account_flags: normalizeAccountFlags(profile?.account_flags),
     profile_account_last_reviewed_at: profile?.account_last_reviewed_at ?? null,
+    kyc_status: kycRisk.kycStatus,
+    kyc_verification_tier: kycRisk.verificationTier,
+    kyc_risk_level: kycRisk.riskLevel,
+    kyc_enforcement_mode: policySummary.enforcementMode,
+    kyc_funding_limit: policySummary.fundingDaily,
   };
 }
 
@@ -139,6 +147,68 @@ const adminFocusCss = `
   .tc-admin-in:focus { outline: none; border-color: #3b82f6 !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
   .tc-admin-in::placeholder { color: #94a3b8; }
 `;
+
+function kycStatusBadgeStyle(status) {
+  const key = String(status || "not_started").toLowerCase();
+  if (key === "approved") {
+    return {
+      display: "inline-block",
+      padding: "0.15rem 0.45rem",
+      borderRadius: "999px",
+      fontSize: "0.65rem",
+      fontWeight: 700,
+      background: "#ecfdf5",
+      color: "#047857",
+      border: "1px solid #a7f3d0",
+    };
+  }
+  if (key === "rejected") {
+    return {
+      display: "inline-block",
+      padding: "0.15rem 0.45rem",
+      borderRadius: "999px",
+      fontSize: "0.65rem",
+      fontWeight: 700,
+      background: "#fef2f2",
+      color: "#991b1b",
+      border: "1px solid #fca5a5",
+    };
+  }
+  if (key === "needs_more_info") {
+    return {
+      display: "inline-block",
+      padding: "0.15rem 0.45rem",
+      borderRadius: "999px",
+      fontSize: "0.65rem",
+      fontWeight: 700,
+      background: "#fffbeb",
+      color: "#92400e",
+      border: "1px solid #fcd34d",
+    };
+  }
+  if (key === "submitted" || key === "under_review") {
+    return {
+      display: "inline-block",
+      padding: "0.15rem 0.45rem",
+      borderRadius: "999px",
+      fontSize: "0.65rem",
+      fontWeight: 700,
+      background: "#eff6ff",
+      color: "#1d4ed8",
+      border: "1px solid #bfdbfe",
+    };
+  }
+  return {
+    display: "inline-block",
+    padding: "0.15rem 0.45rem",
+    borderRadius: "999px",
+    fontSize: "0.65rem",
+    fontWeight: 700,
+    background: "#f1f5f9",
+    color: "#64748b",
+    border: "1px solid #e2e8f0",
+  };
+}
 
 function riskBadgeStyle(level) {
   const key = String(level || "").toLowerCase();
@@ -240,6 +310,8 @@ export default function AdminRiskUsersPage() {
 
   const [logs, setLogs] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
+  const [kycMap, setKycMap] = useState({});
+  const [policiesByStatus, setPoliciesByStatus] = useState({});
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
 
@@ -269,6 +341,8 @@ export default function AdminRiskUsersPage() {
       setFetchError(error.message || "Failed to load fraud logs.");
       setLogs([]);
       setProfilesMap({});
+      setKycMap({});
+      setPoliciesByStatus({});
       setDataLoading(false);
       return;
     }
@@ -279,16 +353,22 @@ export default function AdminRiskUsersPage() {
     const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
     if (ids.length === 0) {
       setProfilesMap({});
+      setKycMap({});
+      setPoliciesByStatus({});
       setDataLoading(false);
       return;
     }
 
-    const { data: profs, error: pErr } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, phone, risk_level, risk_flags, risk_score_snapshot, risk_last_evaluated_at, account_status, account_flags, account_last_reviewed_at"
-      )
-      .in("id", ids);
+    const [{ data: profs, error: pErr }, kycStatusMap, policiesResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, phone, risk_level, risk_flags, risk_score_snapshot, risk_last_evaluated_at, account_status, account_flags, account_last_reviewed_at",
+        )
+        .in("id", ids),
+      fetchKycStatusMapForUsers(ids),
+      fetchKycLimitPolicies({ includeInactive: true }),
+    ]);
 
     if (pErr) {
       console.error(pErr);
@@ -296,6 +376,9 @@ export default function AdminRiskUsersPage() {
     } else {
       setProfilesMap(Object.fromEntries((profs || []).map((p) => [p.id, p])));
     }
+    setKycMap(kycStatusMap);
+    const policyRows = Array.isArray(policiesResult?.data) ? policiesResult.data : [];
+    setPoliciesByStatus(Object.fromEntries(policyRows.map((p) => [p.kyc_status, p])));
 
     setDataLoading(false);
   }, [user?.id]);
@@ -318,7 +401,7 @@ export default function AdminRiskUsersPage() {
     for (const [uid, userLogs] of byUser) {
       const agg = aggregateLogsForUser(uid, userLogs);
       const p = profilesMap[uid];
-      out.push(mergeProfileRow(agg, p));
+      out.push(mergeProfileRow(agg, p, kycMap[uid], policiesByStatus[kycMap[uid] || "missing"]));
     }
 
     out.sort((a, b) => {
@@ -328,7 +411,7 @@ export default function AdminRiskUsersPage() {
     });
 
     return out;
-  }, [logs, profilesMap]);
+  }, [logs, profilesMap, kycMap, policiesByStatus]);
 
   const summary = useMemo(() => {
     let highTier = 0;
@@ -788,6 +871,7 @@ export default function AdminRiskUsersPage() {
                       "Avg score",
                       "Latest activity",
                       "Overall tier",
+                      "KYC",
                       "Account risk",
                       "Control",
                       "Sync",
@@ -853,6 +937,17 @@ export default function AdminRiskUsersPage() {
                         </td>
                         <td style={{ padding: "0.65rem 0.75rem" }}>
                           <span style={tierBadgeStyle(r.overall_risk_tier)}>{r.overall_risk_tier}</span>
+                        </td>
+                        <td style={{ padding: "0.65rem 0.75rem", minWidth: "110px" }}>
+                          <span style={kycStatusBadgeStyle(r.kyc_status)}>
+                            {String(r.kyc_status || "not_started").replace(/_/g, " ")}
+                          </span>
+                          <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: "0.2rem" }}>
+                            {r.kyc_verification_tier} · {r.kyc_risk_level} risk
+                          </div>
+                          <div style={{ fontSize: "0.62rem", color: "#cbd5e1", marginTop: "0.15rem" }}>
+                            {r.kyc_enforcement_mode || "advisory"} · fund ${Number(r.kyc_funding_limit || 0).toLocaleString()}
+                          </div>
                         </td>
                         <td style={{ padding: "0.65rem 0.75rem", maxWidth: "220px" }}>
                           <div style={{ marginBottom: "0.25rem" }}>
