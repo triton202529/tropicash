@@ -203,6 +203,21 @@ function flattenMetadataEntries(metadata, prefix = "") {
   return entries;
 }
 
+function withdrawalReviewHrefFromTreasuryEvent(event) {
+  if (!event) return null;
+  const source = String(event.source || "").toLowerCase();
+  if (source !== "withdrawal_requests") return null;
+  const rawId = String(event.id || "");
+  const prefix = "withdrawal:";
+  if (rawId.startsWith(prefix)) {
+    const withdrawalId = rawId.slice(prefix.length).trim();
+    if (withdrawalId) return `/admin/withdrawals?withdrawalId=${encodeURIComponent(withdrawalId)}`;
+  }
+  const metaId = event.metadata?.withdrawalRequestId || event.metadata?.withdrawal_request_id;
+  if (metaId) return `/admin/withdrawals?withdrawalId=${encodeURIComponent(String(metaId))}`;
+  return null;
+}
+
 function riskLevelBadge(level) {
   const key = String(level || "").toLowerCase();
   const styles = {
@@ -4843,6 +4858,10 @@ export default function AdminTreasuryIntelligencePage() {
   const selectedEventDisplayMetadata = useMemo(() => {
     if (!selectedTreasuryEvent?.metadata) return [];
     return flattenMetadataEntries(sanitizeTreasuryEventMetadataForDisplay(selectedTreasuryEvent.metadata));
+  }, [selectedTreasuryEvent]);
+
+  const selectedEventWithdrawalReviewHref = useMemo(() => {
+    return withdrawalReviewHrefFromTreasuryEvent(selectedTreasuryEvent);
   }, [selectedTreasuryEvent]);
 
   useEffect(() => {
@@ -13229,6 +13248,18 @@ export default function AdminTreasuryIntelligencePage() {
               <p style={{ ...treasurySummaryTextStyle, marginTop: 0, fontFamily: "monospace", fontSize: "0.78rem", wordBreak: "break-all" }}>
                 {selectedTreasuryEvent.id}
               </p>
+
+              {selectedEventWithdrawalReviewHref ? (
+                <>
+                  <p style={{ ...treasurySummaryLabelStyle, marginTop: "0.85rem" }}>Withdrawal review</p>
+                  <Link
+                    href={selectedEventWithdrawalReviewHref}
+                    style={{ ...treasurySummaryTextStyle, marginTop: 0, display: "inline-block", fontWeight: 600, color: "#0369a1" }}
+                  >
+                    Open admin withdrawal review queue →
+                  </Link>
+                </>
+              ) : null}
 
               <p style={{ ...treasurySummaryLabelStyle, marginTop: "0.85rem" }}>Metadata</p>
               {selectedEventDisplayMetadata.length === 0 ? (

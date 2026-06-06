@@ -8,6 +8,12 @@ import Navbar from "../../components/Navbar";
 import AuditTimelineEmbed from "../../components/admin/AuditTimelineEmbed";
 import { notifyUserWithdrawalStatusChange } from "../../lib/withdrawalRequests";
 import { appendAuditEvent } from "../../lib/auditTimeline";
+import { logAdminAuditEvent } from "../../lib/adminAudit";
+import {
+  buildWithdrawalComplianceContext,
+  fetchKycLimitPolicies,
+  fetchKycStatusMapForUsers,
+} from "../../lib/kycRisk";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -382,11 +388,89 @@ function WithdrawalFailurePanel({ failureReason }) {
   );
 }
 
+function kycStatusChipStyle(status) {
+  const s = String(status || "missing").toLowerCase();
+  if (s === "approved") return { bg: "#ecfdf5", fg: "#047857", border: "#a7f3d0" };
+  if (s === "rejected") return { bg: "#fef2f2", fg: "#b91c1c", border: "#fecaca" };
+  if (s === "needs_more_info") return { bg: "#fffbeb", fg: "#b45309", border: "#fde68a" };
+  if (s === "pending") return { bg: "#eff6ff", fg: "#1d4ed8", border: "#bfdbfe" };
+  return { bg: "#f1f5f9", fg: "#475569", border: "#e2e8f0" };
+}
+
+function WithdrawalCompliancePanel({ row, compliance }) {
+  if (!row || !compliance) return null;
+  const st = String(row.status || "").toLowerCase();
+  const showReviewWarning = compliance.needsKycReview;
+
+  return (
+    <div
+      style={{
+        marginTop: "0.75rem",
+        padding: "0.75rem 0.85rem",
+        borderRadius: "10px",
+        border: "1px solid #e2e8f0",
+        background: "#f8fafc",
+      }}
+    >
+      <p style={{ margin: "0 0 0.5rem", fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        Compliance context
+      </p>
+      <div className="tc-withdrawal-detail-grid" style={{ marginTop: 0 }}>
+        <WithdrawalDetail label="User ID">
+          <span style={{ fontFamily: "monospace", fontSize: "0.78rem" }}>{row.user_id || "—"}</span>
+        </WithdrawalDetail>
+        <WithdrawalDetail label="Amount">{formatMoney(row.amount)}</WithdrawalDetail>
+        <WithdrawalDetail label="Withdrawal status">{st || "—"}</WithdrawalDetail>
+        <WithdrawalDetail label="KYC status">{compliance.kycStatus}</WithdrawalDetail>
+        <WithdrawalDetail label="Verification tier">{compliance.verificationTier}</WithdrawalDetail>
+        <WithdrawalDetail label="KYC risk level">{compliance.kycRiskLevel}</WithdrawalDetail>
+        <WithdrawalDetail label="Withdrawal daily limit">{formatMoney(compliance.withdrawalDailyLimit)}</WithdrawalDetail>
+        <WithdrawalDetail label="Enforcement mode">{compliance.enforcementMode}</WithdrawalDetail>
+        <WithdrawalDetail label="Exceeds KYC limit">{compliance.exceedsLimit ? "Yes" : "No"}</WithdrawalDetail>
+        <WithdrawalDetail label="Would block if enforced">{compliance.wouldBlockIfEnforced ? "Yes" : "No"}</WithdrawalDetail>
+      </div>
+      {showReviewWarning ? (
+        <p style={{ margin: "0.65rem 0 0", fontSize: "0.82rem", color: "#b45309", lineHeight: 1.45 }}>
+          KYC is not approved ({compliance.kycStatus}). Review identity verification before settlement.
+        </p>
+      ) : null}
+      <Link
+        href="/admin/kyc"
+        style={{ display: "inline-block", marginTop: "0.65rem", fontSize: "0.82rem", fontWeight: 600, color: "#0369a1" }}
+      >
+        Open KYC review queue →
+      </Link>
+    </div>
+  );
+}
+
+function ComplianceCautionBanner() {
+  return (
+    <div
+      role="status"
+      style={{
+        marginTop: "0.75rem",
+        padding: "0.65rem 0.85rem",
+        borderRadius: "8px",
+        border: "1px solid #fde68a",
+        background: "#fffbeb",
+        color: "#92400e",
+        fontSize: "0.84rem",
+        lineHeight: 1.45,
+      }}
+    >
+      Compliance caution: this withdrawal may require KYC review before settlement.
+    </div>
+  );
+}
+
 export default function AdminWithdrawalsPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useUser();
   const [rows, setRows] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
+  const [kycMap, setKycMap] = useState({});
+  const [kycPoliciesByStatus, setKycPoliciesByStatus] = useState({});
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [fetchErrorDetails, setFetchErrorDetails] = useState(null);
@@ -440,6 +524,8 @@ export default function AdminWithdrawalsPage() {
     const ids = [...new Set(list.map((r) => r.user_id).filter(Boolean))];
     if (ids.length === 0) {
       setProfilesMap({});
+      setKycMap({});
+      setKycPoliciesByStatus({});
       setDataLoading(false);
       return;
     }
@@ -454,6 +540,22 @@ export default function AdminWithdrawalsPage() {
       setProfilesMap({});
     } else {
       setProfilesMap(Object.fromEntries((profs || []).map((p) => [p.id, p])));
+    }
+
+    try {
+      const kycStatusMap = await fetchKycStatusMapForUsers(ids);
+      setKycMap(kycStatusMap || {});
+    } catch (kycErr) {
+      console.warn("[admin/withdrawals] KYC status fetch failed:", kycErr?.message || kycErr);
+      setKycMap({});
+    }
+
+    try {
+      const policies = await fetchKycLimitPolicies();
+      setKycPoliciesByStatus(Object.fromEntries((policies || []).map((p) => [p.kyc_status, p])));
+    } catch (policyErr) {
+      console.warn("[admin/withdrawals] KYC policy fetch failed:", policyErr?.message || policyErr);
+      setKycPoliciesByStatus({});
     }
 
     setDataLoading(false);
@@ -489,6 +591,21 @@ export default function AdminWithdrawalsPage() {
     return map;
   }, [rows]);
 
+  const complianceByWithdrawalId = useMemo(() => {
+    const map = {};
+    for (const row of rows) {
+      if (!row?.id) continue;
+      const kycStatus = kycMap[row.user_id] || "missing";
+      const policy = kycPoliciesByStatus[kycStatus] || kycPoliciesByStatus.missing || null;
+      map[row.id] = buildWithdrawalComplianceContext({
+        kycStatus,
+        amount: row.amount,
+        policy,
+      });
+    }
+    return map;
+  }, [rows, kycMap, kycPoliciesByStatus]);
+
   const setNoteDraft = (id, value) => {
     setAdminNotesDraft((prev) => ({ ...prev, [id]: value }));
   };
@@ -497,8 +614,32 @@ export default function AdminWithdrawalsPage() {
    * @param {{ id: string; user_id: string; amount?: unknown }} row
    * @param {Record<string, unknown>} patch
    * @param {'processing' | 'paid' | 'rejected' | null} notifyKind
+   * @param {ReturnType<typeof buildWithdrawalComplianceContext> | undefined} compliance
    */
-  const runUpdate = async (row, patch, notifyKind) => {
+  async function logComplianceCautionAcknowledged(row, compliance) {
+    if (!row?.id || !compliance?.showComplianceCaution) return;
+    try {
+      await logAdminAuditEvent({
+        actorUserId: user?.id,
+        targetUserId: row.user_id,
+        action: "withdrawal_compliance_caution_acknowledged",
+        category: "withdrawal",
+        severity: "info",
+        description: "Admin proceeded with withdrawal action despite compliance caution.",
+        metadata: {
+          withdrawal_request_id: row.id,
+          user_id: row.user_id,
+          amount: row.amount,
+          kyc_status: compliance.kycStatus,
+          enforcement_mode: compliance.enforcementMode,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[admin/withdrawals] compliance audit log failed:", auditErr?.message || auditErr);
+    }
+  }
+
+  const runUpdate = async (row, patch, notifyKind, compliance) => {
     const id = row?.id;
     if (!id) return;
     setActionBusyId(id);
@@ -555,12 +696,15 @@ export default function AdminWithdrawalsPage() {
         console.error("[admin/withdrawals] user notification failed (non-blocking):", notifErr);
       }
     }
+    if (notifyKind === "processing" || notifyKind === "paid") {
+      await logComplianceCautionAcknowledged(row, compliance);
+    }
     await fetchRows();
     setActionBusyId(null);
   };
 
   const handleMarkProcessing = (r) => {
-    void runUpdate(r, { status: "processing" }, "processing");
+    void runUpdate(r, { status: "processing" }, "processing", complianceByWithdrawalId[r.id]);
   };
 
   const handleRecordManualPayout = (r) => {
@@ -596,6 +740,7 @@ export default function AdminWithdrawalsPage() {
         processor_status: "recorded_manual",
       },
       "paid",
+      complianceByWithdrawalId[r.id],
     );
   };
 
@@ -909,6 +1054,10 @@ export default function AdminWithdrawalsPage() {
               const showPrimaryActions =
                 showAutomatedSend || showAutomatedCheck || showAutomatedRetry || canRecordManual;
               const showSecondaryActions = canMarkProcessing || canRecordManual;
+              const compliance = complianceByWithdrawalId[r.id];
+              const showComplianceCaution =
+                compliance?.showComplianceCaution &&
+                (canMarkProcessing || canRecordManual || showAutomatedSend);
 
               const btnBase = {
                 padding: "0.5rem 0.9rem",
@@ -1009,6 +1158,65 @@ export default function AdminWithdrawalsPage() {
                             {chip.label}
                           </span>
                         ))}
+                        {compliance ? (
+                          <>
+                            <span
+                              title="KYC status"
+                              style={{
+                                display: "inline-block",
+                                padding: "0.12rem 0.4rem",
+                                borderRadius: "6px",
+                                fontSize: "0.62rem",
+                                fontWeight: 800,
+                                letterSpacing: "0.04em",
+                                textTransform: "uppercase",
+                                background: kycStatusChipStyle(compliance.kycStatus).bg,
+                                color: kycStatusChipStyle(compliance.kycStatus).fg,
+                                border: `1px solid ${kycStatusChipStyle(compliance.kycStatus).border}`,
+                              }}
+                            >
+                              KYC {compliance.kycStatus}
+                            </span>
+                            {compliance.exceedsLimit ? (
+                              <span
+                                title="Amount exceeds KYC withdrawal daily limit"
+                                style={{
+                                  display: "inline-block",
+                                  padding: "0.12rem 0.4rem",
+                                  borderRadius: "6px",
+                                  fontSize: "0.62rem",
+                                  fontWeight: 800,
+                                  letterSpacing: "0.04em",
+                                  textTransform: "uppercase",
+                                  background: "#fef2f2",
+                                  color: "#b91c1c",
+                                  border: "1px solid #fecaca",
+                                }}
+                              >
+                                Over limit
+                              </span>
+                            ) : null}
+                            {compliance.wouldBlockIfEnforced ? (
+                              <span
+                                title="Would be blocked if KYC enforcement is active"
+                                style={{
+                                  display: "inline-block",
+                                  padding: "0.12rem 0.4rem",
+                                  borderRadius: "6px",
+                                  fontSize: "0.62rem",
+                                  fontWeight: 800,
+                                  letterSpacing: "0.04em",
+                                  textTransform: "uppercase",
+                                  background: "#fffbeb",
+                                  color: "#b45309",
+                                  border: "1px solid #fde68a",
+                                }}
+                              >
+                                Would block
+                              </span>
+                            ) : null}
+                          </>
+                        ) : null}
                       </span>
                     </div>
                   </div>
@@ -1034,6 +1242,8 @@ export default function AdminWithdrawalsPage() {
                     {r?.processed_at ? <WithdrawalDetail label="Last processed">{formatWhen(r.processed_at)}</WithdrawalDetail> : null}
                   </div>
 
+                  <WithdrawalCompliancePanel row={r} compliance={compliance} />
+
                   {failureReasonRaw.trim() ? <WithdrawalFailurePanel failureReason={failureReasonRaw} /> : null}
 
                   <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#64748b", marginBottom: "0.35rem" }}>
@@ -1048,6 +1258,8 @@ export default function AdminWithdrawalsPage() {
                     style={{ ...inputBase, resize: "vertical", minHeight: "52px", marginBottom: "1rem" }}
                     disabled={busy || st === "paid" || st === "rejected"}
                   />
+
+                  {showComplianceCaution ? <ComplianceCautionBanner /> : null}
 
                   {showPrimaryActions || showSecondaryActions ? (
                     <div
