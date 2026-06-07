@@ -607,6 +607,25 @@ export default function AdminIndexPage() {
         </p>
 
         <Link
+          href="/admin/launch-readiness"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+            border: "1px solid #bfdbfe",
+            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Launch Readiness</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            Unified operational go-live dashboard.
+          </p>
+        </Link>
+
+        <Link
           href="/admin/compliance-checklist"
           style={{
             ...cardBase,
@@ -739,6 +758,15 @@ export default function AdminIndexPage() {
             <Link href="/admin/triton-transfers" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Triton transfers
             </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/launch-readiness" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Launch Readiness
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — unified operational go-live dashboard
+            </span>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/compliance-checklist" style={{ fontWeight: 600, color: "#0ea5e9" }}>
