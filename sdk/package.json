@@ -1,0 +1,28 @@
+{
+  "name": "@tropicash/sdk",
+  "version": "0.1.0",
+  "description": "Official Tropicash JavaScript SDK",
+  "main": "index.js",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "tropicash",
+    "sdk",
+    "developer"
+  ],
+  "publishConfig": {
+    "access": "restricted"
+  }
+}

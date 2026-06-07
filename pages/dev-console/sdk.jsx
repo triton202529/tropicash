@@ -21,6 +21,42 @@ const client = new TropicashClient({
 const result = await client.ping();
 // => { ok: true, environment: "sandbox" }`;
 
+const API_METHODS_SAMPLE = `const client = new TropicashClient({
+  apiKey: "tc_test_xxx",
+  environment: "sandbox",
+});
+
+// 1. Platform status
+const status = await client.platformStatus();
+// => {
+//      ok: true,
+//      environment: "sandbox",
+//      status: "operational",
+//      version: "v1",
+//      timestamp: "2026-06-06T23:00:00.000Z"
+//    }
+
+// 2. Supported currencies
+const currencies = await client.supportedCurrencies();
+// => {
+//      ok: true,
+//      currencies: [
+//        { code: "USD", name: "US Dollar", status: "active" },
+//        { code: "HTG", name: "Haitian Gourde", status: "active" }
+//      ]
+//    }
+
+// 3. Developer profile (metadata for the calling key)
+const profile = await client.profile();
+// => {
+//      ok: true,
+//      organization_id: "...",
+//      app_id: "...",
+//      environment: "sandbox",
+//      public_key: "tc_pub_...",
+//      status: "active"
+//    }`;
+
 const WEBHOOK_SAMPLE = `import { TropicashWebhookVerifier } from "tropicash-sdk";
 
 // Your webhook signing secret (whsec_...), stored securely.
@@ -192,6 +228,38 @@ export default function DevConsoleSdkPage() {
         <CodeBlock code={INSTALL_SAMPLE} />
       </section>
 
+      {/* Package preview */}
+      <section className="tropicash-surface rounded-2xl p-5 sm:p-6" aria-labelledby="sdk-package-heading">
+        <h2 id="sdk-package-heading" className="text-lg font-bold text-slate-900">
+          Package preview
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          The SDK is organized as a package under <code className="rounded bg-slate-100 px-1">sdk/</code>.
+          It is private/internal for now. Package publishing is planned for a future release.
+        </p>
+        <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Package</dt>
+            <dd className="mt-1 font-mono text-sm text-slate-900">@tropicash/sdk</dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Version</dt>
+            <dd className="mt-1 font-mono text-sm text-slate-900">0.1.0</dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Private</dt>
+            <dd className="mt-1 font-mono text-sm text-slate-900">true</dd>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-amber-700">npm publishing</dt>
+            <dd className="mt-1 text-sm font-semibold text-amber-900">Disabled for now</dd>
+          </div>
+        </dl>
+        <p className="mt-3 text-xs text-slate-500">
+          Package publishing is planned for a future release.
+        </p>
+      </section>
+
       {/* 3. Quick start */}
       <section className="tropicash-surface rounded-2xl p-5 sm:p-6" aria-labelledby="sdk-quickstart-heading">
         <h2 id="sdk-quickstart-heading" className="text-lg font-bold text-slate-900">
@@ -246,6 +314,33 @@ export default function DevConsoleSdkPage() {
             </pre>
           ) : null}
         </div>
+      </section>
+
+      {/* Available APIs */}
+      <section className="tropicash-surface rounded-2xl p-5 sm:p-6" aria-labelledby="sdk-apis-heading">
+        <h2 id="sdk-apis-heading" className="text-lg font-bold text-slate-900">
+          Available APIs
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          The first read-only Developer APIs (Phase 12H). Every call is authenticated, rate-limited,
+          and recorded in{" "}
+          <Link href="/dev-console/usage" className="font-semibold text-tropicash-green-hover underline">
+            API Usage
+          </Link>
+          .
+        </p>
+        <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+          <li className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-slate-700">
+            GET /platform-status
+          </li>
+          <li className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-slate-700">
+            GET /supported-currencies
+          </li>
+          <li className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-slate-700">
+            GET /developer/profile
+          </li>
+        </ul>
+        <CodeBlock code={API_METHODS_SAMPLE} />
       </section>
 
       {/* 4. Webhook verification */}

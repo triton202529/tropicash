@@ -340,13 +340,19 @@ export default function SupportPage() {
             <span className="hidden text-slate-300 sm:inline" aria-hidden>
               |
             </span>
-            <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">
+            <Link href="/legal" className="font-semibold text-blue-700 hover:underline">
+              Legal &amp; compliance
+            </Link>
+            <span className="text-slate-300" aria-hidden>
+              |
+            </span>
+            <Link href="/legal/privacy" className="font-semibold text-blue-700 hover:underline">
               Privacy
             </Link>
             <span className="text-slate-300" aria-hidden>
               |
             </span>
-            <Link href="/terms" className="font-semibold text-blue-700 hover:underline">
+            <Link href="/legal/terms" className="font-semibold text-blue-700 hover:underline">
               Terms
             </Link>
           </p>

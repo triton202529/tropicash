@@ -11,7 +11,7 @@ import {
   recomputeAndPersistUserRiskState,
 } from "../../lib/riskFlags";
 import { normalizeAccountFlags, persistAccountControlState } from "../../lib/accountControls";
-import { buildKycRiskProfileFromStatus, fetchKycStatusMapForUsers, fetchKycLimitPolicies, summarizeKycLimitPolicy } from "../../lib/kycRisk";
+import { buildKycRiskProfileFromStatus, fetchKycStatusMapForUsers, fetchKycLimitPolicies, fetchFundingDailyUsageMapForUsers, fetchSendDailyUsageMapForUsers, summarizeKycLimitPolicy } from "../../lib/kycRisk";
 
 function formatWhen(iso) {
   if (!iso) return "—";
@@ -45,7 +45,7 @@ function aggregateLogsForUser(userId, logs) {
   };
 }
 
-function mergeProfileRow(agg, profile, kycStatus, policyRow) {
+function mergeProfileRow(agg, profile, kycStatus, policyRow, fundingUsedToday = 0, sendUsedToday = 0) {
   const display_name = userLabel(profile, agg.user_id);
   const kycRisk = buildKycRiskProfileFromStatus(kycStatus || "missing");
   const policySummary = summarizeKycLimitPolicy(policyRow || kycStatus || "missing");
@@ -66,6 +66,9 @@ function mergeProfileRow(agg, profile, kycStatus, policyRow) {
     kyc_risk_level: kycRisk.riskLevel,
     kyc_enforcement_mode: policySummary.enforcementMode,
     kyc_funding_limit: policySummary.fundingDaily,
+    kyc_send_limit: policySummary.sendDaily,
+    kyc_funding_used_today: Number(fundingUsedToday) || 0,
+    kyc_send_used_today: Number(sendUsedToday) || 0,
   };
 }
 
@@ -312,6 +315,8 @@ export default function AdminRiskUsersPage() {
   const [profilesMap, setProfilesMap] = useState({});
   const [kycMap, setKycMap] = useState({});
   const [policiesByStatus, setPoliciesByStatus] = useState({});
+  const [fundingUsageByUserId, setFundingUsageByUserId] = useState({});
+  const [sendUsageByUserId, setSendUsageByUserId] = useState({});
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
 
@@ -343,6 +348,8 @@ export default function AdminRiskUsersPage() {
       setProfilesMap({});
       setKycMap({});
       setPoliciesByStatus({});
+      setFundingUsageByUserId({});
+      setSendUsageByUserId({});
       setDataLoading(false);
       return;
     }
@@ -355,11 +362,19 @@ export default function AdminRiskUsersPage() {
       setProfilesMap({});
       setKycMap({});
       setPoliciesByStatus({});
+      setFundingUsageByUserId({});
+      setSendUsageByUserId({});
       setDataLoading(false);
       return;
     }
 
-    const [{ data: profs, error: pErr }, kycStatusMap, policiesResult] = await Promise.all([
+    const [
+      { data: profs, error: pErr },
+      kycStatusMap,
+      policiesResult,
+      fundingUsageMap,
+      sendUsageMap,
+    ] = await Promise.all([
       supabase
         .from("profiles")
         .select(
@@ -368,6 +383,8 @@ export default function AdminRiskUsersPage() {
         .in("id", ids),
       fetchKycStatusMapForUsers(ids),
       fetchKycLimitPolicies({ includeInactive: true }),
+      fetchFundingDailyUsageMapForUsers(ids),
+      fetchSendDailyUsageMapForUsers(ids),
     ]);
 
     if (pErr) {
@@ -379,6 +396,8 @@ export default function AdminRiskUsersPage() {
     setKycMap(kycStatusMap);
     const policyRows = Array.isArray(policiesResult?.data) ? policiesResult.data : [];
     setPoliciesByStatus(Object.fromEntries(policyRows.map((p) => [p.kyc_status, p])));
+    setFundingUsageByUserId(fundingUsageMap || {});
+    setSendUsageByUserId(sendUsageMap || {});
 
     setDataLoading(false);
   }, [user?.id]);
@@ -401,7 +420,16 @@ export default function AdminRiskUsersPage() {
     for (const [uid, userLogs] of byUser) {
       const agg = aggregateLogsForUser(uid, userLogs);
       const p = profilesMap[uid];
-      out.push(mergeProfileRow(agg, p, kycMap[uid], policiesByStatus[kycMap[uid] || "missing"]));
+      out.push(
+        mergeProfileRow(
+          agg,
+          p,
+          kycMap[uid],
+          policiesByStatus[kycMap[uid] || "missing"],
+          fundingUsageByUserId[uid] ?? 0,
+          sendUsageByUserId[uid] ?? 0,
+        ),
+      );
     }
 
     out.sort((a, b) => {
@@ -411,7 +439,7 @@ export default function AdminRiskUsersPage() {
     });
 
     return out;
-  }, [logs, profilesMap, kycMap, policiesByStatus]);
+  }, [logs, profilesMap, kycMap, policiesByStatus, fundingUsageByUserId, sendUsageByUserId]);
 
   const summary = useMemo(() => {
     let highTier = 0;
@@ -946,7 +974,15 @@ export default function AdminRiskUsersPage() {
                             {r.kyc_verification_tier} · {r.kyc_risk_level} risk
                           </div>
                           <div style={{ fontSize: "0.62rem", color: "#cbd5e1", marginTop: "0.15rem" }}>
-                            {r.kyc_enforcement_mode || "advisory"} · fund ${Number(r.kyc_funding_limit || 0).toLocaleString()}
+                            {r.kyc_enforcement_mode || "advisory"} · advisory preview
+                          </div>
+                          <div style={{ fontSize: "0.62rem", color: "#94a3b8", marginTop: "0.2rem", lineHeight: 1.35 }}>
+                            Fund ${Number(r.kyc_funding_used_today || 0).toLocaleString()} / $
+                            {Number(r.kyc_funding_limit || 0).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: "0.62rem", color: "#94a3b8", lineHeight: 1.35 }}>
+                            Send ${Number(r.kyc_send_used_today || 0).toLocaleString()} / $
+                            {Number(r.kyc_send_limit || 0).toLocaleString()}
                           </div>
                         </td>
                         <td style={{ padding: "0.65rem 0.75rem", maxWidth: "220px" }}>

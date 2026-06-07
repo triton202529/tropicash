@@ -1,3 +1,4 @@
+import Link from "next/link";
 import DevConsoleLayout, {
   DevConsolePlaceholderCard,
   DevConsoleComingSoon,
@@ -6,9 +7,25 @@ import DevConsoleLayout, {
 export default function DevConsoleApiKeysPage() {
   return (
     <DevConsoleLayout
-      title="API Keys"
-      subtitle="Sandbox and live API keys are isolated. Live keys will only be issued after a manual review."
+      title="API Keys (Legacy)"
+      subtitle="This page has been superseded by API Credentials."
     >
+      <div
+        role="note"
+        className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950 sm:p-6"
+      >
+        <strong className="font-semibold text-amber-900">Legacy Developer Console page.</strong>{" "}
+        This placeholder has been superseded by{" "}
+        <Link
+          href="/dev-console/credentials"
+          className="font-semibold text-amber-900 underline"
+        >
+          API Credentials
+        </Link>
+        , where you can generate, rotate, and revoke real sandbox API keys. This page is no longer
+        linked in the navigation and will be removed in a future cleanup.
+      </div>
+
       <section
         aria-labelledby="api-keys-metrics-heading"
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3"

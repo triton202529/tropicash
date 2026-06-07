@@ -605,6 +605,41 @@ export default function AdminIndexPage() {
         <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "#64748b" }}>
           Internal tools and review dashboards.
         </p>
+
+        <Link
+          href="/admin/compliance-checklist"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Compliance Checklist</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            Release readiness, KYC, treasury, risk, legal, and production controls.
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/production-audit"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Production Audit</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            Environment, deployment, payment, storage, and release readiness checks.
+          </p>
+        </Link>
+
         <ul style={{ margin: "0 0 1.5rem", paddingLeft: "1.25rem", fontSize: "0.95rem", color: "#64748b" }}>
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/risk" style={{ fontWeight: 600, color: "#0ea5e9" }}>
@@ -704,6 +739,24 @@ export default function AdminIndexPage() {
             <Link href="/admin/triton-transfers" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Triton transfers
             </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/compliance-checklist" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Compliance Checklist
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — release readiness, KYC, treasury, risk, legal, and production controls
+            </span>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/production-audit" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Production Audit
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — environment, deployment, payment, storage, and release readiness checks
+            </span>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/health" style={{ fontWeight: 600, color: "#0ea5e9" }}>

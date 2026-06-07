@@ -1,16 +1,18 @@
 import TropicashEnvironment, {
   PRODUCTION_DISABLED_MESSAGE,
-} from './TropicashEnvironment';
+} from './TropicashEnvironment.js';
 
 /**
- * Tropicash SDK — Phase 12F client foundation.
+ * Tropicash SDK — client (package build).
  *
  * Wraps authentication, environment management, and request handling so
- * developers don't hand-roll them. Only `ping()` is wired today; resource
- * namespaces (wallets/payments/withdrawals/accounts/webhooks) are reserved as
- * clean extension points and throw a descriptive error until implemented.
+ * developers don't hand-roll them. Wired today: ping(), platformStatus(),
+ * supportedCurrencies(), profile(). Resource namespaces
+ * (wallets/payments/withdrawals/accounts/webhooks) are reserved as clean
+ * extension points and throw a descriptive error until implemented.
  *
- * No wallet movement or payment execution occurs in this phase.
+ * Packaged copy of lib/sdk/TropicashClient.js (Phase 12I). No wallet movement
+ * or payment execution.
  */
 
 const API_KEY_PATTERN = /^tc_(test|live)_[A-Za-z0-9]+$/;

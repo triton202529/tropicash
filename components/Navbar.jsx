@@ -118,14 +118,8 @@ export default function Navbar() {
             <span className="text-white/35" aria-hidden>
               ·
             </span>
-            <Link href="/privacy" className="whitespace-nowrap hover:underline">
-              Privacy
-            </Link>
-            <span className="text-white/35" aria-hidden>
-              ·
-            </span>
-            <Link href="/terms" className="whitespace-nowrap hover:underline">
-              Terms
+            <Link href="/legal" className="whitespace-nowrap hover:underline">
+              Legal
             </Link>
           </div>
           {loading ? (
@@ -171,11 +165,8 @@ export default function Navbar() {
                     <button type="button" onClick={() => void goDevelopers()} className={dropdownItemClass}>
                       Developers
                     </button>
-                    <button type="button" onClick={() => router.push("/privacy")} className={dropdownItemClass}>
-                      Privacy
-                    </button>
-                    <button type="button" onClick={() => router.push("/terms")} className={dropdownItemClass}>
-                      Terms
+                    <button type="button" onClick={() => router.push("/legal")} className={dropdownItemClass}>
+                      Legal &amp; policies
                     </button>
                     {isAdminUser(user, profile) ? (
                       <>

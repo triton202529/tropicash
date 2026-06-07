@@ -236,12 +236,12 @@ export default function DevConsoleLayout({
               </ul>
             </nav>
 
-            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950 sm:px-5 sm:py-3.5 sm:text-[0.9375rem]">
-              <strong className="font-semibold text-amber-900">
-                Developer Console infrastructure is currently under construction.
+            <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-950 sm:px-5 sm:py-3.5 sm:text-[0.9375rem]">
+              <strong className="font-semibold text-sky-900">
+                Tropicash Developer Platform is available in Sandbox.
               </strong>{" "}
-              These screens are shell placeholders — no real keys, requests, or logs
-              are being created.
+              Production is disabled — no live keys, money movement, or production data
+              are accessible here.
             </div>
 
             <div className="flex flex-col gap-6">{children}</div>

@@ -123,6 +123,19 @@ export default function AuthPage() {
               {isSignUp ? "Sign In" : "Sign Up"}
             </button>
           </p>
+          <p className="mt-3 text-center text-xs leading-relaxed text-[#64748b]">
+            <Link href="/legal" className="font-semibold text-blue-700 hover:underline">
+              Legal &amp; compliance
+            </Link>
+            {" · "}
+            <Link href="/legal/terms" className="font-semibold text-blue-700 hover:underline">
+              Terms
+            </Link>
+            {" · "}
+            <Link href="/legal/privacy" className="font-semibold text-blue-700 hover:underline">
+              Privacy
+            </Link>
+          </p>
         </div>
       </div>
     </>

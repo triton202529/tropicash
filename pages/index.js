@@ -148,10 +148,13 @@ export default function Home() {
           <Link href="/security" className="font-semibold text-blue-700 hover:underline">
             Security Center
           </Link>
-          <Link href="/privacy" className="font-semibold text-blue-700 hover:underline">
+          <Link href="/legal" className="font-semibold text-blue-700 hover:underline">
+            Legal &amp; compliance
+          </Link>
+          <Link href="/legal/privacy" className="font-semibold text-blue-700 hover:underline">
             Privacy
           </Link>
-          <Link href="/terms" className="font-semibold text-blue-700 hover:underline">
+          <Link href="/legal/terms" className="font-semibold text-blue-700 hover:underline">
             Terms
           </Link>
         </div>

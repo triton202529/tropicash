@@ -373,10 +373,13 @@ export default function WalletPage() {
           <Link href="/security" className={pillLinkClass}>
             Security Center <span aria-hidden="true">→</span>
           </Link>
-          <Link href="/privacy" className={pillLinkClass}>
+          <Link href="/legal" className={pillLinkClass}>
+            Legal &amp; compliance <span aria-hidden="true">→</span>
+          </Link>
+          <Link href="/legal/privacy" className={pillLinkClass}>
             Privacy <span aria-hidden="true">→</span>
           </Link>
-          <Link href="/terms" className={pillLinkClass}>
+          <Link href="/legal/terms" className={pillLinkClass}>
             Terms <span aria-hidden="true">→</span>
           </Link>
         </nav>

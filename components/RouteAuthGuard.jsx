@@ -20,6 +20,7 @@ const PUBLIC_PATHNAMES = new Set([
   "/support",
   "/privacy",
   "/terms",
+  "/legal",
   "/developers",
   "/developers/how-it-works",
   "/developers/docs",
@@ -77,7 +78,8 @@ export default function RouteAuthGuard({ children }) {
   const router = useRouter();
   const { user, profile, loading } = useUser();
 
-  const isPublic = PUBLIC_PATHNAMES.has(router.pathname);
+  const isPublic =
+    PUBLIC_PATHNAMES.has(router.pathname) || router.pathname.startsWith("/legal/");
   const isDevConsole =
     router.isReady && !isPublic && isDevConsoleRoute(router.pathname);
 
