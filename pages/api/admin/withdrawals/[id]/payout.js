@@ -8,6 +8,7 @@ import {
 } from "../../../../../lib/supabaseAdminApi";
 import { emitAdminEvent } from "../../../../../lib/eventBus";
 import { appendAuditEventServer } from "../../../../../lib/auditTimeline";
+import { buildPayPalPayoutReadiness, getServerPayPalPayoutReadiness } from "../../../../../lib/paypalPayoutReadiness";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -60,6 +61,22 @@ export default async function handler(req, res) {
 
   if (!isAdminEmail(user.email)) {
     return res.status(403).json({ error: "Admin access required" });
+  }
+
+  const readiness = buildPayPalPayoutReadiness(
+    {
+      automationEnabled: process.env.NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT === "true",
+      automationFlagSet: typeof process.env.NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT === "string",
+      publicMode: null,
+    },
+    getServerPayPalPayoutReadiness(),
+  );
+  if (!readiness.payoutActionAvailable) {
+    return res.status(503).json({
+      error: "PayPal payout is not configured",
+      summary: readiness.blockers[0] || "Feature flag or server credentials are missing.",
+      blockers: readiness.blockers,
+    });
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -169,6 +186,7 @@ export default async function handler(req, res) {
       return res.status(400).json({
         error: "PayPal payout failed",
         summary,
+        details: paypalError,
       });
     }
     if (lower.includes("no payout destination")) {

@@ -6,7 +6,7 @@ import SoftLaunchNotice from "../components/SoftLaunchNotice";
 import { logOperationalError, logOperationalEvent } from "../lib/operationalLogger";
 import { supabase } from "../lib/supabaseClient";
 import { useUser } from "../lib/userContext";
-import { findWithdrawalMatchForWithdrawTransaction, withdrawalStatusUserLine } from "../lib/withdrawalRequests";
+import { findWithdrawalMatchForRefundTransaction, findWithdrawalMatchForWithdrawTransaction, withdrawalStatusUserLine } from "../lib/withdrawalRequests";
 import {
   formatPayPalEnvironmentBadge,
   fundingMethodLabel,
@@ -78,6 +78,7 @@ function normalizeType(type) {
   if (raw === "receive_money") return "receive";
   if (raw === "fund_wallet") return "fund";
   if (raw === "withdraw_wallet") return "withdraw";
+  if (raw === "withdrawal_refund") return "withdrawal_refund";
   return raw;
 }
 
@@ -146,10 +147,16 @@ function classifyTransaction(txn, currentUserId, namesById) {
 
   if (normalizedType === "withdraw") {
     category = "withdrawn";
-    label = "Withdrawal";
+    label = "Withdrawal request";
     direction = "outgoing";
     senderName = "You";
     recipientName = "PayPal";
+  } else if (normalizedType === "withdrawal_refund") {
+    category = "received";
+    label = "Withdrawal refund";
+    direction = "incoming";
+    senderName = "Tropicash";
+    recipientName = "You";
   } else if (normalizedType === "fund") {
     category = "funded";
     label = fundingRowLabel();
@@ -192,7 +199,7 @@ function classifyTransaction(txn, currentUserId, namesById) {
       : category === "received"
         ? `From ${senderName}`
         : category === "withdrawn"
-          ? "Recipient: PayPal"
+          ? "Withdrawal request"
           : category === "funded"
             ? isPayPalFundContext(txn)
               ? `From ${fundingMethodLabel(resolveFundingMethodForTransaction(txn))}`
@@ -285,7 +292,7 @@ export default function TransactionsPage() {
 
       const { data: wrData } = await supabase
         .from("withdrawal_requests")
-        .select("id, user_id, amount, payout_email, payout_destination, status, paid_at, failure_reason, created_at")
+        .select("id, user_id, amount, payout_email, payout_destination, status, paid_at, failure_reason, created_at, withdrawal_transaction_id, refunded_at, refund_transaction_id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(80);
@@ -352,16 +359,30 @@ export default function TransactionsPage() {
     });
     return sortedTransactions.map((txn) => {
       const base = classifyTransaction(txn, user.id, profilesMap);
-      if (base.category !== "withdrawn") return base;
-      const wrMatch = findWithdrawalMatchForWithdrawTransaction(txn, withdrawalRows, user.id);
-      const email = wrMatch ? String(wrMatch.payout_email || wrMatch.payout_destination || "").trim() : "";
-      const stLine = wrMatch ? withdrawalStatusUserLine(wrMatch.status) : "";
-      const payoutHint = email ? `Destination on file: ${email}` : "Payout request";
-      return {
-        ...base,
-        withdrawalMatch: wrMatch,
-        description: wrMatch ? `${stLine} · ${payoutHint}` : "Withdrawal request",
-      };
+      if (base.category === "withdrawn") {
+        const wrMatch = findWithdrawalMatchForWithdrawTransaction(txn, withdrawalRows, user.id);
+        const email = wrMatch ? String(wrMatch.payout_email || wrMatch.payout_destination || "").trim() : "";
+        const stLine = wrMatch ? withdrawalStatusUserLine(wrMatch.status) : "";
+        const payoutHint = email ? `Destination: ${email}` : "Wallet debited for payout request";
+        return {
+          ...base,
+          withdrawalMatch: wrMatch,
+          statusLine: stLine || base.statusLine,
+          description: wrMatch ? `${stLine}${stLine && email ? " · " : ""}${email ? payoutHint : "Withdrawal request"}` : "Withdrawal request · wallet debited",
+        };
+      }
+      if (normalizeType(txn.type) === "withdrawal_refund") {
+        const wrMatch = findWithdrawalMatchForRefundTransaction(txn, withdrawalRows);
+        const stLine = wrMatch ? withdrawalStatusUserLine(wrMatch.status) : "";
+        return {
+          ...base,
+          withdrawalMatch: wrMatch,
+          description: wrMatch
+            ? `Refund for withdrawal · ${stLine || String(wrMatch.status || "updated")}`
+            : base.description,
+        };
+      }
+      return base;
     });
   }, [rows, user?.id, profilesMap, withdrawalRows]);
 

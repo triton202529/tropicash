@@ -9,6 +9,7 @@ import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { logOperationalError, logOperationalEvent } from "../lib/operationalLogger";
 import {
   fetchUserWithdrawalRequests,
+  findWithdrawalMatchForWithdrawTransaction,
   formatWithdrawalFailureForUser,
   withdrawalStatusBadgeStyle,
   withdrawalStatusUserLine,
@@ -67,10 +68,11 @@ function normalizeTransactionType(typeRaw) {
   if (t === "receive_money") return "receive";
   if (t === "fund_wallet") return "fund";
   if (t === "withdraw_wallet") return "withdraw";
+  if (t === "withdrawal_refund") return "withdrawal_refund";
   return t;
 }
 
-function classifyPreview(txn, userId, namesById) {
+function classifyPreview(txn, userId, namesById, withdrawalRows) {
   const type = normalizeTransactionType(txn.type);
   const amount = Number(txn.amount) || 0;
   const senderId = txn.sender_id || null;
@@ -85,9 +87,15 @@ function classifyPreview(txn, userId, namesById) {
   let envBadge = null;
 
   if (type === "withdraw") {
-    label = "Withdrawal";
+    label = "Withdrawal request";
     direction = "outgoing";
-    partyLine = "PayPal payout";
+    const wrMatch = findWithdrawalMatchForWithdrawTransaction(txn, withdrawalRows, userId);
+    const stLine = wrMatch ? withdrawalStatusUserLine(wrMatch.status) : "";
+    partyLine = stLine || "Wallet debited";
+  } else if (type === "withdrawal_refund") {
+    label = "Withdrawal refund";
+    direction = "incoming";
+    partyLine = "Returned to wallet";
   } else if (type === "fund") {
     label = "Funding";
     direction = "incoming";
@@ -215,7 +223,8 @@ export default function WalletPage() {
       });
     }
 
-    setPreviewRows(txns.map((t) => classifyPreview(t, user.id, namesById)));
+    const { rows: wrRows } = await fetchUserWithdrawalRequests(user.id, 20);
+    setPreviewRows(txns.map((t) => classifyPreview(t, user.id, namesById, wrRows || [])));
   }, [user?.id, profile?.email, profile?.full_name]);
 
   const refreshWithdrawalPreview = useCallback(async () => {

@@ -659,6 +659,44 @@ export default function AdminIndexPage() {
           </p>
         </Link>
 
+        <Link
+          href="/admin/withdrawal-reconciliation"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+            border: "1px solid #fde68a",
+            background: "linear-gradient(180deg, #ffffff 0%, #fffbeb 100%)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Withdrawal Reconciliation</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            Find stuck, inconsistent, failed, or unresolved withdrawal records.
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/paypal-payout-test"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+            border: "1px solid #bfdbfe",
+            background: "linear-gradient(180deg, #ffffff 0%, #eff6ff 100%)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>PayPal Payout Test</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            Sandbox checklist for testing withdrawal settlement end-to-end.
+          </p>
+        </Link>
+
         <ul style={{ margin: "0 0 1.5rem", paddingLeft: "1.25rem", fontSize: "0.95rem", color: "#64748b" }}>
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/risk" style={{ fontWeight: 600, color: "#0ea5e9" }}>
@@ -714,6 +752,24 @@ export default function AdminIndexPage() {
             <Link href="/admin/withdrawals" style={{ fontWeight: 600, color: "#0ea5e9" }}>
               Withdrawals queue
             </Link>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/withdrawal-reconciliation" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              Withdrawal Reconciliation
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — stuck, inconsistent, or unresolved withdrawal records
+            </span>
+          </li>
+          <li style={{ marginBottom: "0.5rem" }}>
+            <Link href="/admin/paypal-payout-test" style={{ fontWeight: 600, color: "#0ea5e9" }}>
+              PayPal Payout Test
+            </Link>
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+              {" "}
+              — sandbox E2E withdrawal settlement checklist
+            </span>
           </li>
           <li style={{ marginBottom: "0.5rem" }}>
             <Link href="/admin/feedback" style={{ fontWeight: 600, color: "#0ea5e9" }}>

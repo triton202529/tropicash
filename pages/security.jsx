@@ -711,6 +711,45 @@ export default function SecurityPage() {
         />
 
         <div style={{ ...cardBase, padding: "1.15rem 1.2rem", marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+            <div style={{ minWidth: 0 }}>
+              <h2
+                style={{
+                  margin: "0 0 0.35rem",
+                  fontSize: "0.78rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "#64748b",
+                }}
+              >
+                Connected apps
+              </h2>
+              <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b", lineHeight: 1.45, maxWidth: "32rem" }}>
+                Review and revoke third-party applications that can access your Tropicash account through OAuth.
+              </p>
+            </div>
+            <Link
+              href="/oauth/apps"
+              style={{
+                flexShrink: 0,
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                padding: "0.45rem 0.85rem",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                background: "#fff",
+                color: "#1d4ed8",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Manage connected apps
+            </Link>
+          </div>
+        </div>
+
+        <div style={{ ...cardBase, padding: "1.15rem 1.2rem", marginBottom: "1.25rem" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
             <h2
               style={{

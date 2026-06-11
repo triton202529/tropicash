@@ -57,6 +57,74 @@ const profile = await client.profile();
 //      status: "active"
 //    }`;
 
+const OAUTH_PROFILE_SAMPLE = `const client = new TropicashClient({
+  environment: "sandbox",
+});
+
+// OAuth access token required (NOT the API key).
+// The token must carry the "profile.read" scope.
+const result = await client.oauthProfile({
+  accessToken: "tc_at_xxx",
+});
+// => {
+//      ok: true,
+//      profile: {
+//        user_id: "...",          // null in foundation mode
+//        app_id: "...",
+//        client_id: "tc_client_...",
+//        scopes: ["profile.read"],
+//        environment: "sandbox",
+//        access_type: "oauth"
+//        // consent_status: "foundation_mode"  // when user_id is null
+//      }
+//    }
+
+// Missing/invalid token  => 401 { ok: false, error: "invalid_token" }
+// Missing profile.read   => 403 { ok: false, error: "insufficient_scope", required_scope: "profile.read" }`;
+
+const OAUTH_WALLET_SAMPLE = `const client = new TropicashClient({
+  environment: "sandbox",
+});
+
+// Sandbox only — OAuth access token required (NOT the API key).
+// The token must carry the "wallet.read" scope.
+const result = await client.oauthWallet({
+  accessToken: "tc_at_xxx",
+});
+// => {
+//      ok: true,
+//      wallet: {
+//        user_id: "...",
+//        currency: "USD",
+//        available_balance: "125.00",
+//        wallet_status: "active",       // or "not_created"
+//        kyc_status: "verified",        // unverified | pending | verified | rejected | unknown
+//        access_type: "oauth",
+//        scope: "wallet.read",
+//        environment: "sandbox"
+//      }
+//    }
+
+// Read-only — no transaction history, payment methods, or money movement.
+// Foundation-mode token (no user consent) => 403 { ok: false, error: "consent_required" }
+// Missing wallet.read scope            => 403 { ok: false, error: "insufficient_scope", required_scope: "wallet.read" }
+// Missing/invalid token                => 401 { ok: false, error: "invalid_token" }`;
+
+const OAUTH_REVOKE_SAMPLE = `// Run from your server only — never expose client_secret in browser apps.
+await client.revokeToken({
+  token: "tc_at_xxx",
+  tokenTypeHint: "access_token",
+  clientId: "tc_client_xxx",
+  clientSecret: process.env.OAUTH_CLIENT_SECRET,
+});
+// => { ok: true, revoked: true }
+
+// Unknown / foreign / malformed tokens still return success without disclosure:
+// => { ok: true, revoked: false }
+
+// Invalid client credentials:
+// => { ok: false, error: "invalid_client" }`;
+
 const WEBHOOK_SAMPLE = `import { TropicashWebhookVerifier } from "tropicash-sdk";
 
 // Your webhook signing secret (whsec_...), stored securely.
@@ -341,6 +409,62 @@ export default function DevConsoleSdkPage() {
           </li>
         </ul>
         <CodeBlock code={API_METHODS_SAMPLE} />
+      </section>
+
+      {/* OAuth-protected APIs */}
+      <section className="tropicash-surface rounded-2xl p-5 sm:p-6" aria-labelledby="sdk-oauth-heading">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="sdk-oauth-heading" className="text-lg font-bold text-slate-900">
+            OAuth-protected APIs
+          </h2>
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+            OAuth access token required
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-slate-600">
+          User-scoped endpoints require an OAuth access token (not the API key), obtained via the
+          authorization-code flow, and enforce per-request scopes.{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono">GET /api/oauth/profile</code> requires{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono">profile.read</code> and returns safe
+          metadata only.{" "}
+          <code className="rounded bg-slate-100 px-1 font-mono">GET /api/oauth/wallet</code> (sandbox
+          only) requires <code className="rounded bg-slate-100 px-1 font-mono">wallet.read</code> and
+          returns a minimal read-only wallet summary — no transactions, payment methods, or balance
+          mutation.
+        </p>
+        <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+          <li className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-slate-700">
+            GET /api/oauth/profile
+          </li>
+          <li className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-slate-700">
+            scope: profile.read
+          </li>
+          <li className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-mono text-amber-900">
+            GET /api/oauth/wallet (sandbox)
+          </li>
+          <li className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-mono text-amber-900">
+            scope: wallet.read
+          </li>
+          <li className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-slate-700">
+            POST /api/oauth/revoke-token
+          </li>
+        </ul>
+        <p className="mt-4 text-sm font-semibold text-slate-800">Profile read</p>
+        <CodeBlock code={OAUTH_PROFILE_SAMPLE} />
+        <p className="mt-4 text-sm font-semibold text-slate-800">Wallet read (sandbox)</p>
+        <p className="mt-1 text-xs text-amber-800">
+          Sandbox only · Requires <code className="rounded bg-amber-100 px-1">wallet.read</code> ·
+          Read-only · No transaction data
+        </p>
+        <CodeBlock code={OAUTH_WALLET_SAMPLE} />
+        <p className="mt-4 text-sm font-semibold text-slate-800">Token revocation</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Revoke access or refresh tokens programmatically using OAuth client credentials.{" "}
+          <strong className="font-semibold text-amber-900">
+            Client secret should be stored server-side only.
+          </strong>
+        </p>
+        <CodeBlock code={OAUTH_REVOKE_SAMPLE} />
       </section>
 
       {/* 4. Webhook verification */}

@@ -1,6 +1,7 @@
--- Atomic wallet debit + withdrawal_requests row (single transaction).
+-- Atomic wallet debit + withdrawal_requests row + withdraw_wallet ledger entry (single transaction).
 -- Run in Supabase SQL Editor after public.wallets and public.withdrawal_requests exist.
--- Requires wallets.wallet_balance (numeric). Adjust column name if your schema uses balance only.
+-- Requires wallets.wallet_balance (numeric). Phase 13D adds withdrawal_transaction_id link.
+-- Prefer applying supabase/sql/phase_13d_withdrawal_transaction_ledger.sql for production.
 
 create or replace function public.create_withdrawal_request(
   p_user_id uuid,
@@ -15,7 +16,9 @@ as $$
 declare
   v_wallet_balance numeric;
   v_request_id uuid;
+  v_tx_id uuid;
   v_email text;
+  v_desc text;
   n int;
 begin
   if auth.uid() is null or auth.uid() <> p_user_id then
@@ -70,6 +73,23 @@ begin
     now()
   )
   returning id into v_request_id;
+
+  v_desc := 'Withdrawal request · id ' || v_request_id::text;
+
+  begin
+    insert into transactions (sender_id, amount, type, status, note)
+    values (p_user_id, p_amount, 'withdraw_wallet', 'completed', v_desc)
+    returning id into v_tx_id;
+  exception
+    when sqlstate '42703' then
+      insert into transactions (sender_id, amount, type, status)
+      values (p_user_id, p_amount, 'withdraw_wallet', 'completed')
+      returning id into v_tx_id;
+  end;
+
+  update withdrawal_requests
+  set withdrawal_transaction_id = v_tx_id
+  where id = v_request_id;
 
   return v_request_id;
 end;

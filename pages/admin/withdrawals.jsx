@@ -15,6 +15,10 @@ import {
   fetchKycStatusMapForUsers,
   fetchWithdrawalDailyUsageMapForUsers,
 } from "../../lib/kycRisk";
+import {
+  buildPayPalPayoutReadiness,
+  getPublicPayPalPayoutReadiness,
+} from "../../lib/paypalPayoutReadiness";
 
 function formatMoney(value) {
   const n = Number(value);
@@ -205,16 +209,219 @@ function payoutLabelCell(r) {
 
 const PAID_VIA_OPTIONS = ["PayPal", "Bank transfer", "Cash", "Other"];
 
-const automatedPayoutsEnabled = process.env.NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT === "true";
+function readinessStatusStyle(status) {
+  const key = String(status || "").toLowerCase();
+  if (key === "ready") return { bg: "#ecfdf5", fg: "#047857", border: "#a7f3d0" };
+  if (key === "partial") return { bg: "#fffbeb", fg: "#b45309", border: "#fde68a" };
+  return { bg: "#fef2f2", fg: "#b91c1c", border: "#fecaca" };
+}
 
-function adminStatusDisplay(status) {
-  const v = String(status || "").toLowerCase();
-  if (v === "pending") return "Pending";
-  if (v === "processing") return "Processing";
-  if (v === "paid") return "Paid";
+function adminStatusDisplay(row) {
+  const v = String(row?.status || "").toLowerCase();
+  const processor = String(row?.processor || "").toLowerCase();
+  if (v === "pending") return "Pending review";
+  if (v === "processing") {
+    if (processor === "paypal" && row?.processor_batch_id) return "Processing — PayPal batch sent";
+    return "Processing";
+  }
+  if (v === "paid") {
+    if (processor === "manual") return "Paid — manual external payment recorded";
+    if (processor === "paypal") return "Paid — PayPal confirmed";
+    return "Paid";
+  }
   if (v === "rejected") return "Rejected";
-  if (v === "failed") return "Failed";
-  return v ? String(status) : "—";
+  if (v === "failed") return "Failed — PayPal error";
+  return v ? String(row?.status || "") : "—";
+}
+
+function PayPalPayoutReadinessPanel({ readiness, loading, onRefresh }) {
+  if (loading && !readiness) {
+    return (
+      <div style={{ ...cardBase, padding: "1rem", marginBottom: "1.25rem" }}>
+        <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>Loading PayPal payout readiness…</p>
+      </div>
+    );
+  }
+  if (!readiness) return null;
+
+  const actionPal = readinessStatusStyle(readiness.payoutActionAvailable ? "ready" : "missing");
+
+  return (
+    <div style={{ ...cardBase, padding: "1rem 1.1rem", marginBottom: "1.25rem" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.75rem" }}>
+        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>PayPal Payout readiness</h2>
+        {onRefresh ? (
+          <button type="button" onClick={() => void onRefresh()} style={{ ...btnSm, marginTop: 0 }}>
+            Re-check env
+          </button>
+        ) : null}
+      </div>
+      <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.45 }}>
+        Presence checks only — secret values are never displayed. Payouts are never sent automatically on user submit.
+      </p>
+      <div
+        style={{
+          marginBottom: "0.85rem",
+          padding: "0.65rem 0.85rem",
+          borderRadius: "8px",
+          border: `1px solid ${actionPal.border}`,
+          background: actionPal.bg,
+        }}
+      >
+        <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: actionPal.fg }}>
+          Send payout (PayPal): {readiness.payoutActionAvailable ? "Available" : "Unavailable"}
+        </p>
+        <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "#475569" }}>
+          Mode: <strong>{readiness.mode}</strong>
+          {" · "}
+          Automation: <strong>{readiness.automationEnabled ? "enabled" : "disabled"}</strong>
+        </p>
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+        {readiness.checks.map((check) => {
+          const pal = readinessStatusStyle(check.status);
+          return (
+            <li
+              key={check.id}
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.35rem 0.75rem",
+                alignItems: "baseline",
+                fontSize: "0.8rem",
+                padding: "0.4rem 0.5rem",
+                borderRadius: "6px",
+                background: "#fafbfc",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <span style={{ fontWeight: 600, color: "#0f172a", minWidth: "11rem" }}>{check.label}</span>
+              <span
+                style={{
+                  fontSize: "0.65rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: "999px",
+                  background: pal.bg,
+                  color: pal.fg,
+                  border: `1px solid ${pal.border}`,
+                }}
+              >
+                {check.status}
+              </span>
+              <span style={{ color: "#64748b", flex: "1 1 12rem" }}>{check.detail}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {readiness.blockers.length > 0 ? (
+        <div style={{ marginTop: "0.75rem", padding: "0.65rem 0.85rem", borderRadius: "8px", background: "#fffbeb", border: "1px solid #fde68a" }}>
+          <p style={{ margin: "0 0 0.35rem", fontSize: "0.78rem", fontWeight: 700, color: "#92400e" }}>To enable PayPal payouts</p>
+          <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.78rem", color: "#92400e", lineHeight: 1.45 }}>
+            {readiness.blockers.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ManualPayoutModal({ form, onChange, onClose, onSubmit, submitting }) {
+  if (!form?.open) return null;
+  const canSubmit =
+    form.confirmed &&
+    String(form.reference || "").trim().length >= 3 &&
+    PAID_VIA_OPTIONS.includes(String(form.paidVia || "").trim());
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="manual-payout-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+        background: "rgba(15, 23, 42, 0.45)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{ ...cardBase, maxWidth: "28rem", width: "100%", padding: "1.25rem", boxShadow: "0 20px 50px rgba(0,0,0,0.2)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="manual-payout-title" style={{ margin: "0 0 0.5rem", fontSize: "1.05rem", fontWeight: 700, color: "#0f172a" }}>
+          Record manual external payout
+        </h2>
+        <p style={{ margin: "0 0 1rem", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.45 }}>
+          Use only after payment was completed <strong>outside</strong> Tropicash. This marks the withdrawal paid in the
+          app — it does not send money.
+        </p>
+        <label style={{ display: "block", marginBottom: "0.75rem", fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}>
+          Paid via
+          <select
+            className="tc-admin-in"
+            value={form.paidVia}
+            onChange={(e) => onChange({ paidVia: e.target.value })}
+            style={{ display: "block", width: "100%", marginTop: "0.35rem", padding: "0.45rem 0.55rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+          >
+            {PAID_VIA_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: "block", marginBottom: "0.75rem", fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}>
+          External reference / receipt / transaction ID
+          <input
+            className="tc-admin-in"
+            type="text"
+            value={form.reference}
+            onChange={(e) => onChange({ reference: e.target.value })}
+            placeholder="PayPal txn ID, bank ref, receipt #…"
+            style={{ display: "block", width: "100%", marginTop: "0.35rem", padding: "0.45rem 0.55rem", borderRadius: "8px", border: "1px solid #cbd5e1", boxSizing: "border-box" }}
+          />
+        </label>
+        <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", marginBottom: "1rem", fontSize: "0.82rem", color: "#334155", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={!!form.confirmed}
+            onChange={(e) => onChange({ confirmed: e.target.checked })}
+            style={{ marginTop: "0.2rem" }}
+          />
+          <span>I confirm this withdrawal was paid outside Tropicash.</span>
+        </label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "flex-end" }}>
+          <button type="button" onClick={onClose} style={{ ...btnSm, marginTop: 0 }} disabled={submitting}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit || submitting}
+            onClick={() => void onSubmit()}
+            style={{
+              ...btnSm,
+              marginTop: 0,
+              border: "1px solid #15803d",
+              background: canSubmit ? "linear-gradient(180deg, #22c55e 0%, #16a34a 100%)" : "#e2e8f0",
+              color: canSubmit ? "#fff" : "#94a3b8",
+              fontWeight: 700,
+            }}
+          >
+            {submitting ? "Saving…" : "Record manual payout"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const STALE_PENDING_MS = 24 * 60 * 60 * 1000;
@@ -486,6 +693,40 @@ export default function AdminWithdrawalsPage() {
   const [payoutRetryLoadingId, setPayoutRetryLoadingId] = useState(null);
   const [adminNotesDraft, setAdminNotesDraft] = useState({});
   const [withdrawalAuditOpenId, setWithdrawalAuditOpenId] = useState(null);
+  const [payoutReadiness, setPayoutReadiness] = useState(null);
+  const [payoutReadinessLoading, setPayoutReadinessLoading] = useState(false);
+  const [manualPayoutForm, setManualPayoutForm] = useState(null);
+  const [refundOnRejectById, setRefundOnRejectById] = useState({});
+  const [refundSuccessMessage, setRefundSuccessMessage] = useState(null);
+
+  const loadPayoutReadiness = useCallback(async () => {
+    if (!user?.id || !isAdminUser(user, profile)) return;
+    setPayoutReadinessLoading(true);
+    const publicPart = getPublicPayPalPayoutReadiness();
+    try {
+      const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr || !sessionData?.session?.access_token) {
+        setPayoutReadiness(buildPayPalPayoutReadiness(publicPart, null));
+        return;
+      }
+      const res = await fetch("/api/admin/withdrawals/payout-readiness", {
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+      });
+      const serverPart = res.ok ? await res.json().catch(() => null) : { error: `HTTP ${res.status}` };
+      setPayoutReadiness(buildPayPalPayoutReadiness(publicPart, serverPart));
+    } catch (err) {
+      setPayoutReadiness(
+        buildPayPalPayoutReadiness(publicPart, { error: err?.message || "Server probe failed" }),
+      );
+    } finally {
+      setPayoutReadinessLoading(false);
+    }
+  }, [user, profile]);
+
+  useEffect(() => {
+    if (authLoading || !user || !isAdminUser(user, profile)) return;
+    void loadPayoutReadiness();
+  }, [authLoading, user, profile, loadPayoutReadiness]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -658,7 +899,7 @@ export default function AdminWithdrawalsPage() {
 
   const runUpdate = async (row, patch, notifyKind, compliance) => {
     const id = row?.id;
-    if (!id) return;
+    if (!id) return false;
     setActionBusyId(id);
     setFetchError(null);
     setFetchErrorDetails(null);
@@ -671,16 +912,44 @@ export default function AdminWithdrawalsPage() {
     };
     const { error } = await supabase.from("withdrawal_requests").update(mergedPatch).eq("id", id);
     if (error) {
-      console.error("[admin/withdrawals] update failed:", error);
-      setFetchError(error.message || "Update failed.");
-      setFetchErrorDetails({
-        message: error.message ?? null,
-        code: error.code ?? null,
-        details: error.details ?? null,
-        hint: error.hint ?? null,
-      });
-      setActionBusyId(null);
-      return;
+      const manualKeys = ["manual_payout_reference", "manual_payout_confirmed_at", "manual_payout_confirmed_by"];
+      const hasManualFields = manualKeys.some((k) => mergedPatch[k] !== undefined);
+      const looksLikeMissingColumn =
+        hasManualFields &&
+        (String(error.message || "").toLowerCase().includes("manual_payout") ||
+          String(error.code || "") === "PGRST204");
+      if (looksLikeMissingColumn) {
+        const fallbackPatch = { ...mergedPatch };
+        for (const k of manualKeys) delete fallbackPatch[k];
+        const { error: retryErr } = await supabase.from("withdrawal_requests").update(fallbackPatch).eq("id", id);
+        if (!retryErr) {
+          console.warn(
+            "[admin/withdrawals] manual payout columns missing — saved external_reference only. Apply phase_13b_manual_payout_confirmation.sql.",
+          );
+        } else {
+          console.error("[admin/withdrawals] update failed:", retryErr);
+          setFetchError(retryErr.message || "Update failed.");
+          setFetchErrorDetails({
+            message: retryErr.message ?? null,
+            code: retryErr.code ?? null,
+            details: retryErr.details ?? null,
+            hint: retryErr.hint ?? null,
+          });
+          setActionBusyId(null);
+          return false;
+        }
+      } else {
+        console.error("[admin/withdrawals] update failed:", error);
+        setFetchError(error.message || "Update failed.");
+        setFetchErrorDetails({
+          message: error.message ?? null,
+          code: error.code ?? null,
+          details: error.details ?? null,
+          hint: error.hint ?? null,
+        });
+        setActionBusyId(null);
+        return false;
+      }
     }
     if (patch.status != null) {
       const prevStatus = String(row.status || "").toLowerCase();
@@ -718,51 +987,108 @@ export default function AdminWithdrawalsPage() {
     }
     await fetchRows();
     setActionBusyId(null);
+    return true;
+  };
+
+  const refundOutcomeMessage = (body) => {
+    const outcome = String(body?.outcome || "").toLowerCase();
+    if (outcome === "refunded") {
+      const amt = body?.amount != null ? `$${formatMoney(body.amount)}` : "Funds";
+      return `${amt} refunded to user wallet.`;
+    }
+    if (outcome === "already_refunded") return "Wallet was already refunded for this withdrawal.";
+    return "Refund request completed.";
+  };
+
+  const postAdminRefund = async (id, reason) => {
+    const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
+    if (sessErr || !sessionData?.session?.access_token) {
+      setFetchError("Could not read your session. Sign in again.");
+      setFetchErrorDetails(null);
+      return { ok: false };
+    }
+    const res = await fetch(`/api/admin/withdrawals/${encodeURIComponent(id)}/refund`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason: reason || null }),
+    });
+    const responseJson = await res.json().catch(() => ({}));
+    await fetchRows();
+    if (!res.ok) {
+      setFetchError(responseJson?.error || responseJson?.message || `Refund failed (${res.status})`);
+      setFetchErrorDetails(responseJson?.outcome ? { source: "api", payload: responseJson } : null);
+      return { ok: false, body: responseJson };
+    }
+    setFetchError(null);
+    setFetchErrorDetails(null);
+    return { ok: true, body: responseJson };
   };
 
   const handleMarkProcessing = (r) => {
     void runUpdate(r, { status: "processing" }, "processing", complianceByWithdrawalId[r.id]);
   };
 
-  const handleRecordManualPayout = (r) => {
-    const ok = window.confirm(
-      "Record a manual payout only after payment was completed outside Tropicash. Continue?",
-    );
-    if (!ok) return;
-    const rawVia = window.prompt(
-      `Paid via? Enter exactly one of: ${PAID_VIA_OPTIONS.join(", ")}`,
-      "PayPal",
-    );
-    if (rawVia === null) return;
-    const paidVia = String(rawVia || "").trim();
+  const openManualPayoutModal = (row) => {
+    if (!row?.id) return;
+    setManualPayoutForm({
+      open: true,
+      row,
+      paidVia: "PayPal",
+      reference: "",
+      confirmed: false,
+    });
+  };
+
+  const submitManualPayout = async () => {
+    const form = manualPayoutForm;
+    if (!form?.open || !form.row?.id) return;
+    if (!form.confirmed) {
+      window.alert("Confirm that payment was completed outside Tropicash.");
+      return;
+    }
+    const externalRefTrim = String(form.reference || "").trim();
+    if (externalRefTrim.length < 3) {
+      window.alert("External reference is required (min 3 characters).");
+      return;
+    }
+    const paidVia = String(form.paidVia || "").trim();
     if (!PAID_VIA_OPTIONS.includes(paidVia)) {
-      window.alert(`Invalid value. Use one of: ${PAID_VIA_OPTIONS.join(", ")}.`);
+      window.alert(`Invalid paid via. Use one of: ${PAID_VIA_OPTIONS.join(", ")}.`);
       return;
     }
-    const rawRef = window.prompt("External reference (required for audit trail)", "");
-    if (rawRef === null) return;
-    const externalRefTrim = String(rawRef || "").trim();
-    if (!externalRefTrim) {
-      window.alert("External reference is required for manual payout recording.");
-      return;
-    }
-    void runUpdate(
-      r,
+    const nowIso = new Date().toISOString();
+    setManualPayoutForm((prev) => (prev ? { ...prev, submitting: true } : prev));
+    await runUpdate(
+      form.row,
       {
         status: "paid",
-        paid_at: new Date().toISOString(),
+        paid_at: nowIso,
         paid_via: paidVia,
         external_reference: externalRefTrim,
+        manual_payout_reference: externalRefTrim,
+        manual_payout_confirmed_at: nowIso,
+        manual_payout_confirmed_by: user?.id ?? null,
         processor: "manual",
         processor_status: "recorded_manual",
       },
       "paid",
-      complianceByWithdrawalId[r.id],
+      complianceByWithdrawalId[form.row.id],
     );
+    setManualPayoutForm(null);
   };
 
   const postAdminPayout = async (id, { retry }) => {
-    if (!automatedPayoutsEnabled) return false;
+    if (!payoutReadiness?.payoutActionAvailable) {
+      const msg =
+        payoutReadiness?.blockers?.[0] ||
+        "PayPal payout is unavailable. Check the readiness panel and environment configuration.";
+      setFetchError(msg);
+      setFetchErrorDetails(null);
+      return false;
+    }
     const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
     if (sessErr || !sessionData?.session?.access_token) {
       setFetchError("Could not read your session. Sign in again.");
@@ -783,7 +1109,11 @@ export default function AdminWithdrawalsPage() {
       if (retry) {
         console.error("[WITHDRAWAL_RETRY_PAYOUT_ERROR]", responseJson);
       }
-      setFetchError(responseJson?.error || `Payout failed (${res.status})`);
+      const errLine =
+        responseJson?.summary && typeof responseJson.summary === "string"
+          ? `${responseJson.error || "Payout failed"}: ${responseJson.summary}`
+          : responseJson?.error || `Payout failed (${res.status})`;
+      setFetchError(errLine);
       if (responseJson?.details && typeof responseJson.details === "object") {
         setFetchErrorDetails({ source: "paypal", payload: responseJson.details });
       } else if (responseJson && typeof responseJson === "object" && Object.keys(responseJson).length > 0) {
@@ -795,11 +1125,28 @@ export default function AdminWithdrawalsPage() {
     }
     setFetchError(null);
     setFetchErrorDetails(null);
-    return true;
+    return { ok: true, body: responseJson };
+  };
+
+  const payoutOutcomeMessage = (body) => {
+    const st = String(body?.status || "").toLowerCase();
+    const batchNote = body?.batchId ? ` Batch ID: ${body.batchId}.` : "";
+    if (st === "paid") return "Paid — PayPal confirmed. The list has been refreshed.";
+    if (st === "processing") {
+      return `Processing — PayPal batch sent.${batchNote} Use Check status or webhooks before treating as settled.`;
+    }
+    if (st === "failed") return "Failed — PayPal error. Review failure details on the request.";
+    return "Payout API completed. The list has been refreshed.";
   };
 
   const handleSendPayout = async (r) => {
-    if (!automatedPayoutsEnabled) return;
+    if (!payoutReadiness?.payoutActionAvailable) {
+      setFetchError(
+        payoutReadiness?.blockers?.[0] ||
+          "PayPal payout is unavailable. Enable NEXT_PUBLIC_WITHDRAWAL_AUTOMATED_PAYOUT and server PayPal credentials.",
+      );
+      return;
+    }
     const id = r?.id;
     if (!id) return;
     const ok = window.confirm(
@@ -811,9 +1158,9 @@ export default function AdminWithdrawalsPage() {
     setFetchErrorDetails(null);
     setPayoutSuccessMessage(null);
     try {
-      const succeeded = await postAdminPayout(id, { retry: false });
-      if (succeeded) {
-        setPayoutSuccessMessage("Payout completed. The list has been refreshed.");
+      const result = await postAdminPayout(id, { retry: false });
+      if (result?.ok) {
+        setPayoutSuccessMessage(payoutOutcomeMessage(result.body));
       }
     } catch (err) {
       console.error("[admin/withdrawals] payout fetch failed:", err);
@@ -824,7 +1171,10 @@ export default function AdminWithdrawalsPage() {
   };
 
   const handleRetryPayout = async (r) => {
-    if (!automatedPayoutsEnabled) return;
+    if (!payoutReadiness?.payoutActionAvailable) {
+      setFetchError(payoutReadiness?.blockers?.[0] || "PayPal payout is unavailable.");
+      return;
+    }
     const id = r?.id;
     if (!id) return;
     const ok = window.confirm(
@@ -837,9 +1187,9 @@ export default function AdminWithdrawalsPage() {
     setFetchErrorDetails(null);
     setPayoutSuccessMessage(null);
     try {
-      const succeeded = await postAdminPayout(id, { retry: true });
-      if (succeeded) {
-        setPayoutSuccessMessage("Retry payout completed. The list has been refreshed.");
+      const result = await postAdminPayout(id, { retry: true });
+      if (result?.ok) {
+        setPayoutSuccessMessage(payoutOutcomeMessage(result.body));
       }
     } catch (err) {
       console.error("[admin/withdrawals] retry payout failed:", err);
@@ -852,7 +1202,7 @@ export default function AdminWithdrawalsPage() {
   };
 
   const handleCheckPayoutStatus = async (r) => {
-    if (!automatedPayoutsEnabled) return;
+    if (!payoutReadiness?.automationEnabled) return;
     const id = r?.id;
     if (!id) return;
     setActionBusyId(id);
@@ -885,7 +1235,7 @@ export default function AdminWithdrawalsPage() {
     setActionBusyId(null);
   };
 
-  const handleReject = (r) => {
+  const handleReject = async (r) => {
     const id = r?.id;
     if (!id) return;
     const note = String(adminNotesDraft[id] || "").trim();
@@ -893,7 +1243,8 @@ export default function AdminWithdrawalsPage() {
       window.alert("Add an admin note before rejecting (reason for the user / internal record).");
       return;
     }
-    void runUpdate(
+    const refundWallet = refundOnRejectById[id] !== false;
+    const ok = await runUpdate(
       r,
       {
         status: "rejected",
@@ -905,6 +1256,54 @@ export default function AdminWithdrawalsPage() {
       },
       "rejected",
     );
+    if (!ok) return;
+    if (!refundWallet) {
+      setRefundSuccessMessage(null);
+      return;
+    }
+    setActionBusyId(id);
+    setRefundSuccessMessage(null);
+    try {
+      const result = await postAdminRefund(id, note);
+      if (result.ok) {
+        setRefundSuccessMessage(refundOutcomeMessage(result.body));
+      }
+    } catch (err) {
+      console.error("[admin/withdrawals] reject refund failed:", err);
+      setFetchError(err?.message || "Rejection saved but wallet refund failed.");
+    }
+    setActionBusyId(null);
+  };
+
+  const handleRefundWallet = async (r) => {
+    const id = r?.id;
+    if (!id) return;
+    const st = String(r?.status || "").toLowerCase();
+    if (st !== "failed" && st !== "rejected") {
+      setFetchError("Only rejected or failed withdrawals can be refunded.");
+      return;
+    }
+    if (r?.refunded_at) {
+      setRefundSuccessMessage("Wallet was already refunded for this withdrawal.");
+      return;
+    }
+    const reason =
+      st === "rejected"
+        ? String(r?.rejection_reason || r?.admin_note || "").trim() || "Rejected withdrawal refund"
+        : String(r?.failure_reason || "").trim() || "Failed payout refund";
+    setActionBusyId(id);
+    setRefundSuccessMessage(null);
+    setFetchError(null);
+    try {
+      const result = await postAdminRefund(id, reason);
+      if (result.ok) {
+        setRefundSuccessMessage(refundOutcomeMessage(result.body));
+      }
+    } catch (err) {
+      console.error("[admin/withdrawals] refund failed:", err);
+      setFetchError(err?.message || "Wallet refund failed.");
+    }
+    setActionBusyId(null);
   };
 
   if (authLoading) {
@@ -980,13 +1379,11 @@ export default function AdminWithdrawalsPage() {
           complete (with paid via + external reference). Reject if you will not pay out.
         </p>
 
-        {automatedPayoutsEnabled ? (
-          <div style={{ ...cardBase, padding: "0.75rem 1rem", marginBottom: "1.25rem", background: "#f8fafc" }}>
-            <p style={{ margin: 0, fontSize: "0.82rem", color: "#475569", lineHeight: 1.5 }}>
-              <strong>Automated PayPal payouts are enabled.</strong> Confirm sandbox vs live before sending batches.
-            </p>
-          </div>
-        ) : null}
+        <PayPalPayoutReadinessPanel
+          readiness={payoutReadiness}
+          loading={payoutReadinessLoading}
+          onRefresh={loadPayoutReadiness}
+        />
 
         <div style={{ ...cardBase, padding: "0.85rem 1rem", marginBottom: "1.25rem" }}>
           <button type="button" onClick={() => void fetchRows()} disabled={dataLoading} style={{ ...btnSm, marginTop: 0 }}>
@@ -994,7 +1391,7 @@ export default function AdminWithdrawalsPage() {
           </button>
         </div>
 
-        {automatedPayoutsEnabled && payoutSuccessMessage ? (
+        {payoutSuccessMessage ? (
           <div
             style={{
               ...cardBase,
@@ -1005,6 +1402,20 @@ export default function AdminWithdrawalsPage() {
             }}
           >
             <p style={{ margin: 0, color: "#047857", fontSize: "0.9rem", fontWeight: 600 }}>{payoutSuccessMessage}</p>
+          </div>
+        ) : null}
+
+        {refundSuccessMessage ? (
+          <div
+            style={{
+              ...cardBase,
+              padding: "1rem",
+              marginBottom: "1rem",
+              borderColor: "#93c5fd",
+              background: "#eff6ff",
+            }}
+          >
+            <p style={{ margin: 0, color: "#1d4ed8", fontSize: "0.9rem", fontWeight: 600 }}>{refundSuccessMessage}</p>
           </div>
         ) : null}
 
@@ -1051,10 +1462,19 @@ export default function AdminWithdrawalsPage() {
               const hasBatch = !!(r?.processor_batch_id && String(r.processor_batch_id).trim());
               const payoutEmail = String(r?.payout_email || r?.payout_destination || "").trim();
               const hasPayoutEmail = payoutEmail.length > 0;
+              const payoutActionReady = !!payoutReadiness?.payoutActionAvailable;
+              const automationOn = !!payoutReadiness?.automationEnabled;
+              const payoutBlockerHint =
+                payoutReadiness?.blockers?.length > 0
+                  ? payoutReadiness.blockers.join(" ")
+                  : "PayPal payout is unavailable. Check the readiness panel.";
               const showAutomatedSend =
-                automatedPayoutsEnabled && st === "pending" && hasPayoutEmail && !hasBatch;
-              const showAutomatedCheck = automatedPayoutsEnabled && st === "processing" && hasBatch;
-              const showAutomatedRetry = automatedPayoutsEnabled && st === "failed";
+                automationOn && st === "pending" && hasPayoutEmail && !hasBatch;
+              const showAutomatedCheck = automationOn && st === "processing" && hasBatch;
+              const showAutomatedRetry = automationOn && st === "failed";
+              const isRefunded = !!r?.refunded_at;
+              const showRefundWallet =
+                (st === "failed" || st === "rejected") && !isRefunded;
               const canRecordManual = st !== "paid" && st !== "rejected";
               const canMarkProcessing = st === "pending";
               const p = profilesMap[r.user_id];
@@ -1067,10 +1487,20 @@ export default function AdminWithdrawalsPage() {
               const procStatus = r?.processor_status != null ? String(r.processor_status).trim() : "";
               const paidVia = r?.paid_via != null ? String(r.paid_via).trim() : "";
               const extRef = r?.external_reference != null ? String(r.external_reference).trim() : "";
+              const manualRef =
+                r?.manual_payout_reference != null ? String(r.manual_payout_reference).trim() : "";
+              const manualConfirmedAt = r?.manual_payout_confirmed_at;
+              const manualConfirmedBy = r?.manual_payout_confirmed_by;
+              const refundedAt = r?.refunded_at;
+              const refundReason = r?.refund_reason != null ? String(r.refund_reason).trim() : "";
               const paidAt = r?.paid_at;
               const showPrimaryActions =
-                showAutomatedSend || showAutomatedCheck || showAutomatedRetry || canRecordManual;
-              const showSecondaryActions = canMarkProcessing || canRecordManual;
+                showAutomatedSend ||
+                showAutomatedCheck ||
+                showAutomatedRetry ||
+                showRefundWallet ||
+                canRecordManual;
+              const showSecondaryActions = canMarkProcessing || canRecordManual || (st !== "rejected" && st !== "paid");
               const compliance = complianceByWithdrawalId[r.id];
               const showComplianceCaution =
                 compliance?.showComplianceCaution &&
@@ -1156,7 +1586,7 @@ export default function AdminWithdrawalsPage() {
                         ${formatMoney(r?.amount)}
                       </span>
                       <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem", justifyContent: "flex-end" }}>
-                        <span style={statusBadgeStyle(r?.status)}>{adminStatusDisplay(r?.status)}</span>
+                        <span style={statusBadgeStyle(r?.status)}>{adminStatusDisplay(r)}</span>
                         {withdrawalUrgencyChips(r, userWithdrawalCounts).map((chip) => (
                           <span
                             key={chip.key}
@@ -1253,6 +1683,22 @@ export default function AdminWithdrawalsPage() {
                     {paidAt ? <WithdrawalDetail label="Paid date">{formatWhen(paidAt)}</WithdrawalDetail> : null}
                     {paidVia ? <WithdrawalDetail label="Paid via">{paidVia}</WithdrawalDetail> : null}
                     {extRef ? <WithdrawalDetail label="Reference">{extRef}</WithdrawalDetail> : null}
+                    {manualRef && manualRef !== extRef ? (
+                      <WithdrawalDetail label="Manual payout reference">{manualRef}</WithdrawalDetail>
+                    ) : null}
+                    {manualConfirmedAt ? (
+                      <WithdrawalDetail label="Manual confirmation">{formatWhen(manualConfirmedAt)}</WithdrawalDetail>
+                    ) : null}
+                    {manualConfirmedBy ? (
+                      <WithdrawalDetail label="Confirmed by admin">{shortUuid(String(manualConfirmedBy))}</WithdrawalDetail>
+                    ) : null}
+                    {refundedAt ? (
+                      <WithdrawalDetail label="Wallet refunded">{formatWhen(refundedAt)}</WithdrawalDetail>
+                    ) : null}
+                    {refundReason ? <WithdrawalDetail label="Refund reason">{refundReason}</WithdrawalDetail> : null}
+                    {r?.refund_transaction_id ? (
+                      <WithdrawalDetail label="Refund txn">{shortUuid(String(r.refund_transaction_id))}</WithdrawalDetail>
+                    ) : null}
                     {st === "rejected" && r?.rejection_reason != null && String(r.rejection_reason).trim() ? (
                       <WithdrawalDetail label="Rejection reason">{String(r.rejection_reason).trim()}</WithdrawalDetail>
                     ) : null}
@@ -1301,9 +1747,27 @@ export default function AdminWithdrawalsPage() {
                                 ...disabledStyle,
                               }}
                               disabled={busy}
-                              onClick={() => handleRecordManualPayout(r)}
+                              onClick={() => openManualPayoutModal(r)}
                             >
                               Record manual payout
+                            </button>
+                          ) : null}
+                          {showRefundWallet ? (
+                            <button
+                              type="button"
+                              style={{
+                                ...btnBase,
+                                border: "1px solid #2563eb",
+                                background: "linear-gradient(180deg, #60a5fa 0%, #2563eb 100%)",
+                                color: "#ffffff",
+                                boxShadow: "0 2px 8px rgba(37, 99, 235, 0.22)",
+                                ...disabledStyle,
+                              }}
+                              disabled={busy}
+                              onClick={() => void handleRefundWallet(r)}
+                              title="Credit the user's wallet for this rejected/failed withdrawal (idempotent)."
+                            >
+                              Refund wallet
                             </button>
                           ) : null}
                           {showAutomatedSend ? (
@@ -1312,14 +1776,22 @@ export default function AdminWithdrawalsPage() {
                               style={{
                                 ...btnBase,
                                 border: "1px solid #15803d",
-                                background: "linear-gradient(180deg, #15803d 0%, #166534 100%)",
-                                color: "#ffffff",
-                                boxShadow: "0 2px 8px rgba(22, 163, 74, 0.2)",
+                                background: payoutActionReady
+                                  ? "linear-gradient(180deg, #15803d 0%, #166534 100%)"
+                                  : "#e2e8f0",
+                                color: payoutActionReady ? "#ffffff" : "#64748b",
+                                boxShadow: payoutActionReady ? "0 2px 8px rgba(22, 163, 74, 0.2)" : "none",
                                 ...disabledStyle,
                               }}
-                              disabled={busy}
+                              disabled={busy || !payoutActionReady}
                               onClick={() => void handleSendPayout(r)}
-                              title={!hasPayoutEmail ? "Missing payout email on withdrawal request." : undefined}
+                              title={
+                                !hasPayoutEmail
+                                  ? "Missing payout email on withdrawal request."
+                                  : !payoutActionReady
+                                    ? payoutBlockerHint
+                                    : undefined
+                              }
                             >
                               Send payout (PayPal)
                             </button>
@@ -1352,9 +1824,13 @@ export default function AdminWithdrawalsPage() {
                                 boxShadow: "0 2px 8px rgba(245, 158, 11, 0.25)",
                                 ...disabledStyle,
                               }}
-                              disabled={busy}
+                              disabled={busy || !payoutActionReady}
                               onClick={() => void handleRetryPayout(r)}
-                              title="Submits a new PayPal payout with retry: true (fresh idempotency key when needed)."
+                              title={
+                                !payoutActionReady
+                                  ? payoutBlockerHint
+                                  : "Submits a new PayPal payout with retry: true (fresh idempotency key when needed)."
+                              }
                             >
                               {payoutRetryLoadingId === r.id ? "Retrying..." : "Retry payout"}
                             </button>
@@ -1382,21 +1858,44 @@ export default function AdminWithdrawalsPage() {
                             </button>
                           ) : null}
                           {canRecordManual ? (
-                            <button
-                              type="button"
-                              style={{
-                                ...btnBase,
-                                border: "1px solid #fecaca",
-                                background: "#fef2f2",
-                                color: "#b91c1c",
-                                fontWeight: 600,
-                                ...disabledStyle,
-                              }}
-                              disabled={busy}
-                              onClick={() => handleReject(r)}
-                            >
-                              Reject
-                            </button>
+                            <>
+                              <label
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.4rem",
+                                  fontSize: "0.78rem",
+                                  color: "#475569",
+                                  marginRight: "0.25rem",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={refundOnRejectById[r.id] !== false}
+                                  onChange={(e) =>
+                                    setRefundOnRejectById((prev) => ({ ...prev, [r.id]: e.target.checked }))
+                                  }
+                                  disabled={busy}
+                                />
+                                Refund wallet balance after rejection
+                              </label>
+                              <button
+                                type="button"
+                                style={{
+                                  ...btnBase,
+                                  border: "1px solid #fecaca",
+                                  background: "#fef2f2",
+                                  color: "#b91c1c",
+                                  fontWeight: 600,
+                                  ...disabledStyle,
+                                }}
+                                disabled={busy}
+                                onClick={() => void handleReject(r)}
+                              >
+                                Reject
+                              </button>
+                            </>
                           ) : null}
                         </div>
                       ) : null}
@@ -1420,6 +1919,14 @@ export default function AdminWithdrawalsPage() {
           )}
         </div>
       </div>
+
+      <ManualPayoutModal
+        form={manualPayoutForm}
+        submitting={!!manualPayoutForm?.submitting}
+        onChange={(patch) => setManualPayoutForm((prev) => (prev ? { ...prev, ...patch } : prev))}
+        onClose={() => setManualPayoutForm(null)}
+        onSubmit={() => void submitManualPayout()}
+      />
     </>
   );
 }

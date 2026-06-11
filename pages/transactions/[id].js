@@ -5,6 +5,7 @@ import Navbar from "../../components/Navbar";
 import { supabase } from "../../lib/supabaseClient";
 import { useUser } from "../../lib/userContext";
 import {
+  findWithdrawalMatchForRefundTransaction,
   findWithdrawalMatchForWithdrawTransaction,
   formatWithdrawalFailureForUser,
   withdrawalStatusBadgeStyle,
@@ -41,6 +42,7 @@ function normalizeType(type) {
   if (raw === "receive_money") return "receive";
   if (raw === "fund_wallet") return "fund";
   if (raw === "withdraw_wallet") return "withdraw";
+  if (raw === "withdrawal_refund") return "withdrawal_refund";
   return raw;
 }
 
@@ -68,6 +70,7 @@ function transactionMethod(txn) {
   if (norm === "fund") return "Wallet";
   if (norm === "send" || norm === "receive") return "Wallet Transfer";
   if (norm === "withdraw") return "PayPal payout";
+  if (norm === "withdrawal_refund") return "Wallet credit";
   return "Wallet";
 }
 
@@ -90,10 +93,15 @@ function classifyDetail(txn, userId, namesById) {
   let recipientName = recipientId ? namesById[recipientId] || recipientId : "—";
 
   if (normalized === "withdraw") {
-    label = "Withdrawal";
+    label = "Withdrawal request";
     direction = "outgoing";
     senderName = "You";
     recipientName = "PayPal";
+  } else if (normalized === "withdrawal_refund") {
+    label = "Withdrawal refund";
+    direction = "incoming";
+    senderName = "Tropicash";
+    recipientName = "You";
   } else if (normalized === "fund") {
     label = fundingRowLabel();
     direction = "incoming";
@@ -211,10 +219,10 @@ export default function TransactionDetailPage() {
       setTransaction(txn);
 
       const normType = normalizeType(txn.type);
-      if (normType === "withdraw") {
+      if (normType === "withdraw" || normType === "withdrawal_refund") {
         const { data: wrData } = await supabase
           .from("withdrawal_requests")
-          .select("id, user_id, amount, payout_email, payout_destination, status, paid_at, failure_reason, created_at, external_reference")
+          .select("id, user_id, amount, payout_email, payout_destination, status, paid_at, failure_reason, created_at, external_reference, withdrawal_transaction_id, refunded_at, refund_transaction_id")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(80);
@@ -272,10 +280,15 @@ export default function TransactionDetailPage() {
 
   const withdrawalMatch = useMemo(() => {
     if (!transaction || !user?.id) return null;
+    const normType = normalizeType(transaction.type);
+    if (normType === "withdrawal_refund") {
+      return findWithdrawalMatchForRefundTransaction(transaction, withdrawalRows);
+    }
     return findWithdrawalMatchForWithdrawTransaction(transaction, withdrawalRows, user.id);
   }, [transaction, withdrawalRows, user?.id]);
 
   const isWithdrawDetail = transaction && normalizeType(transaction.type) === "withdraw";
+  const isRefundDetail = transaction && normalizeType(transaction.type) === "withdrawal_refund";
 
   const handleCopyTxId = async () => {
     if (!transaction?.id) return;
@@ -348,11 +361,11 @@ export default function TransactionDetailPage() {
               <DetailRow label="Recipient" value={detail.recipientName || "—"} />
             </div>
 
-            {isWithdrawDetail ? (
+            {isWithdrawDetail || isRefundDetail ? (
               <>
                 <div style={sectionDivider} />
-                <p style={sectionHeading}>Payout status</p>
-                <WithdrawalLifecycle withdrawal={withdrawalMatch} />
+                <p style={sectionHeading}>{isRefundDetail ? "Linked withdrawal" : "Payout status"}</p>
+                <WithdrawalLifecycle withdrawal={withdrawalMatch} isRefund={isRefundDetail} />
               </>
             ) : null}
 
@@ -381,12 +394,13 @@ export default function TransactionDetailPage() {
   );
 }
 
-function WithdrawalLifecycle({ withdrawal }) {
+function WithdrawalLifecycle({ withdrawal, isRefund = false }) {
   if (!withdrawal) {
     return (
       <p style={{ margin: 0, fontSize: "0.88rem", color: "#64748b", lineHeight: 1.5 }}>
-        Withdrawal request details will appear here when linked to your payout queue. Amount and date already match your
-        wallet debit.
+        {isRefund
+          ? "This refund could not be linked to a withdrawal request. The amount was still returned to your wallet."
+          : "Withdrawal request details will appear here when linked to your payout queue. Amount and date already match your wallet debit."}
       </p>
     );
   }
@@ -407,6 +421,16 @@ function WithdrawalLifecycle({ withdrawal }) {
 
   return (
     <div style={{ maxWidth: "100%", boxSizing: "border-box" }}>
+      {isRefund ? (
+        <p style={{ margin: "0 0 0.75rem", fontSize: "0.84rem", color: "#475569", lineHeight: 1.45 }}>
+          Refund for withdrawal request · current status below.
+        </p>
+      ) : null}
+      {withdrawal.refunded_at ? (
+        <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "#1d4ed8" }}>
+          Wallet refunded {formatDateTime(withdrawal.refunded_at)}
+        </p>
+      ) : null}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
         <span style={withdrawalStatusBadgeStyle(withdrawal.status)}>{withdrawalStatusUserLine(withdrawal.status)}</span>
       </div>

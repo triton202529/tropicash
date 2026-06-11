@@ -156,6 +156,9 @@ export default function Navbar() {
                     <button type="button" onClick={() => router.push("/security")} className={dropdownItemClass}>
                       Security
                     </button>
+                    <button type="button" onClick={() => router.push("/oauth/apps")} className={dropdownItemClass}>
+                      Connected Apps
+                    </button>
                     <button type="button" onClick={() => router.push("/kyc")} className={dropdownItemClass}>
                       Verify Identity
                     </button>
@@ -178,6 +181,13 @@ export default function Navbar() {
                         </button>
                         <button type="button" onClick={() => router.push("/admin/alerts")} className={dropdownItemClass}>
                           Alert center
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/oauth-access-review")}
+                          className={dropdownItemClass}
+                        >
+                          OAuth access review
                         </button>
                         <button type="button" onClick={() => router.push("/admin/cases")} className={dropdownItemClass}>
                           Cases
