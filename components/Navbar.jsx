@@ -189,6 +189,20 @@ export default function Navbar() {
                         >
                           OAuth access review
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/oauth-wallet-test-evidence")}
+                          className={dropdownItemClass}
+                        >
+                          OAuth wallet evidence
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/oauth-wallet-certification")}
+                          className={dropdownItemClass}
+                        >
+                          OAuth wallet certification
+                        </button>
                         <button type="button" onClick={() => router.push("/admin/cases")} className={dropdownItemClass}>
                           Cases
                         </button>
