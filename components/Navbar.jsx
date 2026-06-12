@@ -203,6 +203,20 @@ export default function Navbar() {
                         >
                           OAuth wallet certification
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/oauth-wallet-sandbox-checklist")}
+                          className={dropdownItemClass}
+                        >
+                          OAuth wallet checklist
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/oauth-wallet-sandbox-release-gate")}
+                          className={dropdownItemClass}
+                        >
+                          OAuth sandbox release gate
+                        </button>
                         <button type="button" onClick={() => router.push("/admin/cases")} className={dropdownItemClass}>
                           Cases
                         </button>
