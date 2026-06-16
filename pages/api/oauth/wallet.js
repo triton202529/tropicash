@@ -18,6 +18,7 @@ import {
 } from '../../../lib/oauthWalletApi';
 import { classifySuspiciousOAuthAccess } from '../../../lib/oauthSuspiciousAccess';
 import { createSupabaseServiceClient } from '../../../lib/supabaseAdminApi';
+import { logSandboxActivityForAppFireAndForget } from '../../../lib/developerSandboxMonitoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -43,6 +44,13 @@ export default async function handler(req, res) {
         error: result.error,
         endpoint: '/api/oauth/wallet',
       });
+      logSandboxActivityForAppFireAndForget({
+        developer_app_id: context.app_id,
+        activity_type: 'oauth_wallet_access',
+        resource: '/api/oauth/wallet',
+        metadata: { blocked: true, error: result.error },
+        client,
+      });
     }
     const status = result.error === 'consent_required' ? 403 : 503;
     return res.status(status).json({ ok: false, error: result.error });
@@ -52,6 +60,17 @@ export default async function handler(req, res) {
     endpoint: '/api/oauth/wallet',
     wallet_status: result.wallet.wallet_status,
     kyc_status: result.wallet.kyc_status,
+  });
+
+  logSandboxActivityForAppFireAndForget({
+    developer_app_id: context.app_id,
+    activity_type: 'oauth_wallet_access',
+    resource: '/api/oauth/wallet',
+    metadata: {
+      wallet_status: result.wallet.wallet_status,
+      kyc_status: result.wallet.kyc_status,
+    },
+    client,
   });
 
   await classifySuspiciousOAuthAccess(client, context, '/api/oauth/wallet');

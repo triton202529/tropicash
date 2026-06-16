@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AdminGovernanceNavCard from "../../components/devconsole/AdminGovernanceNavCard";
 import DevConsoleLayout from "../../components/devconsole/DevConsoleLayout";
+import { getDeveloperJourney } from "../../lib/developerSandboxOnboarding";
 
 const DEVELOPER_TOOLS = [
   {
@@ -122,6 +123,40 @@ export default function DevConsoleOverviewPage() {
           </p>
         </section>
       </div>
+
+      {/* External Developer Journey */}
+      <section
+        className="tropicash-surface rounded-2xl p-5 sm:p-6"
+        aria-labelledby="external-journey-heading"
+      >
+        <h2 id="external-journey-heading" className="text-lg font-bold text-slate-900">
+          External Developer Journey
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Share the public onboarding guide with external developers. Sandbox only — production
+          disabled.
+        </p>
+        <ol className="mt-4 space-y-3">
+          {getDeveloperJourney().map((step) => (
+            <li key={step.id} className="flex gap-3 text-sm text-slate-700">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                {step.step}
+              </span>
+              <span>
+                <span className="font-semibold text-slate-900">{step.title}</span>
+                {" — "}
+                {step.summary}
+              </span>
+            </li>
+          ))}
+        </ol>
+        <Link
+          href="/developers/get-started"
+          className="mt-4 inline-flex rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:shadow-sm"
+        >
+          View public onboarding guide
+        </Link>
+      </section>
 
       {/* Developer Tools quick access */}
       <section aria-labelledby="developer-tools-heading">

@@ -38,15 +38,21 @@ export default function Navbar() {
     profile,
     loading,
   );
+  const publicDevelopersHref = "/developers/get-started";
+  const navDevelopersHref =
+    developersHref === "/dev-console" ? developersHref : publicDevelopersHref;
 
   const goDevelopers = async (event) => {
     if (event?.preventDefault) {
       event.preventDefault();
     }
     setShowDropdown(false);
-    const target = developersNavChecking
+    let target = developersNavChecking
       ? await resolveDeveloperNavHref(user, profile, loading)
       : developersHref;
+    if (target !== "/dev-console") {
+      target = publicDevelopersHref;
+    }
     await router.push(target);
   };
 
@@ -109,11 +115,17 @@ export default function Navbar() {
           </button>
           <div className="hidden items-center gap-2 border-l border-white/20 pl-2.5 text-[0.7rem] font-semibold text-white/90 sm:flex sm:text-xs">
             <Link
-              href={developersHref}
+              href={navDevelopersHref}
               onClick={handleDevelopersNavClick}
               className="whitespace-nowrap hover:underline"
             >
               Developers
+            </Link>
+            <span className="text-white/35" aria-hidden>
+              ·
+            </span>
+            <Link href="/developers/apply" className="whitespace-nowrap hover:underline">
+              Apply
             </Link>
             <span className="text-white/35" aria-hidden>
               ·
@@ -216,6 +228,41 @@ export default function Navbar() {
                           className={dropdownItemClass}
                         >
                           OAuth sandbox release gate
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/developer-sandbox-applications")}
+                          className={dropdownItemClass}
+                        >
+                          Developer sandbox applications
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/developer-sandbox-access-policy")}
+                          className={dropdownItemClass}
+                        >
+                          Developer sandbox access policy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/developer-sandbox-agreements")}
+                          className={dropdownItemClass}
+                        >
+                          Developer sandbox agreements
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/developer-sandbox-access")}
+                          className={dropdownItemClass}
+                        >
+                          Developer sandbox access
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/admin/developer-sandbox-monitoring")}
+                          className={dropdownItemClass}
+                        >
+                          Developer sandbox monitoring
                         </button>
                         <button type="button" onClick={() => router.push("/admin/cases")} className={dropdownItemClass}>
                           Cases

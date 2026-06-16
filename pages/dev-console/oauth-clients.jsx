@@ -9,6 +9,13 @@ import {
   rotateOAuthClientSecret,
   disableOAuthClient,
 } from "../../lib/oauthClients";
+import {
+  evaluateDeveloperSandboxAccess,
+  SANDBOX_APPROVAL_UI,
+  SANDBOX_AGREEMENT_UI,
+  SANDBOX_LIFECYCLE_UI,
+} from "../../lib/developerSandboxAccessPolicy";
+import { getCapabilityLabel } from "../../lib/developerSandboxApplications";
 
 const labelClass = "mb-1 block text-sm font-semibold text-slate-700";
 const inputClass =
@@ -140,6 +147,7 @@ export default function DevConsoleOAuthClientsPage() {
   const [secretResult, setSecretResult] = useState(null);
   const [actionMessage, setActionMessage] = useState({ type: "", text: "" });
   const [busyId, setBusyId] = useState(null);
+  const [accessEval, setAccessEval] = useState(null);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -150,9 +158,10 @@ export default function DevConsoleOAuthClientsPage() {
     }
     setLoading(true);
     setLoadError("");
-    const [aRes, cRes] = await Promise.all([
+    const [aRes, cRes, access] = await Promise.all([
       fetchDeveloperApps(userId),
       fetchOAuthClients(userId),
+      evaluateDeveloperSandboxAccess(userId),
     ]);
     const parts = [];
     if (aRes.error) parts.push(aRes.error.message || "Could not load apps.");
@@ -160,6 +169,7 @@ export default function DevConsoleOAuthClientsPage() {
     setLoadError(parts.join(" "));
     setApps(aRes.error ? [] : aRes.data || []);
     setClients(cRes.error ? [] : cRes.data || []);
+    setAccessEval(access);
     setLoading(false);
   }, [userId]);
 
@@ -195,6 +205,7 @@ export default function DevConsoleOAuthClientsPage() {
 
     setSubmitting(true);
     const { data, clientId, secret, error } = await createOAuthClient({
+      user_id: userId,
       app_id: app.id,
       client_name: clientName,
       redirect_uris: redirectUris,
@@ -203,7 +214,21 @@ export default function DevConsoleOAuthClientsPage() {
     setSubmitting(false);
 
     if (error) {
-      setFormMessage({ type: "error", text: error.message || "Could not create OAuth client." });
+      const blocked =
+        error.code === "sandbox_access_not_approved" ||
+        error.code === "sandbox_capability_blocked" ||
+        error.code === "sandbox_agreement_required" ||
+        error.code === "sandbox_access_not_active";
+      setFormMessage({
+        type: "error",
+        text: blocked
+          ? error.code === "sandbox_agreement_required"
+            ? "Sandbox agreement required. Accept the agreement before creating OAuth clients."
+            : error.code === "sandbox_access_not_active"
+              ? "Sandbox access is not active. An administrator must activate your access."
+              : "Sandbox access not approved. Your application must include oauth_profile or oauth_wallet_sandbox."
+          : error.message || "Could not create OAuth client.",
+      });
       return;
     }
 
@@ -271,6 +296,34 @@ export default function DevConsoleOAuthClientsPage() {
   }
 
   const hasApps = apps.length > 0;
+  const approvalUi =
+    SANDBOX_APPROVAL_UI[accessEval?.status] || SANDBOX_APPROVAL_UI.no_application;
+  const approvalToneClass = {
+    ready: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
+    blocked: "border-red-200 bg-red-50 text-red-900",
+    info: "border-sky-200 bg-sky-50 text-sky-900",
+  }[approvalUi.tone] || "border-sky-200 bg-sky-50 text-sky-900";
+  const oauthCaps = new Set(["oauth_profile", "oauth_wallet_sandbox"]);
+  const hasOAuthCapability =
+    Boolean(accessEval?.approved) &&
+    accessEval.capabilities.some((c) => oauthCaps.has(c));
+  const canCreateOAuth = Boolean(accessEval?.readyForSandboxResources) && hasOAuthCapability;
+  const agreementUi = accessEval?.agreementAccepted
+    ? SANDBOX_AGREEMENT_UI.accepted
+    : SANDBOX_AGREEMENT_UI.required;
+  const agreementToneClass = {
+    ready: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
+  }[agreementUi.tone] || "border-amber-200 bg-amber-50 text-amber-900";
+  const lifecycleKey = accessEval?.lifecycleEffectiveStatus || "pending_activation";
+  const lifecycleUi =
+    SANDBOX_LIFECYCLE_UI[lifecycleKey] || SANDBOX_LIFECYCLE_UI.pending_activation;
+  const lifecycleToneClass = {
+    ready: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
+    blocked: "border-red-200 bg-red-50 text-red-900",
+  }[lifecycleUi.tone] || "border-amber-200 bg-amber-50 text-amber-900";
 
   return (
     <DevConsoleLayout
@@ -278,6 +331,110 @@ export default function DevConsoleOAuthClientsPage() {
       subtitle="Register OAuth clients and issue client credentials. Secrets are shown once and stored only as SHA-256 hashes. No tokens or consent are issued in this phase."
     >
       <OneTimeSecretModal result={secretResult} onClose={() => setSecretResult(null)} />
+
+      <section
+        className={`rounded-2xl border p-5 sm:p-6 ${approvalToneClass}`}
+        aria-labelledby="sandbox-approval-heading"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="sandbox-approval-heading" className="text-lg font-bold">
+            Sandbox access
+          </h2>
+          <span className="inline-block rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-bold">
+            {approvalUi.badge}
+          </span>
+        </div>
+        <p className="mt-2 text-sm opacity-90">{approvalUi.message}</p>
+        {accessEval?.approved ? (
+          <div className="mt-3 text-sm">
+            <p className="font-semibold">Approved capabilities</p>
+            <ul className="mt-1 list-inside list-disc">
+              {accessEval.capabilities.map((cap) => (
+                <li key={cap}>{getCapabilityLabel(cap)}</li>
+              ))}
+            </ul>
+            {accessEval.reviewedAt ? (
+              <p className="mt-2 text-xs opacity-80">
+                Approved {formatWhen(accessEval.reviewedAt)}
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs opacity-80">
+              OAuth clients require oauth_profile or oauth_wallet_sandbox. No money movement or
+              production access.
+            </p>
+          </div>
+        ) : null}
+        {accessEval?.status === "no_application" && approvalUi.applyHref ? (
+          <p className="mt-3 text-sm">
+            <Link
+              href={approvalUi.applyHref}
+              className="font-semibold underline underline-offset-2"
+            >
+              Apply for sandbox access
+            </Link>
+          </p>
+        ) : null}
+      </section>
+
+      {accessEval?.approved ? (
+        <section
+          className={`rounded-2xl border p-5 sm:p-6 ${agreementToneClass}`}
+          aria-labelledby="sandbox-agreement-heading"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="sandbox-agreement-heading" className="text-lg font-bold">
+              Sandbox agreement
+            </h2>
+            <span className="inline-block rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-bold">
+              {agreementUi.badge}
+            </span>
+          </div>
+          <p className="mt-2 text-sm opacity-90">{agreementUi.message}</p>
+          {accessEval.agreementAccepted && accessEval.agreementAcceptedAt ? (
+            <p className="mt-2 text-xs opacity-80">
+              Version {accessEval.agreementVersion || accessEval.currentAgreementVersion} accepted{" "}
+              {formatWhen(accessEval.agreementAcceptedAt)}
+            </p>
+          ) : null}
+          {!accessEval.agreementAccepted && agreementUi.agreementHref ? (
+            <p className="mt-3 text-sm">
+              <Link
+                href={agreementUi.agreementHref}
+                className="font-semibold underline underline-offset-2"
+              >
+                Accept sandbox agreement
+              </Link>
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {accessEval?.approved && accessEval?.agreementAccepted ? (
+        <section
+          className={`rounded-2xl border p-5 sm:p-6 ${lifecycleToneClass}`}
+          aria-labelledby="sandbox-lifecycle-heading"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="sandbox-lifecycle-heading" className="text-lg font-bold">
+              Access lifecycle
+            </h2>
+            <span className="inline-block rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-bold">
+              {lifecycleUi.badge}
+            </span>
+          </div>
+          <p className="mt-2 text-sm opacity-90">{lifecycleUi.message}</p>
+          {accessEval.lifecycleActivatedAt ? (
+            <p className="mt-2 text-xs opacity-80">
+              Activated {formatWhen(accessEval.lifecycleActivatedAt)}
+            </p>
+          ) : null}
+          {accessEval.lifecycleExpiresAt ? (
+            <p className="mt-1 text-xs opacity-80">
+              Expires {formatWhen(accessEval.lifecycleExpiresAt)}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <div
         role="note"
@@ -327,7 +484,7 @@ export default function DevConsoleOAuthClientsPage() {
               Register a sandbox OAuth client for one of your applications.
             </p>
           </div>
-          {hasApps ? (
+          {hasApps && canCreateOAuth ? (
             <button
               type="button"
               onClick={() => {
@@ -351,6 +508,19 @@ export default function DevConsoleOAuthClientsPage() {
               Register an app
             </Link>
             .
+          </p>
+        ) : hasApps && accessEval?.approved && hasOAuthCapability && accessEval?.agreementAccepted && !accessEval?.lifecycleActive ? (
+          <p className="mt-3 text-sm text-slate-600">
+            OAuth client creation is disabled until an administrator activates your sandbox access.
+          </p>
+        ) : hasApps && accessEval?.approved && hasOAuthCapability && !accessEval?.agreementAccepted ? (
+          <p className="mt-3 text-sm text-slate-600">
+            OAuth client creation is disabled until you accept the sandbox agreement.
+          </p>
+        ) : hasApps && !canCreateOAuth ? (
+          <p className="mt-3 text-sm text-slate-600">
+            OAuth client creation is disabled until your sandbox application is approved with
+            oauth_profile or oauth_wallet_sandbox.
           </p>
         ) : null}
 

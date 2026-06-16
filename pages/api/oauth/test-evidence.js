@@ -18,6 +18,7 @@ import {
   EVIDENCE_STATUSES,
   sanitizeOAuthWalletEvidence,
 } from '../../../lib/oauthWalletTestEvidence';
+import { recordSandboxActivity } from '../../../lib/developerSandboxMonitoring';
 import { createClient } from '@supabase/supabase-js';
 
 function isUuidLike(v) {
@@ -169,6 +170,20 @@ export default async function handler(req, res) {
   if (error) {
     return res.status(500).json({ ok: false, error: 'insert_failed' });
   }
+
+  void recordSandboxActivity({
+    user_id: userId,
+    developer_app_id: payload.developer_app_id,
+    activity_type: 'oauth_test_run',
+    resource: 'oauth_wallet_test_evidence',
+    metadata: {
+      run_id: payload.run_id,
+      step_key: payload.step_key,
+      status: payload.status,
+      http_status: payload.http_status,
+    },
+    client: serviceClient,
+  });
 
   return res.status(200).json({ ok: true, id: data?.id ?? null });
 }

@@ -1,0 +1,40 @@
+---
+description: Always apply Supabase SQL migrations when SQL files are created or modified
+globs: supabase/sql/**/*.sql
+alwaysApply: true
+---
+
+# Apply Supabase SQL migrations
+
+When a task creates or modifies SQL under `supabase/sql/`, **always apply it to Supabase** before considering the task complete. Do not leave migration SQL only in the repo.
+
+## Required workflow
+
+1. **Authenticate** — use Supabase MCP (`mcp_auth`) if not already connected.
+2. **Resolve project** — `list_projects` and use the `tropicash` project unless the user specifies another.
+3. **Apply migrations** — use `apply_migration` (not `execute_sql`) for DDL:
+   - One migration per SQL file
+   - Apply in dependency order (earlier phases before later ones)
+   - Use the file’s snake_case name as the migration name
+4. **Verify** — run `execute_sql` to confirm:
+   - Tables exist
+   - `rls_enabled = true` on new tables
+   - Expected policies appear in `pg_policies`
+5. **Report** — tell the user which migrations ran and verification results.
+
+## When to apply
+
+- New phase deliverables that include `supabase/sql/*.sql`
+- Fixes or updates to existing migration files (re-apply idempotent SQL)
+- User asks to implement a feature that ships SQL
+
+## Do not skip because
+
+- “User can run it manually” — apply it unless MCP auth fails or the user explicitly opts out
+- Phase has app-only code — still apply any SQL files that exist for that phase
+- Build/lint passed — local build does not replace remote schema
+
+## If MCP is unavailable
+
+- Attempt authentication once
+- If blocked, say clearly which SQL files were not applied and give the exact file paths

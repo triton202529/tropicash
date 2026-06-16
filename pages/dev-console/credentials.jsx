@@ -12,6 +12,13 @@ import {
   revokeApiCredential,
   rotateApiCredential,
 } from "../../lib/developerCredentials";
+import {
+  evaluateDeveloperSandboxAccess,
+  SANDBOX_APPROVAL_UI,
+  SANDBOX_AGREEMENT_UI,
+  SANDBOX_LIFECYCLE_UI,
+} from "../../lib/developerSandboxAccessPolicy";
+import { getCapabilityLabel } from "../../lib/developerSandboxApplications";
 
 const labelClass = "mb-1 block text-sm font-semibold text-slate-700";
 const inputClass =
@@ -158,6 +165,7 @@ export default function DevConsoleCredentialsPage() {
   const [secretResult, setSecretResult] = useState(null);
   const [actionMessage, setActionMessage] = useState({ type: "", text: "" });
   const [busyId, setBusyId] = useState(null);
+  const [accessEval, setAccessEval] = useState(null);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -169,10 +177,11 @@ export default function DevConsoleCredentialsPage() {
     }
     setLoading(true);
     setLoadError("");
-    const [oRes, aRes, cRes] = await Promise.all([
+    const [oRes, aRes, cRes, access] = await Promise.all([
       fetchDeveloperOrganizations(userId),
       fetchDeveloperApps(userId),
       fetchApiCredentials(userId),
+      evaluateDeveloperSandboxAccess(userId),
     ]);
     const parts = [];
     if (oRes.error) parts.push(oRes.error.message || "Could not load organizations.");
@@ -182,6 +191,7 @@ export default function DevConsoleCredentialsPage() {
     setOrgs(oRes.error ? [] : oRes.data || []);
     setApps(aRes.error ? [] : aRes.data || []);
     setCredentials(cRes.error ? [] : cRes.data || []);
+    setAccessEval(access);
     setLoading(false);
   }, [userId]);
 
@@ -233,9 +243,20 @@ export default function DevConsoleCredentialsPage() {
     setSubmitting(false);
 
     if (error) {
+      const blocked =
+        error.code === "sandbox_access_not_approved" ||
+        error.code === "sandbox_capability_blocked" ||
+        error.code === "sandbox_agreement_required" ||
+        error.code === "sandbox_access_not_active";
       setFormMessage({
         type: "error",
-        text: error.message || "Could not create credential.",
+        text: blocked
+          ? error.code === "sandbox_agreement_required"
+            ? "Sandbox agreement required. Accept the agreement before creating credentials."
+            : error.code === "sandbox_access_not_active"
+              ? "Sandbox access is not active. An administrator must activate your access."
+              : "Sandbox access not approved. Submit or wait for approval on your sandbox application."
+          : error.message || "Could not create credential.",
       });
       return;
     }
@@ -315,6 +336,30 @@ export default function DevConsoleCredentialsPage() {
   }
 
   const hasApps = apps.length > 0;
+  const approvalUi =
+    SANDBOX_APPROVAL_UI[accessEval?.status] || SANDBOX_APPROVAL_UI.no_application;
+  const approvalToneClass = {
+    ready: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
+    blocked: "border-red-200 bg-red-50 text-red-900",
+    info: "border-sky-200 bg-sky-50 text-sky-900",
+  }[approvalUi.tone] || "border-sky-200 bg-sky-50 text-sky-900";
+  const canCreateCredentials = Boolean(accessEval?.readyForSandboxResources);
+  const agreementUi = accessEval?.agreementAccepted
+    ? SANDBOX_AGREEMENT_UI.accepted
+    : SANDBOX_AGREEMENT_UI.required;
+  const agreementToneClass = {
+    ready: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
+  }[agreementUi.tone] || "border-amber-200 bg-amber-50 text-amber-900";
+  const lifecycleKey = accessEval?.lifecycleEffectiveStatus || "pending_activation";
+  const lifecycleUi =
+    SANDBOX_LIFECYCLE_UI[lifecycleKey] || SANDBOX_LIFECYCLE_UI.pending_activation;
+  const lifecycleToneClass = {
+    ready: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
+    blocked: "border-red-200 bg-red-50 text-red-900",
+  }[lifecycleUi.tone] || "border-amber-200 bg-amber-50 text-amber-900";
 
   return (
     <DevConsoleLayout
@@ -322,6 +367,109 @@ export default function DevConsoleCredentialsPage() {
       subtitle="Generate and manage real API credentials for your applications. Secrets are shown once and stored only as SHA-256 hashes."
     >
       <OneTimeSecretModal result={secretResult} onClose={() => setSecretResult(null)} />
+
+      <section
+        className={`rounded-2xl border p-5 sm:p-6 ${approvalToneClass}`}
+        aria-labelledby="sandbox-approval-heading"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="sandbox-approval-heading" className="text-lg font-bold">
+            Sandbox access
+          </h2>
+          <span className="inline-block rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-bold">
+            {approvalUi.badge}
+          </span>
+        </div>
+        <p className="mt-2 text-sm opacity-90">{approvalUi.message}</p>
+        {accessEval?.approved ? (
+          <div className="mt-3 text-sm">
+            <p className="font-semibold">Approved capabilities</p>
+            <ul className="mt-1 list-inside list-disc">
+              {accessEval.capabilities.map((cap) => (
+                <li key={cap}>{getCapabilityLabel(cap)}</li>
+              ))}
+            </ul>
+            {accessEval.reviewedAt ? (
+              <p className="mt-2 text-xs opacity-80">
+                Approved {formatWhen(accessEval.reviewedAt)}
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs opacity-80">
+              Sandbox only — no production access, money movement, or wallet mutations.
+            </p>
+          </div>
+        ) : null}
+        {accessEval?.status === "no_application" && approvalUi.applyHref ? (
+          <p className="mt-3 text-sm">
+            <Link
+              href={approvalUi.applyHref}
+              className="font-semibold underline underline-offset-2"
+            >
+              Apply for sandbox access
+            </Link>
+          </p>
+        ) : null}
+      </section>
+
+      {accessEval?.approved ? (
+        <section
+          className={`rounded-2xl border p-5 sm:p-6 ${agreementToneClass}`}
+          aria-labelledby="sandbox-agreement-heading"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="sandbox-agreement-heading" className="text-lg font-bold">
+              Sandbox agreement
+            </h2>
+            <span className="inline-block rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-bold">
+              {agreementUi.badge}
+            </span>
+          </div>
+          <p className="mt-2 text-sm opacity-90">{agreementUi.message}</p>
+          {accessEval.agreementAccepted && accessEval.agreementAcceptedAt ? (
+            <p className="mt-2 text-xs opacity-80">
+              Version {accessEval.agreementVersion || accessEval.currentAgreementVersion} accepted{" "}
+              {formatWhen(accessEval.agreementAcceptedAt)}
+            </p>
+          ) : null}
+          {!accessEval.agreementAccepted && agreementUi.agreementHref ? (
+            <p className="mt-3 text-sm">
+              <Link
+                href={agreementUi.agreementHref}
+                className="font-semibold underline underline-offset-2"
+              >
+                Accept sandbox agreement
+              </Link>
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {accessEval?.approved && accessEval?.agreementAccepted ? (
+        <section
+          className={`rounded-2xl border p-5 sm:p-6 ${lifecycleToneClass}`}
+          aria-labelledby="sandbox-lifecycle-heading"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="sandbox-lifecycle-heading" className="text-lg font-bold">
+              Access lifecycle
+            </h2>
+            <span className="inline-block rounded-full border border-current/20 bg-white/60 px-3 py-1 text-xs font-bold">
+              {lifecycleUi.badge}
+            </span>
+          </div>
+          <p className="mt-2 text-sm opacity-90">{lifecycleUi.message}</p>
+          {accessEval.lifecycleActivatedAt ? (
+            <p className="mt-2 text-xs opacity-80">
+              Activated {formatWhen(accessEval.lifecycleActivatedAt)}
+            </p>
+          ) : null}
+          {accessEval.lifecycleExpiresAt ? (
+            <p className="mt-1 text-xs opacity-80">
+              Expires {formatWhen(accessEval.lifecycleExpiresAt)}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {/* Environment availability */}
       <section className="tropicash-surface rounded-2xl p-5 sm:p-6" aria-labelledby="env-heading">
@@ -379,7 +527,7 @@ export default function DevConsoleCredentialsPage() {
               Issue a sandbox credential for one of your applications.
             </p>
           </div>
-          {hasApps ? (
+          {hasApps && canCreateCredentials ? (
             <button
               type="button"
               onClick={() => {
@@ -403,6 +551,18 @@ export default function DevConsoleCredentialsPage() {
               Register an app
             </Link>
             .
+          </p>
+        ) : hasApps && accessEval?.approved && accessEval?.agreementAccepted && !accessEval?.lifecycleActive ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Credential creation is disabled until an administrator activates your sandbox access.
+          </p>
+        ) : hasApps && accessEval?.approved && !accessEval?.agreementAccepted ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Credential creation is disabled until you accept the sandbox agreement.
+          </p>
+        ) : hasApps && !canCreateCredentials ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Credential creation is disabled until your sandbox application is approved.
           </p>
         ) : null}
 
