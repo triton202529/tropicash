@@ -248,7 +248,7 @@ export default function SendMoneyPage() {
     setDropdownOpen(false);
   };
 
-  // Server-side send-money enforcement should be added when transfer_funds is wrapped by an API route.
+  // Server-authoritative transfer via POST /api/transfers/send (TLP-002).
   const handleSend = async () => {
     if (sending) return;
 
@@ -320,37 +320,47 @@ export default function SendMoneyPage() {
         if (!ok) return;
       }
 
-      const { error } = await supabase.rpc("transfer_funds", {
-        sender_id: user.id,
-        recipient_id: recipientId,
-        amount: amt,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        alert("Please sign in again.");
+        return;
+      }
+
+      const transferRes = await fetch("/api/transfers/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          recipient_id: recipientId,
+          amount: amt,
+        }),
       });
 
-      if (error) {
-        alert(messageForRpcError(error));
-        console.error("[send-money] transfer_funds failed:", error);
+      const transferPayload = await transferRes.json().catch(() => ({}));
+
+      if (!transferRes.ok) {
+        const msg =
+          typeof transferPayload?.message === "string" && transferPayload.message.trim()
+            ? transferPayload.message.trim()
+            : typeof transferPayload?.error === "string"
+              ? messageForRpcError({ message: transferPayload.error })
+              : "Transfer failed. Try again.";
+        alert(msg);
         fetchWalletBalance();
         return;
       }
+
+      const lastTxn = transferPayload?.transaction_id
+        ? { id: transferPayload.transaction_id }
+        : null;
 
       await fetchWalletBalance();
       await fetchRecentContacts();
 
       const sentName = recipientDisplayName(selectedRecipient);
-
-      const { data: lastTxn, error: lastTxnError } = await supabase
-        .from("transactions")
-        .select("id")
-        .eq("sender_id", user.id)
-        .eq("recipient_id", recipientId)
-        .eq("type", "send_money")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastTxnError) {
-        console.error("[send-money] latest transaction lookup failed:", lastTxnError);
-      }
 
       if (lastTxn?.id) {
         try {

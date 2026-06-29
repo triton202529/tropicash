@@ -1,10 +1,32 @@
 # Tropicash Launch Master Plan
 
 **Program:** TLP (Tropicash Launch Program)  
-**Phase:** TLP-001 — Production Readiness Audit  
-**Generated:** 2026-06-28  
-**Current Launch Stage:** Internal Alpha  
-**Overall Readiness:** 54%
+**Current Phase:** TLP-003 — Compliance & Live Cutover (next)  
+**Last Completed:** TLP-002 — Foundation Hardening ✓  
+**Generated:** 2026-06-28 (updated post TLP-002)  
+**Current Launch Stage:** Internal Alpha → Private Alpha preparation  
+**Overall Readiness:** ~62% (estimated post TLP-002)
+
+---
+
+## TLP-002 Completion Summary (Foundation Hardening)
+
+**Status:** Complete — commit `TLP-002: harden financial foundation and production readiness`
+
+| Blocker | Resolution |
+|---------|------------|
+| BLK-001 | `fund_wallet` RPC added in `phase_tlp002_foundation_hardening.sql` |
+| BLK-002 | Canonical `wallet_balance`; all RPCs unified; legacy `balance` synced |
+| BLK-003 | Server KYC via `lib/serverKycGuard.js` on all money APIs |
+| BLK-005 | `fraud_logs` RLS hardened to admin-only select/update |
+| BLK-006 | `admin_members` table + `tc_is_admin()`; no hardcoded app emails |
+| BLK-008 | `POST /api/transfers/send`; client `transfer_funds` revoked |
+| BLK-009 | `lib/paypalProductionGuard.js`; mode mismatch blocked in production |
+| BLK-010 | `.env.example` + `docs/deployment/PRODUCTION_DEPLOYMENT.md` |
+
+**Certification:** `docs/audit/MONEY_INTEGRITY_CERTIFICATION.md`
+
+**Deploy prerequisite:** Apply `supabase/sql/phase_tlp002_foundation_hardening.sql` to Supabase.
 
 ---
 
@@ -82,7 +104,7 @@ Overall Readiness         ███████████░░░░░░░
 
 ## 4. Launch Phases (Post-Audit Roadmap)
 
-### Phase TLP-002: Foundation Fixes (Weeks 1–2)
+### Phase TLP-002: Foundation Fixes (Weeks 1–2) — ✓ COMPLETE
 **Goal:** Resolve data integrity and security P0 blockers
 
 | Priority | Blocker | Effort |

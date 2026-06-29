@@ -20,6 +20,17 @@ import {
 } from "../../../lib/fundingFraudServer";
 import { logOperationalError, logOperationalEvent } from "../../../lib/operationalLogger";
 import { getSupabaseAnonKey, getSupabaseUrl } from "../../../lib/supabaseAdminApi";
+import { payPalConfigGateForMoneyApi } from "../../../lib/paypalProductionGuard";
+import {
+  accountRestrictedHttpBody,
+  canServerPerformFinancialAction,
+  logServerBlockedFinancialAction,
+} from "../../../lib/serverAccountSecurityGuard";
+import {
+  enforceServerKycForAction,
+  KYC_BLOCKED_ERROR,
+  logServerKycBlocked,
+} from "../../../lib/serverKycGuard";
 import {
   buildRateLimitKey,
   extractClientIp,
@@ -90,6 +101,24 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const userId = user.id;
+
+  const finGate = await canServerPerformFinancialAction({ userId, action: "fund_wallet" });
+  if (!finGate.allowed) {
+    void logServerBlockedFinancialAction({
+      userId,
+      action: "fund_wallet",
+      status: finGate.status,
+      riskLevel: finGate.riskLevel,
+      reason: finGate.reason,
+      source: "server",
+    });
+    return res.status(403).json(accountRestrictedHttpBody(finGate));
+  }
+
+  const paypalGate = payPalConfigGateForMoneyApi();
+  if (paypalGate.blocked) {
+    return res.status(paypalGate.status).json(paypalGate.body);
+  }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -431,6 +460,27 @@ export default async function handler(req, res) {
   }
 
   console.log("[FUNDING_STATUS_UPDATE] status=processing", { orderID, userId });
+
+  const kycGate = await enforceServerKycForAction({
+    userId,
+    amount: amountNum,
+    actionType: "funding",
+    supabaseClient: supabaseAdmin,
+  });
+  if (!kycGate.allowed) {
+    void logServerKycBlocked({
+      userId,
+      amount: amountNum,
+      actionType: "funding",
+      enforcement: kycGate.enforcement,
+      supabaseClient: supabaseAdmin,
+    });
+    return res.status(403).json({
+      success: false,
+      error: kycGate.error || KYC_BLOCKED_ERROR,
+      message: kycGate.message,
+    });
+  }
 
   const { data: fundData, error: fundError } = await supabaseAdmin.rpc("fund_wallet", {
     p_user_id: userId,

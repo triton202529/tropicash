@@ -1,11 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 import { createPayPalOrder } from "../../../lib/paypal";
+import { payPalConfigGateForMoneyApi } from "../../../lib/paypalProductionGuard";
 import { logOperationalError, logOperationalEvent } from "../../../lib/operationalLogger";
 import {
   accountRestrictedHttpBody,
   canServerPerformFinancialAction,
   logServerBlockedFinancialAction,
 } from "../../../lib/serverAccountSecurityGuard";
+import {
+  enforceServerKycForAction,
+  KYC_BLOCKED_ERROR,
+  logServerKycBlocked,
+} from "../../../lib/serverKycGuard";
 import { createSupabaseServiceClient, getSupabaseAnonKey, getSupabaseUrl } from "../../../lib/supabaseAdminApi";
 import {
   buildRateLimitKey,
@@ -85,7 +91,36 @@ export default async function handler(req, res) {
     return res.status(403).json(accountRestrictedHttpBody(finGate));
   }
 
+  const paypalGate = payPalConfigGateForMoneyApi();
+  if (paypalGate.blocked) {
+    return res.status(paypalGate.status).json(paypalGate.body);
+  }
+
   const admin = createSupabaseServiceClient();
+  if (!admin) {
+    return res.status(500).json({ success: false, error: "Server configuration error" });
+  }
+
+  const kycGate = await enforceServerKycForAction({
+    userId,
+    amount,
+    actionType: "funding",
+    supabaseClient: admin,
+  });
+  if (!kycGate.allowed) {
+    void logServerKycBlocked({
+      userId,
+      amount,
+      actionType: "funding",
+      enforcement: kycGate.enforcement,
+      supabaseClient: admin,
+    });
+    return res.status(403).json({
+      success: false,
+      error: kycGate.error || KYC_BLOCKED_ERROR,
+      message: kycGate.message,
+    });
+  }
 
   const ip = extractClientIp(req);
   const limitKey = buildRateLimitKey({ ip });

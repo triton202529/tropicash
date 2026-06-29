@@ -2,9 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { logOperationalError } from "../../../../../lib/operationalLogger";
 import { executeWithdrawalPayout } from "../../../../../lib/payouts/payoutService";
 import {
-  getSupabaseAnonKey,
-  getSupabaseUrl,
-  isAdminEmail,
+  createSupabaseServiceClient,
+  requireAdminFromBearer,
 } from "../../../../../lib/supabaseAdminApi";
 import { emitAdminEvent } from "../../../../../lib/eventBus";
 import { appendAuditEventServer } from "../../../../../lib/auditTimeline";
@@ -21,46 +20,23 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Withdrawal id is required" });
   }
 
-  const authHeader = req.headers.authorization;
-  const jwt =
-    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7).trim()
-      : null;
-  if (!jwt) {
-    return res.status(401).json({ error: "Unauthorized" });
+  const auth = await requireAdminFromBearer(req.headers.authorization);
+  if (auth.error) {
+    return res.status(auth.status).json({ error: auth.error });
   }
+  const user = auth.user;
 
-  const supabaseUrl = getSupabaseUrl();
-  const anonKey = getSupabaseAnonKey();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const missingEnv = [];
-  if (!supabaseUrl) missingEnv.push("NEXT_PUBLIC_SUPABASE_URL");
-  if (!anonKey) missingEnv.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  if (!serviceRoleKey) missingEnv.push("SUPABASE_SERVICE_ROLE_KEY");
-  if (missingEnv.length > 0) {
-    console.error("[admin/payout] missing env:", missingEnv.join(", "));
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (!serviceRoleKey || !supabaseUrl) {
     void logOperationalError({
       category: "env.config",
-      message: `Missing required env: ${missingEnv.join(", ")}`,
-      userId: null,
+      message: "Missing Supabase env on /api/admin/withdrawals/[id]/payout",
+      userId: user.id,
       route: "/api/admin/withdrawals/[id]/payout",
-      metadata: { missing: missingEnv },
+      metadata: {},
     });
     return res.status(500).json({ error: "Server configuration error" });
-  }
-
-  const supabaseAuth = createClient(supabaseUrl, anonKey);
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseAuth.auth.getUser(jwt);
-
-  if (authError || !user?.id) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  if (!isAdminEmail(user.email)) {
-    return res.status(403).json({ error: "Admin access required" });
   }
 
   const readiness = buildPayPalPayoutReadiness(

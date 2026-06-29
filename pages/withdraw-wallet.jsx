@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { enforceKycForWithdrawal } from "../lib/kycRisk";
-import { KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE } from "../lib/serverKycWithdrawalGuard";
+import { KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE } from "../lib/serverKycGuard";
 import { useUser } from "../lib/userContext";
 import Navbar from "../components/Navbar";
 import SoftLaunchNotice from "../components/SoftLaunchNotice";
@@ -404,22 +404,54 @@ export default function WithdrawWalletPage() {
       });
     }
 
-    // Withdrawal RPC is gated server-side via POST /api/withdrawals/check-limit (KYC, account security, rate limit).
-    const { error } = await supabase.rpc("create_withdrawal_request", {
-      p_user_id: user.id,
-      p_amount: amt,
-      p_payout_email: payoutEmail,
+    // Withdrawal is created server-side via POST /api/withdrawals/create (TLP-002).
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      setErrorMsg("Please sign in again.");
+      setLoadingAction(false);
+      return;
+    }
+
+    const createRes = await fetch("/api/withdrawals/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        amount: amt,
+        payout_email: payoutEmail,
+      }),
     });
 
-    if (error) {
-      void logOperationalError({
-        category: "withdrawal.create_request",
-        message: error.message || "create_withdrawal_request RPC failed",
-        userId: user.id,
-        route: "/withdraw-wallet",
-        metadata: { code: error.code },
+    const createPayload = await createRes.json().catch(() => ({}));
+
+    if (createRes.status === 403 && createPayload?.error === "kyc_withdrawal_blocked") {
+      const msg =
+        typeof createPayload?.message === "string" && createPayload.message.trim()
+          ? createPayload.message.trim()
+          : KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE;
+      setKycBlock({ message: msg, showKycLink: true });
+      setLoadingAction(false);
+      return;
+    }
+
+    if (createRes.status === 403 && createPayload?.error === "kyc_policy_blocked") {
+      setKycBlock({
+        message: createPayload?.message || KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE,
+        showKycLink: true,
       });
-      setErrorMsg(messageForRpcError(error));
+      setLoadingAction(false);
+      return;
+    }
+
+    if (!createRes.ok) {
+      setErrorMsg(
+        typeof createPayload?.message === "string" && createPayload.message
+          ? createPayload.message
+          : messageForRpcError({ message: createPayload?.error }),
+      );
       setLoadingAction(false);
       return;
     }

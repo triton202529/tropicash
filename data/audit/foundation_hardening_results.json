@@ -1,0 +1,50 @@
+{
+  "phase": "TLP-002",
+  "completed_at": "2026-06-28T00:00:00.000Z",
+  "status": "complete",
+  "blockers_resolved": ["BLK-001", "BLK-002", "BLK-003", "BLK-005", "BLK-006", "BLK-008", "BLK-009", "BLK-010"],
+  "wallet": {
+    "canonical_balance_column": "wallet_balance",
+    "fund_wallet_migration": "supabase/sql/phase_tlp002_foundation_hardening.sql",
+    "balance_sync": "RPCs update wallet_balance; legacy balance column synced when present",
+    "helper": "lib/walletBalance.js"
+  },
+  "money_paths": {
+    "funding": {
+      "server_path": "POST /api/paypal/create-order → POST /api/paypal/capture-order → fund_wallet RPC (service_role)",
+      "client_rpc": "revoked",
+      "kyc_enforced": true
+    },
+    "send": {
+      "server_path": "POST /api/transfers/send → transfer_funds RPC (service_role)",
+      "client_rpc": "revoked",
+      "kyc_enforced": true
+    },
+    "withdrawal": {
+      "server_path": "POST /api/withdrawals/create → create_withdrawal_request RPC (service_role)",
+      "client_rpc": "revoked",
+      "kyc_enforced": true
+    }
+  },
+  "idempotency": {
+    "funding": "funding_idempotency_keys table + capture-order pipeline",
+    "withdrawal": "create_withdrawal_request atomic RPC",
+    "send": "single RPC transaction with row locks"
+  },
+  "auditability": {
+    "transactions_table": true,
+    "admin_audit_logs": true,
+    "audit_timeline": true,
+    "operational_logs": true
+  },
+  "rollback": {
+    "sql_migration_idempotent_sections": true,
+    "notes": "Restore prior app version and re-grant authenticated RPC execute only if rolling back API layer"
+  },
+  "validation": {
+    "fund_wallet_in_migrations": true,
+    "transfer_funds_service_role_only": true,
+    "create_withdrawal_service_role_only": true,
+    "single_balance_column": true
+  }
+}

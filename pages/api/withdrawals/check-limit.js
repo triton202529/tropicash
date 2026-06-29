@@ -18,11 +18,11 @@ import {
   logServerBlockedFinancialAction,
 } from "../../../lib/serverAccountSecurityGuard";
 import {
-  enforceServerKycForWithdrawal,
+  enforceServerKycForAction,
   KYC_WITHDRAWAL_BLOCKED_ERROR,
   KYC_WITHDRAWAL_BLOCKED_USER_MESSAGE,
-  logServerKycWithdrawalBlocked,
-} from "../../../lib/serverKycWithdrawalGuard";
+  logServerKycBlocked,
+} from "../../../lib/serverKycGuard";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -90,9 +90,10 @@ export default async function handler(req, res) {
   const rawAmount = req.body?.amount;
   let kycUsagePayload = null;
   if (rawAmount != null && rawAmount !== "") {
-    const kycGate = await enforceServerKycForWithdrawal({
+    const kycGate = await enforceServerKycForAction({
       userId,
       amount: rawAmount,
+      actionType: "withdrawal",
       supabaseClient: admin,
     });
     if (kycGate.enforcement) {
@@ -107,9 +108,10 @@ export default async function handler(req, res) {
     }
     if (!kycGate.allowed) {
       if (kycGate.enforcement) {
-        void logServerKycWithdrawalBlocked({
+        void logServerKycBlocked({
           userId,
           amount: Number(rawAmount),
+          actionType: "withdrawal",
           enforcement: kycGate.enforcement,
           supabaseClient: admin,
         });

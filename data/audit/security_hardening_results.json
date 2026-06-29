@@ -1,0 +1,33 @@
+{
+  "phase": "TLP-002",
+  "completed_at": "2026-06-28T00:00:00.000Z",
+  "status": "complete",
+  "blockers_resolved": ["BLK-005", "BLK-006", "BLK-008"],
+  "fraud_logs_rls": {
+    "migration": "supabase/sql/phase_tlp002_foundation_hardening.sql",
+    "select": "admin only via tc_is_admin()",
+    "update": "admin only",
+    "insert": "own user_id only for authenticated users",
+    "previous_issue": "USING (true) allowed any authenticated user full access"
+  },
+  "admin_rbac": {
+    "table": "admin_members",
+    "roles": ["admin", "ops", "compliance", "treasury"],
+    "check_function": "tc_is_admin()",
+    "app_layer": "lib/adminAccess.js uses tc_is_admin RPC via userContext profile.is_admin",
+    "api_layer": "requireAdminFromBearer uses tc_is_admin RPC",
+    "hardcoded_emails_removed": true
+  },
+  "server_enforcement": {
+    "send_api": "pages/api/transfers/send.js",
+    "withdrawal_api": "pages/api/withdrawals/create.js",
+    "kyc_guard": "lib/serverKycGuard.js",
+    "account_security": "lib/serverAccountSecurityGuard.js",
+    "rate_limits": ["transfer.send", "withdrawal.create_request", "paypal.create_order", "paypal.capture_order"]
+  },
+  "validation": {
+    "admin_from_db": true,
+    "fraud_logs_hardened": true,
+    "no_client_financial_rpc": true
+  }
+}
