@@ -1,0 +1,577 @@
+{
+  "audit_id": "TLP-001",
+  "generated_at": "2026-06-28T00:00:00.000Z",
+  "platform": "Tropicash",
+  "launch_stage": "Internal Alpha",
+  "overall_readiness_score": 54,
+  "overall_readiness_label": "Needs Attention",
+  "executive_summary": "Tropicash has a substantial Next.js + Supabase fintech stack with working soft-launch wallet flows (PayPal funding, P2P send, withdrawal queue), extensive admin/compliance tooling, and a mature sandbox developer platform. The platform is not production-ready for regulated live-money deployment. Critical gaps include missing fund_wallet SQL migration in version control, balance vs wallet_balance column split across RPCs, advisory-only KYC enforcement, open fraud_logs RLS, single hardcoded admin RBAC, draft legal documents, PayPal sandbox defaults, absent QR/payment links/merchant checkout, and no automated webhook delivery pipeline. Suitable for internal testing with manual treasury oversight; not ready for Private Alpha with real money until P0 blockers are resolved.",
+  "scoring_method": "Module scores (0-100) derived from code inspection, existing audit tooling (productionAudit.js, complianceChecklist.js, launchReadiness.js), and operational posture. Overall score is unweighted average of 31 production modules.",
+  "modules": [
+    {
+      "id": "authentication",
+      "name": "Authentication",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 75,
+      "summary": "Supabase email/password auth, password reset, session lifecycle, and RouteAuthGuard. No 2FA enforcement, no social OAuth for users, client-side route protection only.",
+      "dependencies": ["supabase", "environment_configuration"],
+      "priority": "P1"
+    },
+    {
+      "id": "authorization",
+      "name": "Authorization",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 45,
+      "summary": "Single hardcoded admin email allowlist. OAuth scope RBAC for developers. No role matrix, admin pages gated client-side only.",
+      "dependencies": ["authentication", "admin_console"],
+      "priority": "P0"
+    },
+    {
+      "id": "user_onboarding",
+      "name": "User Onboarding",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 62,
+      "summary": "Auth signup/login, KYC document upload, soft-launch notices. No guided tour, no email verification beyond Supabase defaults.",
+      "dependencies": ["authentication", "kyc"],
+      "priority": "P2"
+    },
+    {
+      "id": "wallet",
+      "name": "Wallet",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 65,
+      "summary": "Wallet UI, balance display, OAuth sandbox read. Critical balance vs wallet_balance column split across RPCs.",
+      "dependencies": ["ledger", "transactions", "funding"],
+      "priority": "P0"
+    },
+    {
+      "id": "ledger",
+      "name": "Ledger",
+      "classification": "PROTOTYPE",
+      "readiness_score": 25,
+      "summary": "Double-entry schema and admin UI exist. Observation mode only — no automatic journal posts from money flows.",
+      "dependencies": ["treasury", "transactions"],
+      "priority": "P2"
+    },
+    {
+      "id": "transactions",
+      "name": "Transactions",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 72,
+      "summary": "Transaction history, filtering, withdrawal correlation. Type mismatch (send vs send_money) in fraud lookups.",
+      "dependencies": ["wallet"],
+      "priority": "P2"
+    },
+    {
+      "id": "funding",
+      "name": "Funding",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 50,
+      "summary": "PayPal create/capture with idempotency and rate limits. fund_wallet RPC referenced but missing from supabase/sql migrations.",
+      "dependencies": ["wallet", "kyc", "fraud_controls", "environment_configuration"],
+      "priority": "P0"
+    },
+    {
+      "id": "withdrawals",
+      "name": "Withdrawals",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 78,
+      "summary": "Strongest money flow. Atomic RPC, KYC server gate, manual review default, optional PayPal payout automation.",
+      "dependencies": ["wallet", "kyc", "treasury"],
+      "priority": "P1"
+    },
+    {
+      "id": "merchant_platform",
+      "name": "Merchant Platform",
+      "classification": "SIMULATION_ONLY",
+      "readiness_score": 10,
+      "summary": "Config/catalog only. No checkout sessions, settlement, or merchant onboarding APIs.",
+      "dependencies": ["developer_apis", "payment_links"],
+      "priority": "P3"
+    },
+    {
+      "id": "qr_payments",
+      "name": "QR Payments",
+      "classification": "NOT_STARTED",
+      "readiness_score": 0,
+      "summary": "No QR generation, scanning, or checkout flows found in codebase.",
+      "dependencies": ["merchant_platform", "wallet"],
+      "priority": "P3"
+    },
+    {
+      "id": "payment_links",
+      "name": "Payment Links",
+      "classification": "NOT_STARTED",
+      "readiness_score": 0,
+      "summary": "No hosted payment link product. Closest is planned checkout session contract in developer catalog.",
+      "dependencies": ["merchant_platform", "funding"],
+      "priority": "P3"
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 58,
+      "summary": "In-app Supabase notifications with realtime. No push, email, or SMS delivery layer.",
+      "dependencies": ["webhooks"],
+      "priority": "P2"
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 68,
+      "summary": "Rate limits, hashed secrets, PayPal webhook verification, audit trails. No CSRF, CSP, fail-open account security, fraud RLS wide open.",
+      "dependencies": ["authorization", "secrets_management"],
+      "priority": "P0"
+    },
+    {
+      "id": "fraud_controls",
+      "name": "Fraud Controls",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 55,
+      "summary": "Rule-based detection, trust layer client caps, admin queue. Engine is log-only; send bypasses server gates; fraud_logs RLS allows all authenticated users.",
+      "dependencies": ["security", "kyc"],
+      "priority": "P0"
+    },
+    {
+      "id": "kyc",
+      "name": "KYC",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 58,
+      "summary": "Document upload, admin review, limit policies. Default advisory enforcement; funding/send unguarded server-side; no identity vendor.",
+      "dependencies": ["aml_controls", "legal"],
+      "priority": "P0"
+    },
+    {
+      "id": "aml_controls",
+      "name": "AML Controls",
+      "classification": "PROTOTYPE",
+      "readiness_score": 22,
+      "summary": "Draft AML policy only. No sanctions/PEP screening, no SAR workflow, no automated AML monitoring.",
+      "dependencies": ["kyc", "legal"],
+      "priority": "P0"
+    },
+    {
+      "id": "treasury",
+      "name": "Treasury",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 62,
+      "summary": "Rich admin dashboard, intelligence, event center. Advisory/simulation layers; no automated settlement; ledger not connected.",
+      "dependencies": ["ledger", "withdrawals", "funding"],
+      "priority": "P1"
+    },
+    {
+      "id": "admin_console",
+      "name": "Admin Console",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 82,
+      "summary": "44 admin pages covering KYC, fraud, treasury, withdrawals, launch readiness, developer sandbox. Single admin email RBAC.",
+      "dependencies": ["authorization", "reporting"],
+      "priority": "P1"
+    },
+    {
+      "id": "reporting",
+      "name": "Reporting",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 75,
+      "summary": "Withdrawal reconciliation, launch readiness scoring, production audit, compliance checklist. Read-only; no scheduled exports.",
+      "dependencies": ["admin_console", "treasury"],
+      "priority": "P2"
+    },
+    {
+      "id": "developer_apis",
+      "name": "Developer APIs",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 48,
+      "summary": "Sandbox-only read APIs (ping, profile, currencies). No money-movement APIs. Production keys not issuable.",
+      "dependencies": ["oauth", "webhooks", "sdk"],
+      "priority": "P2"
+    },
+    {
+      "id": "oauth",
+      "name": "OAuth",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 55,
+      "summary": "Full OAuth2 stack for developers with hashed tokens, scopes, certification gates. Sandbox only; code issuance feature-flagged off.",
+      "dependencies": ["developer_apis", "authentication"],
+      "priority": "P2"
+    },
+    {
+      "id": "sdk",
+      "name": "SDK Readiness",
+      "classification": "PROTOTYPE",
+      "readiness_score": 32,
+      "summary": "In-repo @tropicash/sdk v0.1.0 private preview. Not published to npm; production env rejected; no TypeScript types.",
+      "dependencies": ["developer_apis", "webhooks"],
+      "priority": "P2"
+    },
+    {
+      "id": "webhooks",
+      "name": "Webhooks",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 38,
+      "summary": "Registration, test delivery, PayPal inbound webhooks. No production event delivery worker; signing key mismatch for developer verification.",
+      "dependencies": ["developer_apis", "notifications"],
+      "priority": "P2"
+    },
+    {
+      "id": "mobile_responsiveness",
+      "name": "Mobile Responsiveness",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 70,
+      "summary": "Tailwind responsive utilities across consumer pages. Admin pages partially optimized; viewport meta not explicit in _document.js.",
+      "dependencies": [],
+      "priority": "P3"
+    },
+    {
+      "id": "pwa",
+      "name": "PWA",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 68,
+      "summary": "Manifest, service worker (production only), installable shell. Offline explicitly excludes wallet/API routes.",
+      "dependencies": ["environment_configuration"],
+      "priority": "P3"
+    },
+    {
+      "id": "environment_configuration",
+      "name": "Environment Configuration",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 48,
+      "summary": "Runtime env vars functional but no .env.example. PayPal defaults to sandbox. Dual PayPal mode vars risk mismatch.",
+      "dependencies": [],
+      "priority": "P0"
+    },
+    {
+      "id": "secrets_management",
+      "name": "Secrets Management",
+      "classification": "READY_WITH_MINOR_WORK",
+      "readiness_score": 70,
+      "summary": "Show-once secrets, SHA-256 hash storage, service role server-only. Hardcoded admin email; no secrets manager integration.",
+      "dependencies": ["environment_configuration"],
+      "priority": "P1"
+    },
+    {
+      "id": "error_handling",
+      "name": "Error Handling",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 58,
+      "summary": "Consistent API envelopes for developer/OAuth routes. Mixed client patterns; no global error middleware or integrator error catalog.",
+      "dependencies": ["logging"],
+      "priority": "P2"
+    },
+    {
+      "id": "logging",
+      "name": "Logging",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 60,
+      "summary": "DB-backed operational logs, admin audit, fraud logs, OAuth audit. No centralized aggregation or request tracing.",
+      "dependencies": ["monitoring"],
+      "priority": "P2"
+    },
+    {
+      "id": "monitoring",
+      "name": "Monitoring",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 50,
+      "summary": "Admin health checks, smart alerts, sandbox monitoring. No Sentry/Datadog/PagerDuty integration.",
+      "dependencies": ["logging"],
+      "priority": "P1"
+    },
+    {
+      "id": "production_configuration",
+      "name": "Production Configuration",
+      "classification": "PARTIALLY_IMPLEMENTED",
+      "readiness_score": 45,
+      "summary": "Minimal next.config.mjs (poweredByHeader false only). No security headers, no deployment runbook, legal pages draft.",
+      "dependencies": ["environment_configuration", "legal"],
+      "priority": "P0"
+    }
+  ],
+  "blockers": {
+    "critical": [
+      {
+        "id": "BLK-001",
+        "module": "funding",
+        "title": "fund_wallet RPC missing from version-controlled migrations",
+        "description": "pages/api/paypal/capture-order.js calls supabaseAdmin.rpc('fund_wallet') but no CREATE FUNCTION fund_wallet exists in supabase/sql/.",
+        "why_blocks": "PayPal capture succeeds but wallet credit fails unless RPC was applied manually outside repo.",
+        "recommended_fix": "Add fund_wallet SQL migration aligned with wallet_balance column, transaction insert, and idempotency.",
+        "effort": "2-3 days"
+      },
+      {
+        "id": "BLK-002",
+        "module": "wallet",
+        "title": "balance vs wallet_balance column split",
+        "description": "transfer_funds RPC uses balance column; create_withdrawal_request and funding paths use wallet_balance.",
+        "why_blocks": "Users may see incorrect balances; send and withdraw can operate on different columns causing data corruption.",
+        "recommended_fix": "Unify to single column, migrate all RPCs, backfill existing data.",
+        "effort": "3-5 days"
+      },
+      {
+        "id": "BLK-003",
+        "module": "kyc",
+        "title": "KYC enforcement advisory-only by default",
+        "description": "Funding and send flows have no server-side KYC hard blocks; withdrawal RPC bypassable without check-limit API.",
+        "why_blocks": "Regulated live-money launch requires enforced identity verification before money movement.",
+        "recommended_fix": "Enable hard_block enforcement mode; add KYC gate to withdrawal RPC and server APIs for fund/send.",
+        "effort": "5-7 days"
+      },
+      {
+        "id": "BLK-004",
+        "module": "aml_controls",
+        "title": "No sanctions/PEP screening or SAR workflow",
+        "description": "AML policy pages state placeholders; no vendor integration or suspicious activity reporting.",
+        "why_blocks": "Required for MSB/fintech compliance in most jurisdictions before handling customer funds.",
+        "recommended_fix": "Integrate sanctions screening vendor; implement SAR case workflow in admin console.",
+        "effort": "2-4 weeks"
+      },
+      {
+        "id": "BLK-005",
+        "module": "security",
+        "title": "fraud_logs RLS allows all authenticated users",
+        "description": "fraud_logs_install.sql policies use USING (true) for select/insert/update by any authenticated user.",
+        "why_blocks": "Fraud investigation data leak and potential tampering by malicious users.",
+        "recommended_fix": "Replace dev policies with admin-only RLS via tc_is_admin() or service-role-only access.",
+        "effort": "1-2 days"
+      },
+      {
+        "id": "BLK-006",
+        "module": "authorization",
+        "title": "Single hardcoded admin email RBAC",
+        "description": "ADMIN_EMAILS hardcoded in lib/adminAccess.js and tc_is_admin() SQL function.",
+        "why_blocks": "Not scalable, not auditable, admin identity exposed in source; no role separation for ops/compliance/treasury.",
+        "recommended_fix": "Move to env/DB-backed roles table with granular permissions.",
+        "effort": "3-5 days"
+      },
+      {
+        "id": "BLK-007",
+        "module": "production_configuration",
+        "title": "Legal documents are draft placeholders",
+        "description": "Terms, privacy, AML, KYC, risk disclosure pages exist but audit tooling marks all as draft pending legal review.",
+        "why_blocks": "Cannot launch to external users without legally reviewed policies.",
+        "recommended_fix": "Complete legal review and update pages; track version/effective date.",
+        "effort": "1-2 weeks (legal dependency)"
+      },
+      {
+        "id": "BLK-008",
+        "module": "fraud_controls",
+        "title": "Send money bypasses server-side gates",
+        "description": "pages/send-money.jsx calls transfer_funds RPC directly without server KYC/fraud/account security checks.",
+        "why_blocks": "Client-side trust layer can be bypassed; high-risk transfers possible.",
+        "recommended_fix": "Add POST /api/send/check-limit mirroring withdrawal gate; enforce in RPC or middleware.",
+        "effort": "3-4 days"
+      }
+    ],
+    "major": [
+      {
+        "id": "BLK-009",
+        "module": "environment_configuration",
+        "title": "PayPal defaults to sandbox mode",
+        "description": "NEXT_PUBLIC_PAYPAL_MODE unset defaults to sandbox; live credentials not validated in production audit.",
+        "why_blocks": "Real money cannot flow without explicit live cutover and webhook configuration.",
+        "recommended_fix": "Live PayPal cutover checklist; env validation that fails deploy if sandbox in production NODE_ENV.",
+        "effort": "2-3 days"
+      },
+      {
+        "id": "BLK-010",
+        "module": "environment_configuration",
+        "title": "No .env.example or deployment runbook",
+        "description": "Zero env template files in repo; README is create-next-app boilerplate.",
+        "why_blocks": "Deployment errors, misconfiguration, secret omissions in production.",
+        "recommended_fix": "Add .env.example documenting all public vs server vars with descriptions.",
+        "effort": "1 day"
+      },
+      {
+        "id": "BLK-011",
+        "module": "authentication",
+        "title": "2FA/MFA not enforced",
+        "description": "security_settings.sql schema exists but app explicitly states 2FA not enforced.",
+        "why_blocks": "Wallet API readiness docs require step-up auth for production OAuth wallet access.",
+        "recommended_fix": "Implement TOTP/SMS 2FA with enforcement for financial actions.",
+        "effort": "1-2 weeks"
+      },
+      {
+        "id": "BLK-012",
+        "module": "security",
+        "title": "Account security guard fail-open",
+        "description": "serverAccountSecurityGuard returns allow if account_security_status table missing or unreadable.",
+        "why_blocks": "Frozen/restricted accounts may perform financial actions during migration gaps.",
+        "recommended_fix": "Fail-closed for financial actions when status cannot be verified.",
+        "effort": "1-2 days"
+      },
+      {
+        "id": "BLK-013",
+        "module": "ledger",
+        "title": "Internal ledger not connected to money flows",
+        "description": "Ledger is observation-only; no auto-posting from fund/withdraw/send.",
+        "why_blocks": "Cannot reconcile treasury liabilities or produce auditable financial statements.",
+        "recommended_fix": "Wire journal entries to all money RPCs or formally designate transactions table as SOA.",
+        "effort": "1-2 weeks"
+      },
+      {
+        "id": "BLK-014",
+        "module": "monitoring",
+        "title": "No external APM or alerting",
+        "description": "No Sentry, Datadog, PagerDuty, or uptime monitoring for APIs.",
+        "why_blocks": "Production incidents may go undetected until user reports.",
+        "recommended_fix": "Add Sentry for errors, uptime checks for critical APIs, PagerDuty/Slack alerts.",
+        "effort": "3-5 days"
+      },
+      {
+        "id": "BLK-015",
+        "module": "webhooks",
+        "title": "No production webhook delivery pipeline",
+        "description": "Only developer.test events; test signing uses secret_hash not plaintext whsec shown to developers.",
+        "why_blocks": "Third-party integrators cannot receive real payment/wallet events.",
+        "recommended_fix": "Build delivery worker with encrypted secret storage and retry logic.",
+        "effort": "1-2 weeks"
+      },
+      {
+        "id": "BLK-016",
+        "module": "security",
+        "title": "Legacy tropicash-api Python sidecar",
+        "description": "tropicash-api/main.py exposes wallet mutations with simple API_SECRET_KEY auth.",
+        "why_blocks": "Parallel mutation path bypasses Next.js security gates if deployed.",
+        "recommended_fix": "Remove or fully isolate behind internal network with deprecation plan.",
+        "effort": "1-2 days"
+      }
+    ],
+    "minor": [
+      {
+        "id": "BLK-017",
+        "module": "transactions",
+        "title": "Transaction type mismatch send vs send_money",
+        "description": "transfer_funds inserts type='send' but fraud lookup queries send_money.",
+        "why_blocks": "Fraud correlation and notifications may miss send transactions.",
+        "recommended_fix": "Standardize on send_money across RPC and queries.",
+        "effort": "0.5 day"
+      },
+      {
+        "id": "BLK-018",
+        "module": "security",
+        "title": "No CSRF protection on API routes",
+        "description": "No CSRF tokens; OAuth recommends state param only.",
+        "why_blocks": "Cross-site request forgery risk for cookie-based flows.",
+        "recommended_fix": "Add CSRF tokens for state-changing browser-initiated requests.",
+        "effort": "2-3 days"
+      },
+      {
+        "id": "BLK-019",
+        "module": "security",
+        "title": "No security headers (CSP, HSTS)",
+        "description": "next.config.mjs only sets poweredByHeader: false.",
+        "why_blocks": "Reduced defense-in-depth against XSS and clickjacking.",
+        "recommended_fix": "Add helmet-style headers in next.config.mjs.",
+        "effort": "1 day"
+      },
+      {
+        "id": "BLK-020",
+        "module": "sdk",
+        "title": "SDK not published to npm",
+        "description": "@tropicash/sdk is private, UNLICENSED, no CI tests.",
+        "why_blocks": "External developers cannot install official SDK.",
+        "recommended_fix": "Publish to npm with TypeScript types and test suite.",
+        "effort": "3-5 days"
+      },
+      {
+        "id": "BLK-021",
+        "module": "notifications",
+        "title": "No email/push notification delivery",
+        "description": "In-app only; no FCM/APNs or transactional email.",
+        "why_blocks": "Users miss critical security and transaction alerts when offline.",
+        "recommended_fix": "Add SendGrid/Resend for email; optional push via FCM.",
+        "effort": "1 week"
+      },
+      {
+        "id": "BLK-022",
+        "module": "pwa",
+        "title": "PWA offline shell only",
+        "description": "Service worker explicitly excludes wallet/API; offline page says wallet unavailable.",
+        "why_blocks": "Limited mobile app-like experience.",
+        "recommended_fix": "Accept as v1 limitation or expand offline capabilities.",
+        "effort": "informational"
+      }
+    ],
+    "informational": [
+      {
+        "id": "BLK-023",
+        "module": "qr_payments",
+        "title": "QR payments not implemented",
+        "description": "No QR code generation, scanning, or payment flows.",
+        "why_blocks": "Feature gap for in-person payments — not required for wallet-only Private Alpha.",
+        "recommended_fix": "Defer to post-Private Alpha roadmap.",
+        "effort": "4-6 weeks"
+      },
+      {
+        "id": "BLK-024",
+        "module": "payment_links",
+        "title": "Payment links not implemented",
+        "description": "No shareable checkout URLs for merchants or individuals.",
+        "why_blocks": "Feature gap — defer unless required for launch scope.",
+        "recommended_fix": "Implement after merchant checkout foundation.",
+        "effort": "3-4 weeks"
+      },
+      {
+        "id": "BLK-025",
+        "module": "merchant_platform",
+        "title": "Merchant checkout simulation only",
+        "description": "Developer catalog has planned checkout session contracts; no live routes.",
+        "why_blocks": "External merchant integrations not possible.",
+        "recommended_fix": "Phase 5 roadmap item; not blocking wallet-only Private Alpha.",
+        "effort": "6-8 weeks"
+      },
+      {
+        "id": "BLK-026",
+        "module": "reporting",
+        "title": "No scheduled report exports",
+        "description": "Reporting is read-only admin UI; no CSV/PDF export or BI integration.",
+        "why_blocks": "Operational inconvenience, not launch blocker.",
+        "recommended_fix": "Add export endpoints for reconciliation and audit reports.",
+        "effort": "3-5 days"
+      }
+    ]
+  },
+  "top_10_blockers": [
+    "BLK-001",
+    "BLK-002",
+    "BLK-003",
+    "BLK-004",
+    "BLK-005",
+    "BLK-006",
+    "BLK-007",
+    "BLK-008",
+    "BLK-009",
+    "BLK-010"
+  ],
+  "recommended_implementation_order": [
+    "Phase 1 (Week 1-2): BLK-001 fund_wallet migration, BLK-002 balance unification, BLK-005 fraud RLS, BLK-010 .env.example",
+    "Phase 2 (Week 2-3): BLK-008 send server gate, BLK-003 KYC hard enforcement, BLK-012 fail-closed account security, BLK-006 admin RBAC",
+    "Phase 3 (Week 3-4): BLK-009 PayPal live cutover, BLK-007 legal review, BLK-016 remove legacy API, BLK-014 monitoring",
+    "Phase 4 (Week 4-8): BLK-004 AML vendor, BLK-011 2FA, BLK-013 ledger wiring, BLK-015 webhook pipeline",
+    "Phase 5 (Post Private Alpha): QR payments, payment links, merchant platform, SDK npm publish"
+  ],
+  "path_to_private_alpha": {
+    "current_stage": "Internal Alpha",
+    "target_stage": "Private Alpha",
+    "estimated_duration": "6-10 weeks",
+    "prerequisites": [
+      "All P0 blockers resolved (BLK-001 through BLK-008)",
+      "PayPal live mode with webhooks verified",
+      "Legal documents reviewed and published",
+      "Manual treasury ops playbook documented",
+      "Invite-only user cohort (10-50 testers)",
+      "KYC hard_block enabled for withdrawals and sends",
+      "Admin RBAC with at least 2 operators",
+      "Sentry/monitoring baseline",
+      "Withdrawal reconciliation clean (zero critical issues)"
+    ],
+    "exit_criteria": [
+      "End-to-end fund → send → withdraw works on live PayPal with zero balance discrepancies",
+      "All money RPCs version-controlled and applied to production Supabase",
+      "Compliance checklist scores ≥70% on KYC, security, fraud categories",
+      "No CRITICAL open fraud_logs accessible to non-admin users",
+      "Production audit passes Supabase, PayPal live, and legal probes"
+    ]
+  }
+}
