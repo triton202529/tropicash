@@ -1,0 +1,40 @@
+{
+  "certification_id": "FTC-001",
+  "generated_at": "2026-06-29T01:58:22.770Z",
+  "wallet_reconciliation": {
+    "status": "partial",
+    "canonical_column": "wallet_balance",
+    "source_of_truth": "public.wallets.wallet_balance + public.transactions",
+    "internal_ledger_connected": false,
+    "issues": [
+      "Internal double-entry ledger (journal_entries) does not auto-post from wallet RPCs",
+      "Legacy balance column may drift if TLP-002 migration not applied"
+    ]
+  },
+  "funding_reconciliation": {
+    "status": "pass",
+    "idempotency_table": "funding_idempotency_keys",
+    "unique_constraint": "provider + provider_order_id",
+    "duplicate_capture_protection": true,
+    "evidence": ["lib/fundingIdempotency.js", "pages/api/paypal/capture-order.js"]
+  },
+  "withdrawal_reconciliation": {
+    "status": "pass",
+    "tooling": "lib/withdrawalReconciliation.js",
+    "admin_ui": "/admin/withdrawal-reconciliation",
+    "issue_types_tracked": 12,
+    "refund_rpc": "refund_withdrawal_request",
+    "note": "Read-only report; requires live DB query for zero critical issues"
+  },
+  "transfer_reconciliation": {
+    "status": "partial",
+    "transaction_type": "send_money",
+    "conservation_law": "sender debit equals recipient credit within single RPC",
+    "idempotency_gap": "Duplicate API requests may create duplicate send_money rows"
+  },
+  "daily_reconciliation": {
+    "status": "not_automated",
+    "note": "No scheduled daily reconciliation job; admin tools are manual/on-demand"
+  },
+  "overall_reconciliation_score": 72
+}

@@ -1,0 +1,51 @@
+{
+  "certification_id": "FTC-001",
+  "generated_at": "2026-06-29T01:58:22.770Z",
+  "money_movement_paths": [
+    {
+      "flow": "funding",
+      "entry": "POST /api/paypal/create-order",
+      "execution": "POST /api/paypal/capture-order → fund_wallet RPC",
+      "client_rpc_bypass": false,
+      "kyc_gate": true,
+      "idempotency": true,
+      "status": "validated"
+    },
+    {
+      "flow": "send",
+      "entry": "POST /api/transfers/send",
+      "execution": "transfer_funds RPC (service_role)",
+      "client_rpc_bypass": false,
+      "kyc_gate": true,
+      "idempotency": false,
+      "status": "validated_with_gaps"
+    },
+    {
+      "flow": "withdrawal",
+      "entry": "POST /api/withdrawals/create",
+      "execution": "create_withdrawal_request RPC (service_role)",
+      "client_rpc_bypass": false,
+      "kyc_gate": true,
+      "idempotency": false,
+      "status": "validated_with_gaps"
+    }
+  ],
+  "transaction_types": {
+    "fund_wallet": { "rpc": "fund_wallet", "atomic": true, "validated": true },
+    "send_money": { "rpc": "transfer_funds", "atomic": true, "validated": true },
+    "withdraw_wallet": { "rpc": "create_withdrawal_request", "atomic": true, "validated": true },
+    "withdrawal_refund": { "rpc": "refund_withdrawal_request", "atomic": true, "validated": "code_review_only" }
+  },
+  "negative_balance_prevention": {
+    "transfer_funds": "UPDATE ... WHERE wallet_balance >= amount",
+    "create_withdrawal_request": "FOR UPDATE + balance check",
+    "status": "pass"
+  },
+  "authorization_tests": {
+    "unauthenticated_api": "blocked",
+    "client_direct_rpc": "revoked_after_tlp002_migration",
+    "kyc_unapproved": "blocked_server_side",
+    "status": "pass"
+  },
+  "overall_validation_score": 82
+}

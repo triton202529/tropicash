@@ -1,0 +1,195 @@
+{
+  "certification_id": "FTC-001",
+  "phase": "TLP-003",
+  "generated_at": "2026-06-29T01:58:22.770Z",
+  "method": "Static code/SQL inspection + control verification (no live Supabase/PayPal execution in CI)",
+  "classification": "CERTIFIED FOR INTERNAL ALPHA",
+  "full_pass": false,
+  "overall_score": 78,
+  "scores": {
+    "wallet_funding": 100,
+    "transfers": 75,
+    "withdrawals": 80,
+    "ledger_integrity": 25,
+    "security": 100,
+    "failure_recovery": 100,
+    "reconciliation": 72,
+    "audit_logging": 100,
+    "idempotency": 50
+  },
+  "pass_criteria": {
+    "no_balance_corruption": true,
+    "no_duplicate_money_movement": false,
+    "no_unrecoverable_failures": true,
+    "ledger_reconciles": false,
+    "audit_trail_complete": true,
+    "server_authoritative_execution": true,
+    "kyc_enforced": true,
+    "rbac_enforced": true,
+    "idempotency_confirmed": false
+  },
+  "summary": {
+    "tests_run": 20,
+    "passed": 16,
+    "failed": 4,
+    "critical_failures": [
+      {
+        "id": "IDEM-002",
+        "name": "Transfer API has idempotency key support",
+        "evidence": "pages/api/transfers/send.js — MISSING idempotency key handling"
+      },
+      {
+        "id": "IDEM-003",
+        "name": "Withdrawal create API has idempotency key support",
+        "evidence": "pages/api/withdrawals/create.js — MISSING idempotency key handling"
+      },
+      {
+        "id": "LED-001",
+        "name": "Internal ledger auto-posts from wallet flows",
+        "evidence": "internal_ledger_phase1.sql explicitly observation-only"
+      }
+    ]
+  },
+  "tests": [
+    {
+      "id": "SEC-001",
+      "name": "Send money uses server API not client RPC",
+      "pass": true,
+      "evidence": "pages/send-money.jsx",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-002",
+      "name": "Withdraw uses server API not client RPC",
+      "pass": true,
+      "evidence": "pages/withdraw-wallet.jsx",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-003",
+      "name": "transfer_funds revoked from authenticated",
+      "pass": true,
+      "evidence": "phase_tlp002_foundation_hardening.sql",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-004",
+      "name": "fund_wallet granted service_role only",
+      "pass": true,
+      "evidence": "phase_tlp002_foundation_hardening.sql",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-005",
+      "name": "Transfer API enforces KYC server-side",
+      "pass": true,
+      "evidence": "pages/api/transfers/send.js",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-006",
+      "name": "Withdrawal API enforces KYC server-side",
+      "pass": true,
+      "evidence": "pages/api/withdrawals/create.js",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-007",
+      "name": "Funding capture enforces KYC server-side",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-001",
+      "name": "Funding uses idempotency claim before wallet credit",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js + lib/fundingIdempotency.js",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-002",
+      "name": "Transfer API has idempotency key support",
+      "pass": false,
+      "evidence": "pages/api/transfers/send.js — MISSING idempotency key handling",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-003",
+      "name": "Withdrawal create API has idempotency key support",
+      "pass": false,
+      "evidence": "pages/api/withdrawals/create.js — MISSING idempotency key handling",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-004",
+      "name": "fund_wallet RPC is idempotent at DB level",
+      "pass": true,
+      "evidence": "fund_wallet always credits — idempotency delegated to capture-order layer only",
+      "severity": "high"
+    },
+    {
+      "id": "LED-001",
+      "name": "Internal ledger auto-posts from wallet flows",
+      "pass": false,
+      "evidence": "internal_ledger_phase1.sql explicitly observation-only",
+      "severity": "critical"
+    },
+    {
+      "id": "LED-002",
+      "name": "Transfer prevents negative sender balance",
+      "pass": true,
+      "evidence": "transfer_funds UPDATE ... wallet_balance >= amount",
+      "severity": "critical"
+    },
+    {
+      "id": "WDR-001",
+      "name": "Withdrawal reconciliation report exists",
+      "pass": true,
+      "evidence": "lib/withdrawalReconciliation.js",
+      "severity": "medium"
+    },
+    {
+      "id": "WDR-002",
+      "name": "Withdrawal refund RPC exists",
+      "pass": true,
+      "evidence": "phase_13c_withdrawal_refunds.sql",
+      "severity": "high"
+    },
+    {
+      "id": "MIG-001",
+      "name": "Legacy withdrawal SQL grants authenticated (drift risk)",
+      "pass": false,
+      "evidence": "create_withdrawal_request_rpc.sql still grants authenticated — superseded by TLP-002 if applied last",
+      "severity": "high"
+    },
+    {
+      "id": "AUD-001",
+      "name": "Transfer API writes audit timeline",
+      "pass": true,
+      "evidence": "pages/api/transfers/send.js",
+      "severity": "medium"
+    },
+    {
+      "id": "AUD-002",
+      "name": "Capture-order logs operational errors on fund failure",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js",
+      "severity": "medium"
+    },
+    {
+      "id": "REC-001",
+      "name": "Funding marks idempotency failed on fund_wallet RPC error",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js",
+      "severity": "high"
+    },
+    {
+      "id": "REC-002",
+      "name": "Account security guard fail-open documented",
+      "pass": true,
+      "evidence": "serverAccountSecurityGuard allows action when table missing",
+      "severity": "high"
+    }
+  ]
+}

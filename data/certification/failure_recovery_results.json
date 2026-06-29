@@ -1,0 +1,78 @@
+{
+  "certification_id": "FTC-001",
+  "generated_at": "2026-06-29T01:58:22.770Z",
+  "scenarios": [
+    {
+      "id": "FR-001",
+      "scenario": "PayPal capture succeeds but fund_wallet RPC fails",
+      "expected": "Idempotency row marked failed; wallet not double-credited on retry",
+      "status": "pass",
+      "evidence": "capture-order.js patches idempotency status failed on fund_wallet_rpc error"
+    },
+    {
+      "id": "FR-002",
+      "scenario": "Duplicate PayPal capture request (same orderID)",
+      "expected": "Return duplicate success without second credit",
+      "status": "pass",
+      "evidence": "claimFundingProcessingSlot duplicate_completed path"
+    },
+    {
+      "id": "FR-003",
+      "scenario": "Concurrent capture for same order",
+      "expected": "409 ALREADY_PROCESSING",
+      "status": "pass",
+      "evidence": "already_processing branch in capture-order.js"
+    },
+    {
+      "id": "FR-004",
+      "scenario": "Transfer with insufficient funds",
+      "expected": "RPC raises insufficient_funds; no partial debit",
+      "status": "pass",
+      "evidence": "transfer_funds single UPDATE with balance guard"
+    },
+    {
+      "id": "FR-005",
+      "scenario": "Network retry of transfer API (duplicate POST)",
+      "expected": "Second request should no-op or return same result",
+      "status": "fail",
+      "evidence": "No idempotency key on /api/transfers/send — duplicate transfers possible"
+    },
+    {
+      "id": "FR-006",
+      "scenario": "Double-click withdrawal submit",
+      "expected": "Single withdrawal row",
+      "status": "partial",
+      "evidence": "Rate limit (5/hour) reduces risk but does not guarantee exactly-once"
+    },
+    {
+      "id": "FR-007",
+      "scenario": "account_security_status table missing",
+      "expected": "Fail-closed on financial actions",
+      "status": "fail",
+      "evidence": "serverAccountSecurityGuard fail-open when table unreadable"
+    },
+    {
+      "id": "FR-008",
+      "scenario": "KYC blocked after PayPal capture",
+      "expected": "Wallet not credited; idempotency handling",
+      "status": "partial",
+      "evidence": "KYC gate runs after PayPal capture — funds captured at PayPal but wallet may not credit; idempotency row may remain processing unless patched"
+    },
+    {
+      "id": "FR-009",
+      "scenario": "Withdrawal rejected — wallet refund",
+      "expected": "refund_withdrawal_request credits wallet_balance",
+      "status": "pass",
+      "evidence": "phase_13c_withdrawal_refunds.sql"
+    },
+    {
+      "id": "FR-010",
+      "scenario": "Unauthorized transfer API call",
+      "expected": "401 Unauthorized",
+      "status": "pass",
+      "evidence": "requireUserFromRequest in pages/api/transfers/send.js"
+    }
+  ],
+  "overall_failure_recovery_score": 70,
+  "critical_gaps": ["FR-005", "FR-007", "FR-008"]
+}
