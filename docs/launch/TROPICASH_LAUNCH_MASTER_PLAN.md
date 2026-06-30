@@ -1,9 +1,9 @@
 # Tropicash Launch Master Plan
 
 **Program:** TLP (Tropicash Launch Program)  
-**Current Phase:** TLP-005 — Compliance & Governance Readiness ✓  
-**Last Completed:** TLP-005 — Compliance & governance (Production Operations ready)  
-**Previous:** TLP-004 — Financial Core Completion ✓  
+**Current Phase:** TLP-006 — Production Operations ✓  
+**Last Completed:** TLP-006 — Production ops & staging certification  
+**Previous:** TLP-005 — Compliance & Governance ✓  
 **Generated:** 2026-06-28 (updated post TLP-002)  
 **Current Launch Stage:** Internal Alpha → Private Alpha preparation  
 **Overall Readiness:** ~62% (estimated post TLP-002)

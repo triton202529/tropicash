@@ -1,0 +1,72 @@
+{
+  "phase": "TLP-006",
+  "generated_at": "2026-06-30T23:37:07.850Z",
+  "executed": false,
+  "environment": "sandbox",
+  "scenarios": [
+    {
+      "id": "LIVE-001",
+      "name": "Register + KYC submit",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-002",
+      "name": "Sandbox fund E2E (create → capture → balance)",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-003",
+      "name": "Duplicate capture idempotency",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-004",
+      "name": "P2P transfer with idempotency key",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-005",
+      "name": "Withdrawal create + admin approval",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-006",
+      "name": "Ledger reconciliation clean",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-007",
+      "name": "Compliance screening queue on KYC",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-008",
+      "name": "PayPal payout webhook (sandbox)",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    },
+    {
+      "id": "LIVE-009",
+      "name": "npm run build succeeds",
+      "status": "manual_required",
+      "pass": null,
+      "evidence": "Pending manual execution — see docs/operations/STAGING_EXECUTION_REPORT.md"
+    }
+  ],
+  "note": "Static certification passed; live E2E requires deployed Supabase + PayPal sandbox credentials."
+}

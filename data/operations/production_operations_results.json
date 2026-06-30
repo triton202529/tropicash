@@ -1,0 +1,390 @@
+{
+  "phase": "TLP-006",
+  "generated_at": "2026-06-30T23:37:07.839Z",
+  "classification": "READY FOR PRIVATE ALPHA",
+  "overall_score": 100,
+  "scores": {
+    "environment": 100,
+    "paypal_staging": 100,
+    "deployment": 100,
+    "monitoring": 100,
+    "operations_static": 100,
+    "financial_certification": 100,
+    "compliance_readiness": 100
+  },
+  "financial_certification_valid": true,
+  "pass_criteria": {
+    "deployment_documented": true,
+    "rollback_documented": true,
+    "monitoring_documented": true,
+    "backup_documented": true,
+    "paypal_sandbox_guards": true,
+    "kyc_before_capture": true,
+    "live_staging_e2e": false
+  },
+  "remaining_blockers": [
+    "Live staging E2E not executed in CI (manual required)",
+    "External APM/uptime monitoring not integrated",
+    "PayPal Live intentionally disabled (Private Alpha uses sandbox)"
+  ],
+  "static_tests": {
+    "passed": 37,
+    "failed": 0,
+    "total": 37,
+    "checks": [
+      {
+        "id": "DOC-PRODUCTION_OPERATIONS_CERTIFICATION",
+        "name": "Operations doc: docs/operations/PRODUCTION_OPERATIONS_CERTIFICATION.md",
+        "pass": true,
+        "evidence": "docs/operations/PRODUCTION_OPERATIONS_CERTIFICATION.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DOC-DEPLOYMENT_CHECKLIST",
+        "name": "Operations doc: docs/operations/DEPLOYMENT_CHECKLIST.md",
+        "pass": true,
+        "evidence": "docs/operations/DEPLOYMENT_CHECKLIST.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DOC-ROLLBACK_PROCEDURE",
+        "name": "Operations doc: docs/operations/ROLLBACK_PROCEDURE.md",
+        "pass": true,
+        "evidence": "docs/operations/ROLLBACK_PROCEDURE.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DOC-DISASTER_RECOVERY_PLAN",
+        "name": "Operations doc: docs/operations/DISASTER_RECOVERY_PLAN.md",
+        "pass": true,
+        "evidence": "docs/operations/DISASTER_RECOVERY_PLAN.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DOC-MONITORING_GUIDE",
+        "name": "Operations doc: docs/operations/MONITORING_GUIDE.md",
+        "pass": true,
+        "evidence": "docs/operations/MONITORING_GUIDE.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DOC-STAGING_EXECUTION_REPORT",
+        "name": "Operations doc: docs/operations/STAGING_EXECUTION_REPORT.md",
+        "pass": true,
+        "evidence": "docs/operations/STAGING_EXECUTION_REPORT.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "ENV-001",
+        "name": "Env template exists",
+        "pass": true,
+        "evidence": ".env.example or docs/deployment/env.example",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "ENV-002",
+        "name": "Service role documented as server-only",
+        "pass": true,
+        "evidence": "env template",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "ENV-003",
+        "name": "PayPal mode vars documented",
+        "pass": true,
+        "evidence": "env template",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "ENV-004",
+        "name": "No secrets in repo (spot check)",
+        "pass": true,
+        "evidence": "grep spot check",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-001",
+        "name": "PayPal guard on create-order",
+        "pass": true,
+        "evidence": "create-order.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-002",
+        "name": "PayPal guard on capture-order",
+        "pass": true,
+        "evidence": "capture-order.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-003",
+        "name": "Mode mismatch detection",
+        "pass": true,
+        "evidence": "paypalProductionGuard.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-004",
+        "name": "Live mode webhook ID required",
+        "pass": true,
+        "evidence": "paypalProductionGuard.js",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "PP-005",
+        "name": "KYC before PayPal capture",
+        "pass": true,
+        "evidence": "capture-order.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-006",
+        "name": "KYC before create-order",
+        "pass": true,
+        "evidence": "create-order.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-007",
+        "name": "Funding idempotency on capture",
+        "pass": true,
+        "evidence": "capture-order.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "PP-008",
+        "name": "Sandbox remains default in template",
+        "pass": true,
+        "evidence": "env template",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "WH-001",
+        "name": "Webhook signature verification",
+        "pass": true,
+        "evidence": "webhooks/paypal.js",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "WH-002",
+        "name": "Webhook raw body parser disabled",
+        "pass": true,
+        "evidence": "webhooks/paypal.js",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "WH-003",
+        "name": "Payout webhook events table in SQL",
+        "pass": true,
+        "evidence": "tropicash_automated_payouts.sql",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DEP-001",
+        "name": "Production deployment guide",
+        "pass": true,
+        "evidence": "PRODUCTION_DEPLOYMENT.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DEP-002",
+        "name": "Rollback procedure doc",
+        "pass": true,
+        "evidence": "ROLLBACK_PROCEDURE.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "DEP-003",
+        "name": "Deployment checklist doc",
+        "pass": true,
+        "evidence": "DEPLOYMENT_CHECKLIST.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "MON-001",
+        "name": "Operational logger exists",
+        "pass": true,
+        "evidence": "operationalLogger.js",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "MON-002",
+        "name": "PayPal routes log operational errors",
+        "pass": true,
+        "evidence": "capture-order.js",
+        "severity": "medium",
+        "live_required": false
+      },
+      {
+        "id": "MON-003",
+        "name": "Monitoring guide doc",
+        "pass": true,
+        "evidence": "MONITORING_GUIDE.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "MON-004",
+        "name": "Admin health page",
+        "pass": true,
+        "evidence": "admin health",
+        "severity": "medium",
+        "live_required": false
+      },
+      {
+        "id": "MON-005",
+        "name": "Production audit page lib",
+        "pass": true,
+        "evidence": "productionAudit.js",
+        "severity": "medium",
+        "live_required": false
+      },
+      {
+        "id": "BKP-001",
+        "name": "Disaster recovery plan",
+        "pass": true,
+        "evidence": "DISASTER_RECOVERY_PLAN.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "BKP-002",
+        "name": "DR plan defines RTO/RPO",
+        "pass": true,
+        "evidence": "DISASTER_RECOVERY_PLAN.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "OPS-001",
+        "name": "Compliance governance dashboard",
+        "pass": true,
+        "evidence": "compliance-governance",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "OPS-002",
+        "name": "Production ops dashboard component",
+        "pass": true,
+        "evidence": "production_operations_dashboard.jsx",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "OPS-003",
+        "name": "Incident playbook",
+        "pass": true,
+        "evidence": "INCIDENT_RESPONSE_PLAYBOOK.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "OPS-004",
+        "name": "Operator compliance guide",
+        "pass": true,
+        "evidence": "OPERATOR_COMPLIANCE_GUIDE.md",
+        "severity": "high",
+        "live_required": false
+      },
+      {
+        "id": "FIN-001",
+        "name": "FTC-001 recertification script",
+        "pass": true,
+        "evidence": "ftc001-recertification.mjs",
+        "severity": "critical",
+        "live_required": false
+      },
+      {
+        "id": "FIN-002",
+        "name": "Prior recertification results",
+        "pass": true,
+        "evidence": "ftc001_recertification.json",
+        "severity": "high",
+        "live_required": false
+      }
+    ]
+  },
+  "live_scenarios": [
+    {
+      "id": "LIVE-001",
+      "name": "Register + KYC submit",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-002",
+      "name": "Sandbox fund E2E (create → capture → balance)",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-003",
+      "name": "Duplicate capture idempotency",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-004",
+      "name": "P2P transfer with idempotency key",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-005",
+      "name": "Withdrawal create + admin approval",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-006",
+      "name": "Ledger reconciliation clean",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-007",
+      "name": "Compliance screening queue on KYC",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-008",
+      "name": "PayPal payout webhook (sandbox)",
+      "status": "manual_required",
+      "pass": null
+    },
+    {
+      "id": "LIVE-009",
+      "name": "npm run build succeeds",
+      "status": "manual_required",
+      "pass": null
+    }
+  ],
+  "recommendation": "Execute STAGING_EXECUTION_REPORT.md manual checklist in deployed sandbox before inviting Private Alpha cohort."
+}

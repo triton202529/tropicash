@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { capturePayPalOrder } from "../../../lib/paypal";
+import { getPayPalMode } from "../../../lib/paypalMode";
 import {
   claimFundingProcessingSlot,
   FUNDING_PROVIDER_PAYPAL,
@@ -206,6 +207,35 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "orderID is required" });
   }
 
+  const rawExpectedAmount = body?.amount;
+  const expectedAmount =
+    rawExpectedAmount != null && rawExpectedAmount !== ""
+      ? typeof rawExpectedAmount === "string"
+        ? parseFloat(rawExpectedAmount)
+        : Number(rawExpectedAmount)
+      : null;
+
+  const kycGate = await enforceServerKycForAction({
+    userId,
+    amount: Number.isFinite(expectedAmount) && expectedAmount > 0 ? expectedAmount : 1,
+    actionType: "funding",
+    supabaseClient: supabaseAdmin,
+  });
+  if (!kycGate.allowed) {
+    void logServerKycBlocked({
+      userId,
+      amount: expectedAmount,
+      actionType: "funding",
+      enforcement: kycGate.enforcement,
+      supabaseClient: supabaseAdmin,
+    });
+    return res.status(403).json({
+      success: false,
+      error: kycGate.error || KYC_BLOCKED_ERROR,
+      message: kycGate.message,
+    });
+  }
+
   let result;
   try {
     result = await capturePayPalOrder(orderID);
@@ -317,8 +347,9 @@ export default async function handler(req, res) {
   }
 
   if (amountNum > 1000) {
+    const modeLabel = getPayPalMode() === "live" ? "configured" : "sandbox";
     return res.status(400).json({
-      error: "Funding limit exceeded. Maximum sandbox funding amount is $1,000.",
+      error: `Funding limit exceeded. Maximum ${modeLabel} funding amount is $1,000.`,
     });
   }
 
@@ -460,27 +491,6 @@ export default async function handler(req, res) {
   }
 
   console.log("[FUNDING_STATUS_UPDATE] status=processing", { orderID, userId });
-
-  const kycGate = await enforceServerKycForAction({
-    userId,
-    amount: amountNum,
-    actionType: "funding",
-    supabaseClient: supabaseAdmin,
-  });
-  if (!kycGate.allowed) {
-    void logServerKycBlocked({
-      userId,
-      amount: amountNum,
-      actionType: "funding",
-      enforcement: kycGate.enforcement,
-      supabaseClient: supabaseAdmin,
-    });
-    return res.status(403).json({
-      success: false,
-      error: kycGate.error || KYC_BLOCKED_ERROR,
-      message: kycGate.message,
-    });
-  }
 
   const { data: fundData, error: fundError } = await supabaseAdmin.rpc("fund_wallet", {
     p_user_id: userId,

@@ -626,6 +626,23 @@ export default function AdminIndexPage() {
         </Link>
 
         <Link
+          href="/admin/production-operations"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Production Operations</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            TLP-006 deployment, monitoring, and staging certification dashboard.
+          </p>
+        </Link>
+
+        <Link
           href="/admin/compliance-governance"
           style={{
             ...cardBase,
