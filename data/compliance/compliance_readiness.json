@@ -1,0 +1,140 @@
+{
+  "phase": "TLP-005",
+  "generated_at": "2026-06-30T23:15:19.549Z",
+  "compliance_readiness_score": 100,
+  "governance_readiness_score": 100,
+  "classification": "READY FOR PRODUCTION OPERATIONS",
+  "recommendation": "Proceed to TLP-006 Production Operations with live-money controls verified in staging.",
+  "blockers_resolved": {
+    "BLK-004": "PARTIAL — manual AML workflow + screening queue; external vendor deferred",
+    "BLK-007": "PARTIAL — v1.0 policies published; counsel review before GA"
+  },
+  "remaining_blockers": [
+    "PayPal Live not enabled (TLP-005 scope exclusion)",
+    "External AML/sanctions vendor not integrated (manual queue only)",
+    "Counsel formal sign-off on v1.0 policies recommended before GA"
+  ],
+  "live_cutover_blockers": [
+    "PayPal Live not enabled (TLP-005 scope exclusion)",
+    "External AML/sanctions vendor not integrated (manual queue only)",
+    "Counsel formal sign-off on v1.0 policies recommended before GA"
+  ],
+  "tests_passed": 19,
+  "tests_failed": 0,
+  "tests": [
+    {
+      "id": "DOC-AML_POLICY.md",
+      "name": "Documentation: docs/compliance/AML_POLICY.md",
+      "pass": true,
+      "evidence": "docs/compliance/AML_POLICY.md"
+    },
+    {
+      "id": "DOC-KYC_POLICY.md",
+      "name": "Documentation: docs/compliance/KYC_POLICY.md",
+      "pass": true,
+      "evidence": "docs/compliance/KYC_POLICY.md"
+    },
+    {
+      "id": "DOC-INCIDENT_RESPONSE_PLAYBOOK.md",
+      "name": "Documentation: docs/compliance/INCIDENT_RESPONSE_PLAYBOOK.md",
+      "pass": true,
+      "evidence": "docs/compliance/INCIDENT_RESPONSE_PLAYBOOK.md"
+    },
+    {
+      "id": "DOC-OPERATOR_COMPLIANCE_GUIDE.md",
+      "name": "Documentation: docs/compliance/OPERATOR_COMPLIANCE_GUIDE.md",
+      "pass": true,
+      "evidence": "docs/compliance/OPERATOR_COMPLIANCE_GUIDE.md"
+    },
+    {
+      "id": "DOC-TERMS_OF_SERVICE.md",
+      "name": "Documentation: docs/compliance/TERMS_OF_SERVICE.md",
+      "pass": true,
+      "evidence": "docs/compliance/TERMS_OF_SERVICE.md"
+    },
+    {
+      "id": "DOC-PRIVACY_POLICY.md",
+      "name": "Documentation: docs/compliance/PRIVACY_POLICY.md",
+      "pass": true,
+      "evidence": "docs/compliance/PRIVACY_POLICY.md"
+    },
+    {
+      "id": "DOC-ACCOUNT_RESTRICTION_PROCEDURES.md",
+      "name": "Documentation: docs/governance/ACCOUNT_RESTRICTION_PROCEDURES.md",
+      "pass": true,
+      "evidence": "docs/governance/ACCOUNT_RESTRICTION_PROCEDURES.md"
+    },
+    {
+      "id": "DOC-COMPLIANCE_OPERATIONS_MANUAL.md",
+      "name": "Documentation: docs/governance/COMPLIANCE_OPERATIONS_MANUAL.md",
+      "pass": true,
+      "evidence": "docs/governance/COMPLIANCE_OPERATIONS_MANUAL.md"
+    },
+    {
+      "id": "AML-001",
+      "name": "AML case management library",
+      "pass": true,
+      "evidence": "lib/complianceAmlCases.js"
+    },
+    {
+      "id": "AML-002",
+      "name": "Screening provider-agnostic hooks",
+      "pass": true,
+      "evidence": "lib/complianceScreening.js"
+    },
+    {
+      "id": "AML-003",
+      "name": "Compliance SQL migration",
+      "pass": true,
+      "evidence": "phase_tlp005_compliance_governance.sql"
+    },
+    {
+      "id": "ACC-001",
+      "name": "Audited account actions",
+      "pass": true,
+      "evidence": "lib/complianceAccountActions.js"
+    },
+    {
+      "id": "ACC-002",
+      "name": "Admin compliance API requires admin",
+      "pass": true,
+      "evidence": "pages/api/admin/compliance/action.js"
+    },
+    {
+      "id": "INC-001",
+      "name": "Incident management library",
+      "pass": true,
+      "evidence": "lib/complianceIncidents.js"
+    },
+    {
+      "id": "DASH-001",
+      "name": "Compliance dashboard component",
+      "pass": true,
+      "evidence": "dashboard/compliance_governance_dashboard.jsx"
+    },
+    {
+      "id": "DASH-002",
+      "name": "Admin compliance page",
+      "pass": true,
+      "evidence": "pages/admin/compliance-governance.jsx"
+    },
+    {
+      "id": "LEG-001",
+      "name": "Legal version metadata",
+      "pass": true,
+      "evidence": "lib/legalDocumentMeta.js"
+    },
+    {
+      "id": "LEG-002",
+      "name": "Legal layout shows version",
+      "pass": true,
+      "evidence": "LegalDocumentLayout.jsx"
+    },
+    {
+      "id": "KYC-001",
+      "name": "KYC submission queues screening",
+      "pass": true,
+      "evidence": "pages/kyc.jsx"
+    }
+  ]
+}

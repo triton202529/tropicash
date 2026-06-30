@@ -626,6 +626,23 @@ export default function AdminIndexPage() {
         </Link>
 
         <Link
+          href="/admin/compliance-governance"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Compliance &amp; Governance</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            AML queue, sanctions/PEP screening, account controls, and compliance incidents (TLP-005).
+          </p>
+        </Link>
+
+        <Link
           href="/admin/compliance-checklist"
           style={{
             ...cardBase,

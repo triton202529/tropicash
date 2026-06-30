@@ -1,20 +1,35 @@
 import Link from "next/link";
 import Navbar from "../Navbar";
+import { LEGAL_PUBLISHED_NOTICE, LEGAL_DOC_VERSION, LEGAL_EFFECTIVE_DATE } from "../../lib/legalDocumentMeta";
 
-export const LEGAL_DRAFT_BANNER =
-  "Draft policy for operational testing. Final legal review required before public launch.";
+/** @deprecated */
+export const LEGAL_DRAFT_BANNER = LEGAL_PUBLISHED_NOTICE;
 
 /**
- * Shared layout for /legal/* draft policy pages.
+ * Shared layout for /legal/* policy pages.
+ * @param {{ title: string; children: React.ReactNode; relatedLinks?: Array<{ href: string; label: string }>; published?: boolean; version?: string; effectiveDate?: string }} props
  */
-export default function LegalDocumentLayout({ title, children, relatedLinks = [] }) {
+export default function LegalDocumentLayout({
+  title,
+  children,
+  relatedLinks = [],
+  published = true,
+  version = LEGAL_DOC_VERSION,
+  effectiveDate = LEGAL_EFFECTIVE_DATE,
+}) {
   return (
     <>
       <Navbar />
       <div className="mx-auto max-w-2xl px-4 py-8 pb-16 sm:px-6 sm:py-10">
-        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-amber-950">
-          {LEGAL_DRAFT_BANNER}
-        </p>
+        {published ? (
+          <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-emerald-950">
+            {LEGAL_PUBLISHED_NOTICE}
+          </p>
+        ) : (
+          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-amber-950">
+            Draft — not yet published.
+          </p>
+        )}
 
         <nav className="mb-4 text-sm text-slate-500">
           <Link href="/legal" className="font-semibold text-blue-700 hover:underline">
@@ -28,7 +43,7 @@ export default function LegalDocumentLayout({ title, children, relatedLinks = []
 
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{title}</h1>
         <p className="mt-2 text-sm text-slate-600 sm:text-base">
-          Draft placeholder · Last updated {new Date().getFullYear()} · Not legal advice
+          Version {version} · Effective {effectiveDate} · Not legal advice
         </p>
 
         <div className="mt-8 space-y-6 text-sm leading-relaxed text-slate-700 sm:text-base">{children}</div>

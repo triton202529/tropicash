@@ -293,6 +293,22 @@ export default function KycPage() {
       return;
     }
     setSuccessMsg("Your verification details were submitted for review.");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (token) {
+        await fetch("/api/compliance/queue-screening", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ subject_name: payload.full_legal_name }),
+        });
+      }
+    } catch (screenErr) {
+      console.warn("[kyc] compliance screening queue failed:", screenErr);
+    }
     await loadProfile();
     setSaving(false);
   };
