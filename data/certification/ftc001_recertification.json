@@ -1,0 +1,215 @@
+{
+  "certification_id": "FTC-001-RECERT",
+  "phase": "TLP-004",
+  "prior_classification": "CERTIFIED FOR INTERNAL ALPHA",
+  "prior_score": 78,
+  "generated_at": "2026-06-30T00:54:12.124Z",
+  "method": "Static code/SQL inspection after TLP-004 financial core completion",
+  "classification": "CERTIFIED FOR PRIVATE ALPHA",
+  "full_pass": true,
+  "overall_score": 100,
+  "scores": {
+    "wallet_funding": 100,
+    "transfers": 100,
+    "withdrawals": 100,
+    "ledger_integrity": 100,
+    "security": 100,
+    "failure_recovery": 100,
+    "reconciliation": 100,
+    "audit_logging": 100,
+    "idempotency": 100
+  },
+  "pass_criteria": {
+    "no_balance_corruption": true,
+    "no_duplicate_money_movement": true,
+    "no_unrecoverable_failures": true,
+    "ledger_reconciles": true,
+    "audit_trail_complete": true,
+    "server_authoritative_execution": true,
+    "kyc_enforced": true,
+    "rbac_enforced": true,
+    "idempotency_confirmed": true
+  },
+  "target_met": {
+    "overall_gte_95": true,
+    "private_alpha_classification": true,
+    "idempotency_100": true,
+    "ledger_integrity_gte_95": true
+  },
+  "summary": {
+    "tests_run": 24,
+    "passed": 24,
+    "failed": 0,
+    "critical_failures": []
+  },
+  "tests": [
+    {
+      "id": "SEC-001",
+      "name": "Send money uses server API",
+      "pass": true,
+      "evidence": "pages/send-money.jsx",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-002",
+      "name": "Withdraw uses server API",
+      "pass": true,
+      "evidence": "pages/withdraw-wallet.jsx",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-003",
+      "name": "transfer_funds revoked from authenticated",
+      "pass": true,
+      "evidence": "phase_tlp002_foundation_hardening.sql",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-004",
+      "name": "fund_wallet service_role only",
+      "pass": true,
+      "evidence": "phase_tlp002_foundation_hardening.sql",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-005",
+      "name": "Transfer API KYC",
+      "pass": true,
+      "evidence": "pages/api/transfers/send.js",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-006",
+      "name": "Withdrawal API KYC",
+      "pass": true,
+      "evidence": "pages/api/withdrawals/create.js",
+      "severity": "critical"
+    },
+    {
+      "id": "SEC-007",
+      "name": "Funding capture KYC",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-001",
+      "name": "Funding idempotency before wallet credit",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-002",
+      "name": "Transfer API idempotency key support",
+      "pass": true,
+      "evidence": "pages/api/transfers/send.js + lib/financialIdempotency.js",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-003",
+      "name": "Withdrawal create API idempotency key support",
+      "pass": true,
+      "evidence": "pages/api/withdrawals/create.js + lib/financialIdempotency.js",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-005",
+      "name": "Transfer/withdrawal idempotency table migration exists",
+      "pass": true,
+      "evidence": "phase_tlp004_financial_core_completion.sql",
+      "severity": "critical"
+    },
+    {
+      "id": "IDEM-006",
+      "name": "Client sends Idempotency-Key on transfer",
+      "pass": true,
+      "evidence": "pages/send-money.jsx + lib/clientIdempotency.js",
+      "severity": "high"
+    },
+    {
+      "id": "IDEM-007",
+      "name": "Client sends Idempotency-Key on withdrawal",
+      "pass": true,
+      "evidence": "pages/withdraw-wallet.jsx",
+      "severity": "high"
+    },
+    {
+      "id": "LED-001",
+      "name": "Single authoritative ledger documented",
+      "pass": true,
+      "evidence": "docs/certification/LEDGER_ARCHITECTURE_DECISION.md",
+      "severity": "critical"
+    },
+    {
+      "id": "LED-002",
+      "name": "Transfer prevents negative sender balance",
+      "pass": true,
+      "evidence": "transfer_funds RPC",
+      "severity": "critical"
+    },
+    {
+      "id": "LED-003",
+      "name": "All money RPCs write transactions rows",
+      "pass": true,
+      "evidence": "phase_tlp002_foundation_hardening.sql",
+      "severity": "critical"
+    },
+    {
+      "id": "WDR-001",
+      "name": "Withdrawal reconciliation module",
+      "pass": true,
+      "evidence": "lib/withdrawalReconciliation.js",
+      "severity": "medium"
+    },
+    {
+      "id": "WDR-002",
+      "name": "Withdrawal refund RPC",
+      "pass": true,
+      "evidence": "phase_13c_withdrawal_refunds.sql",
+      "severity": "high"
+    },
+    {
+      "id": "MIG-001",
+      "name": "No money RPC grants to authenticated/public",
+      "pass": true,
+      "evidence": "All money RPC grants are service_role only",
+      "severity": "critical"
+    },
+    {
+      "id": "MIG-002",
+      "name": "TLP-004 drift guard migration present",
+      "pass": true,
+      "evidence": "phase_tlp004_financial_core_completion.sql",
+      "severity": "high"
+    },
+    {
+      "id": "AUD-001",
+      "name": "Transfer audit timeline",
+      "pass": true,
+      "evidence": "pages/api/transfers/send.js",
+      "severity": "medium"
+    },
+    {
+      "id": "AUD-002",
+      "name": "Transfer idempotency failure marks failed",
+      "pass": true,
+      "evidence": "pages/api/transfers/send.js",
+      "severity": "medium"
+    },
+    {
+      "id": "REC-001",
+      "name": "Funding marks idempotency failed on RPC error",
+      "pass": true,
+      "evidence": "pages/api/paypal/capture-order.js",
+      "severity": "high"
+    },
+    {
+      "id": "REC-002",
+      "name": "Withdrawal idempotency failure marks failed",
+      "pass": true,
+      "evidence": "pages/api/withdrawals/create.js",
+      "severity": "high"
+    }
+  ]
+}

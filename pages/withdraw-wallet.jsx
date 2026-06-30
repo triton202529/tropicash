@@ -19,6 +19,7 @@ import { buildWithdrawalPhase1Signals, emailDomainOnly } from "../lib/fraudRules
 import { insertPhase1FraudLogs } from "../lib/fraudPhase1Log";
 import { assertFinancialActionAllowed, formatFinancialBlockUserMessage } from "../lib/accountSecurityStatus";
 import FinancialRestrictionNotice from "../components/FinancialRestrictionNotice";
+import { clearIdempotencyKey, getOrCreateIdempotencyKey } from "../lib/clientIdempotency";
 
 const MIN_WITHDRAWAL_AMOUNT = 1;
 const MAX_WITHDRAWAL_AMOUNT = 250;
@@ -413,15 +414,20 @@ export default function WithdrawWalletPage() {
       return;
     }
 
+    const idempotencyScope = `tropicash:withdraw:${user.id}:${amt}:${payoutEmail}`;
+    const idempotencyKey = getOrCreateIdempotencyKey(idempotencyScope);
+
     const createRes = await fetch("/api/withdrawals/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
+        "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
         amount: amt,
         payout_email: payoutEmail,
+        idempotency_key: idempotencyKey,
       }),
     });
 
@@ -456,106 +462,111 @@ export default function WithdrawWalletPage() {
       return;
     }
 
-    const dayAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const thirtyMinIso = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    clearIdempotencyKey(idempotencyScope);
+    const isDuplicate = createPayload?.duplicate === true;
 
-    const [{ count: withdrawalCount24h }, { data: recentFundTxns }] = await Promise.all([
-      supabase
-        .from("withdrawal_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .gte("created_at", dayAgoIso),
-      supabase
-        .from("transactions")
-        .select("id, created_at, amount")
-        .in("type", ["fund", "fund_wallet"])
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-        .gte("created_at", thirtyMinIso)
-        .limit(10),
-    ]);
+    let withdrawNotifOk = true;
+    if (!isDuplicate) {
+      const dayAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const thirtyMinIso = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-    try {
-      const phase1Signals = buildWithdrawalPhase1Signals({
-        amount: amt,
-        withdrawalCount24h: withdrawalCount24h ?? 0,
-        accountCreatedAt: user.created_at ?? null,
-        profileUpdatedAt: profile?.updated_at ?? null,
-        recentFundTxns: recentFundTxns || [],
-        payoutEmailDomain: emailDomainOnly(payoutEmail),
-      });
-      await insertPhase1FraudLogs(
-        supabase,
-        phase1Signals.map((s) => ({
+      const [{ count: withdrawalCount24h }, { data: recentFundTxns }] = await Promise.all([
+        supabase
+          .from("withdrawal_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", dayAgoIso),
+        supabase
+          .from("transactions")
+          .select("id, created_at, amount")
+          .in("type", ["fund", "fund_wallet"])
+          .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+          .gte("created_at", thirtyMinIso)
+          .limit(10),
+      ]);
+
+      try {
+        const phase1Signals = buildWithdrawalPhase1Signals({
+          amount: amt,
+          withdrawalCount24h: withdrawalCount24h ?? 0,
+          accountCreatedAt: user.created_at ?? null,
+          profileUpdatedAt: profile?.updated_at ?? null,
+          recentFundTxns: recentFundTxns || [],
+          payoutEmailDomain: emailDomainOnly(payoutEmail),
+        });
+        await insertPhase1FraudLogs(
+          supabase,
+          phase1Signals.map((s) => ({
+            userId: user.id,
+            transactionType: "withdraw",
+            eventType: s.eventType,
+            severity: s.severity,
+            description: s.description,
+            amount: s.amount,
+            metadata: s.metadata,
+          })),
+        );
+      } catch (phase1Err) {
+        console.error("[withdraw-wallet] phase1 fraud logs failed:", phase1Err);
+        void logOperationalError({
+          category: "fraud.phase1_client",
+          message: phase1Err?.message || String(phase1Err),
+          userId: user.id,
+          route: "/withdraw-wallet",
+          metadata: { phase: "withdraw_phase1_signals" },
+        });
+      }
+
+      try {
+        await notifyAdminNewWithdrawalRequest(amt, { requesterUserId: user.id });
+      } catch (adminNotifErr) {
+        console.error("[withdraw-wallet] admin withdrawal notification failed:", adminNotifErr);
+        void logOperationalError({
+          category: "notification.admin_withdrawal_alert",
+          message: adminNotifErr?.message || String(adminNotifErr),
+          userId: user.id,
+          route: "/withdraw-wallet",
+          metadata: { phase: "notify_admin_throw" },
+        });
+      }
+
+      try {
+        await evaluateAndLogFraud({
           userId: user.id,
           transactionType: "withdraw",
-          eventType: s.eventType,
-          severity: s.severity,
-          description: s.description,
-          amount: s.amount,
-          metadata: s.metadata,
-        })),
-      );
-    } catch (phase1Err) {
-      console.error("[withdraw-wallet] phase1 fraud logs failed:", phase1Err);
-      void logOperationalError({
-        category: "fraud.phase1_client",
-        message: phase1Err?.message || String(phase1Err),
-        userId: user.id,
-        route: "/withdraw-wallet",
-        metadata: { phase: "withdraw_phase1_signals" },
-      });
+          amount: amt,
+          senderId: user.id,
+          recipientId: user.id,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (fraudErr) {
+        console.error("[withdraw-wallet] fraud logging failed:", fraudErr);
+        void logOperationalError({
+          category: "fraud.evaluate_client",
+          message: fraudErr?.message || String(fraudErr),
+          userId: user.id,
+          route: "/withdraw-wallet",
+          metadata: { phase: "evaluateAndLogFraud" },
+        });
+      }
+
+      try {
+        withdrawNotifOk = await insertWithdrawNotification(user.id, amt);
+      } catch (notificationErr) {
+        console.error("[withdraw-wallet] notification failed:", notificationErr);
+        withdrawNotifOk = false;
+        void logOperationalError({
+          category: "notification.create",
+          message: notificationErr?.message || String(notificationErr),
+          userId: user.id,
+          route: "/withdraw-wallet",
+          metadata: { phase: "withdraw_notification_throw" },
+        });
+      }
     }
 
     await fetchWalletBalance();
-
-    try {
-      await notifyAdminNewWithdrawalRequest(amt, { requesterUserId: user.id });
-    } catch (adminNotifErr) {
-      console.error("[withdraw-wallet] admin withdrawal notification failed:", adminNotifErr);
-      void logOperationalError({
-        category: "notification.admin_withdrawal_alert",
-        message: adminNotifErr?.message || String(adminNotifErr),
-        userId: user.id,
-        route: "/withdraw-wallet",
-        metadata: { phase: "notify_admin_throw" },
-      });
-    }
     await loadRecentWithdrawals();
-
-    try {
-      await evaluateAndLogFraud({
-        userId: user.id,
-        transactionType: "withdraw",
-        amount: amt,
-        senderId: user.id,
-        recipientId: user.id,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (fraudErr) {
-      console.error("[withdraw-wallet] fraud logging failed:", fraudErr);
-      void logOperationalError({
-        category: "fraud.evaluate_client",
-        message: fraudErr?.message || String(fraudErr),
-        userId: user.id,
-        route: "/withdraw-wallet",
-        metadata: { phase: "evaluateAndLogFraud" },
-      });
-    }
-
-    let withdrawNotifOk = true;
-    try {
-      withdrawNotifOk = await insertWithdrawNotification(user.id, amt);
-    } catch (notificationErr) {
-      console.error("[withdraw-wallet] notification failed:", notificationErr);
-      withdrawNotifOk = false;
-      void logOperationalError({
-        category: "notification.create",
-        message: notificationErr?.message || String(notificationErr),
-        userId: user.id,
-        route: "/withdraw-wallet",
-        metadata: { phase: "withdraw_notification_throw" },
-      });
-    }
 
     setAmount("");
     setPayoutNote("");

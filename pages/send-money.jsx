@@ -10,6 +10,7 @@ import { SoftEnforcementNotice } from "../lib/softEnforcement";
 import { evaluateTrustCheck } from "../lib/trustLayer";
 import { assertFinancialActionAllowed, formatFinancialBlockUserMessage } from "../lib/accountSecurityStatus";
 import FinancialRestrictionNotice from "../components/FinancialRestrictionNotice";
+import { clearIdempotencyKey, getOrCreateIdempotencyKey } from "../lib/clientIdempotency";
 
 function walletAmount(row) {
   const raw = row?.wallet_balance ?? row?.balance ?? 0;
@@ -327,15 +328,20 @@ export default function SendMoneyPage() {
         return;
       }
 
+      const idempotencyScope = `tropicash:transfer:${user.id}:${recipientId}:${amt}`;
+      const idempotencyKey = getOrCreateIdempotencyKey(idempotencyScope);
+
       const transferRes = await fetch("/api/transfers/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
+          "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
           recipient_id: recipientId,
           amount: amt,
+          idempotency_key: idempotencyKey,
         }),
       });
 
@@ -357,12 +363,15 @@ export default function SendMoneyPage() {
         ? { id: transferPayload.transaction_id }
         : null;
 
+      clearIdempotencyKey(idempotencyScope);
+
       await fetchWalletBalance();
       await fetchRecentContacts();
 
       const sentName = recipientDisplayName(selectedRecipient);
+      const isDuplicate = transferPayload?.duplicate === true;
 
-      if (lastTxn?.id) {
+      if (lastTxn?.id && !isDuplicate) {
         try {
           await evaluateAndLogFraud({
             userId: user.id,
@@ -380,6 +389,7 @@ export default function SendMoneyPage() {
 
       try {
         const amountText = formatMoney(amt);
+        if (!isDuplicate) {
         const senderNotif = await supabase.rpc("create_notification", {
           p_user_id: user.id,
           p_type: "send_money",
@@ -412,6 +422,7 @@ export default function SendMoneyPage() {
             code: recipientNotif.error?.code,
             raw: recipientNotif.error,
           });
+        }
         }
       } catch (notificationErr) {
         console.error("[send-money] notification failed:", notificationErr);

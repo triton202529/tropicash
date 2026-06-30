@@ -116,7 +116,8 @@ end;
 $$;
 
 revoke all on function public.create_withdrawal_request(uuid, numeric, text) from public;
-grant execute on function public.create_withdrawal_request(uuid, numeric, text) to authenticated;
+revoke all on function public.create_withdrawal_request(uuid, numeric, text) from authenticated;
+grant execute on function public.create_withdrawal_request(uuid, numeric, text) to service_role;
 
 comment on function public.create_withdrawal_request(uuid, numeric, text) is
   'Debits wallet, creates withdrawal_requests row, and logs withdraw_wallet transaction (Phase 13D).';

@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-06-30T00:54:12.126Z",
+  "phase": "TLP-004",
+  "money_rpc_grants": [
+    {
+      "file": "create_withdrawal_request_rpc.sql",
+      "rpc": "create_withdrawal_request",
+      "grantee": "service_role",
+      "line": 102
+    },
+    {
+      "file": "phase_13d_withdrawal_transaction_ledger.sql",
+      "rpc": "create_withdrawal_request",
+      "grantee": "service_role",
+      "line": 120
+    },
+    {
+      "file": "phase_tlp002_foundation_hardening.sql",
+      "rpc": "fund_wallet",
+      "grantee": "service_role",
+      "line": 82
+    },
+    {
+      "file": "phase_tlp002_foundation_hardening.sql",
+      "rpc": "transfer_funds",
+      "grantee": "service_role",
+      "line": 168
+    },
+    {
+      "file": "phase_tlp002_foundation_hardening.sql",
+      "rpc": "create_withdrawal_request",
+      "grantee": "service_role",
+      "line": 278
+    },
+    {
+      "file": "phase_tlp004_financial_core_completion.sql",
+      "rpc": "fund_wallet",
+      "grantee": "service_role",
+      "line": 71
+    },
+    {
+      "file": "phase_tlp004_financial_core_completion.sql",
+      "rpc": "transfer_funds",
+      "grantee": "service_role",
+      "line": 75
+    },
+    {
+      "file": "phase_tlp004_financial_core_completion.sql",
+      "rpc": "create_withdrawal_request",
+      "grantee": "service_role",
+      "line": 79
+    },
+    {
+      "file": "wallet_transfer_withdraw_rpc.sql",
+      "rpc": "transfer_funds",
+      "grantee": "service_role",
+      "line": 74
+    }
+  ],
+  "insecure_grants": [],
+  "canonical_migrations": [
+    "phase_tlp002_foundation_hardening.sql",
+    "phase_tlp004_financial_core_completion.sql"
+  ],
+  "superseded_migrations": [
+    "create_withdrawal_request_rpc.sql",
+    "phase_13d_withdrawal_transaction_ledger.sql (create_withdrawal_request grant section)"
+  ],
+  "pass": true,
+  "mig_001_pass": true,
+  "mig_002_pass": true
+}

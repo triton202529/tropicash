@@ -1,3 +1,5 @@
+-- DEPRECATED (TLP-004): Superseded by phase_tlp002_foundation_hardening.sql.
+-- Do not apply after TLP-002. Canonical RPC definition: phase_tlp002_foundation_hardening.sql.
 -- Atomic wallet debit + withdrawal_requests row + withdraw_wallet ledger entry (single transaction).
 -- Run in Supabase SQL Editor after public.wallets and public.withdrawal_requests exist.
 -- Requires wallets.wallet_balance (numeric). Phase 13D adds withdrawal_transaction_id link.
@@ -96,4 +98,5 @@ end;
 $$;
 
 revoke all on function public.create_withdrawal_request(uuid, numeric, text) from public;
-grant execute on function public.create_withdrawal_request(uuid, numeric, text) to authenticated;
+revoke all on function public.create_withdrawal_request(uuid, numeric, text) from authenticated;
+grant execute on function public.create_withdrawal_request(uuid, numeric, text) to service_role;

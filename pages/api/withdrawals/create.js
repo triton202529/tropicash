@@ -17,6 +17,14 @@ import {
   logServerKycBlocked,
 } from "../../../lib/serverKycGuard";
 import { appendAuditEventServer } from "../../../lib/auditTimeline";
+import {
+  claimFinancialIdempotencySlot,
+  extractIdempotencyKey,
+  patchFinancialIdempotencyRow,
+  validateIdempotencyKey,
+} from "../../../lib/financialIdempotency";
+
+const WITHDRAWAL_IDEMPOTENCY_TABLE = "withdrawal_idempotency_keys";
 
 function messageForRpcError(err) {
   const msg = err?.message || "";
@@ -61,6 +69,15 @@ export default async function handler(req, res) {
   }
   if (!payoutEmail) {
     return res.status(400).json({ error: "payout_email is required" });
+  }
+
+  const idempotencyKey = extractIdempotencyKey(req, body);
+  const idemValidation = validateIdempotencyKey(idempotencyKey);
+  if (!idemValidation.valid) {
+    return res.status(400).json({
+      error: idemValidation.error,
+      message: "Idempotency-Key header (or idempotency_key body field) is required.",
+    });
   }
 
   const finGate = await canServerPerformFinancialAction({ userId, action: "withdraw_wallet" });
@@ -129,6 +146,41 @@ export default async function handler(req, res) {
     }
   }
 
+  const claim = await claimFinancialIdempotencySlot(admin, {
+    table: WITHDRAWAL_IDEMPOTENCY_TABLE,
+    userId,
+    idempotencyKey,
+    insertFields: { amount, payout_email: payoutEmail },
+  });
+
+  if (claim.kind === "duplicate_completed") {
+    const stored = claim.row?.response_payload;
+    if (stored && typeof stored === "object") {
+      return res.status(200).json({ ...stored, duplicate: true });
+    }
+    return res.status(200).json({
+      success: true,
+      duplicate: true,
+      request_id: claim.row?.request_id ?? null,
+    });
+  }
+  if (claim.kind === "already_processing") {
+    return res.status(409).json({
+      error: "ALREADY_PROCESSING",
+      message: "This withdrawal is already being processed. Please wait.",
+    });
+  }
+  if (claim.kind === "error") {
+    void logOperationalError({
+      supabaseClient: admin,
+      category: "withdrawal.idempotency",
+      message: claim.error?.message || "withdrawal idempotency claim failed",
+      userId,
+      route: "/api/withdrawals/create",
+    });
+    return res.status(500).json({ error: "Withdrawal request failed" });
+  }
+
   const { data: requestId, error: rpcError } = await admin.rpc("create_withdrawal_request", {
     p_user_id: userId,
     p_amount: amount,
@@ -136,6 +188,9 @@ export default async function handler(req, res) {
   });
 
   if (rpcError) {
+    void patchFinancialIdempotencyRow(admin, WITHDRAWAL_IDEMPOTENCY_TABLE, claim.rowId, {
+      status: "failed",
+    });
     void logOperationalError({
       supabaseClient: admin,
       category: "withdrawal.create_request",
@@ -151,6 +206,17 @@ export default async function handler(req, res) {
     });
   }
 
+  const responsePayload = {
+    success: true,
+    request_id: requestId,
+  };
+
+  void patchFinancialIdempotencyRow(admin, WITHDRAWAL_IDEMPOTENCY_TABLE, claim.rowId, {
+    status: "completed",
+    request_id: requestId,
+    response_payload: responsePayload,
+  });
+
   void appendAuditEventServer({
     entityType: "user",
     entityId: userId,
@@ -165,8 +231,5 @@ export default async function handler(req, res) {
     dedupeWindowMs: 60 * 1000,
   });
 
-  return res.status(200).json({
-    success: true,
-    request_id: requestId,
-  });
+  return res.status(200).json(responsePayload);
 }

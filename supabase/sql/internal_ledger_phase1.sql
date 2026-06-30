@@ -1,5 +1,6 @@
--- Internal ledger / journal engine (Phase 1, observation mode).
--- No automatic journal posts from wallet or payment flows in this phase.
+-- Treasury reporting ledger (Phase 1). NOT the authoritative financial system of record.
+-- Authoritative ledger: public.transactions + public.wallets.wallet_balance (see docs/certification/LEDGER_ARCHITECTURE_DECISION.md).
+-- Manual journal entries only; no automatic posts from wallet or payment flows.
 -- Admin access uses public.tc_is_admin() — align with lib/adminAccess.js + withdrawal_requests.sql.
 -- Normal authenticated users have no policies on these tables (RLS denies).
 

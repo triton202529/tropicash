@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-06-30T00:54:12.125Z",
+  "phase": "TLP-004",
+  "scenarios": [
+    {
+      "id": "IDEM-S01",
+      "name": "Transfer duplicate POST",
+      "control": "claimFinancialIdempotencySlot + UNIQUE(user_id, idempotency_key)",
+      "evidence": "pages/api/transfers/send.js",
+      "pass": true
+    },
+    {
+      "id": "IDEM-S02",
+      "name": "Withdrawal duplicate POST",
+      "control": "claimFinancialIdempotencySlot + UNIQUE(user_id, idempotency_key)",
+      "evidence": "pages/api/withdrawals/create.js",
+      "pass": true
+    },
+    {
+      "id": "IDEM-S03",
+      "name": "Funding PayPal order replay",
+      "control": "funding_idempotency_keys UNIQUE(provider, provider_order_id)",
+      "evidence": "pages/api/paypal/capture-order.js",
+      "pass": true
+    },
+    {
+      "id": "IDEM-S04",
+      "name": "Browser refresh / retry (client key persistence)",
+      "control": "sessionStorage via getOrCreateIdempotencyKey",
+      "evidence": "lib/clientIdempotency.js",
+      "pass": true
+    },
+    {
+      "id": "IDEM-S05",
+      "name": "In-flight concurrent duplicate",
+      "control": "409 ALREADY_PROCESSING when status=processing",
+      "evidence": "lib/financialIdempotency.js claimFinancialIdempotencySlot",
+      "pass": true
+    },
+    {
+      "id": "IDEM-S06",
+      "name": "Failed operation retry with same key",
+      "control": "failed status allows reclaim before retry",
+      "evidence": "lib/financialIdempotency.js",
+      "pass": true
+    }
+  ],
+  "all_pass": true
+}

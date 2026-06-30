@@ -1,9 +1,9 @@
 # Tropicash Launch Master Plan
 
 **Program:** TLP (Tropicash Launch Program)  
-**Current Phase:** TLP-003 — Financial Transaction Certification (FTC-001) ✓  
-**Last Completed:** TLP-003 — FTC-001 certification (Internal Alpha)  
-**Previous:** TLP-002 — Foundation Hardening ✓  
+**Current Phase:** TLP-004 — Financial Core Completion ✓  
+**Last Completed:** TLP-004 — Financial core + FTC-001 recertification (Private Alpha)  
+**Previous:** TLP-003 — Financial Transaction Certification ✓  
 **Generated:** 2026-06-28 (updated post TLP-002)  
 **Current Launch Stage:** Internal Alpha → Private Alpha preparation  
 **Overall Readiness:** ~62% (estimated post TLP-002)
