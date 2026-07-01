@@ -1,0 +1,16 @@
+{
+  "program": "TLP-007",
+  "entries": [
+    {
+      "date": "2026-07-01",
+      "generated_at": "2026-07-01T00:01:00.082Z",
+      "source": "static_script",
+      "note": "Append live reconciliation from /admin/private-alpha; export via operator workflow",
+      "withdrawal_reconciliation": {
+        "clean": null,
+        "critical_count": null,
+        "warning_count": null
+      }
+    }
+  ]
+}

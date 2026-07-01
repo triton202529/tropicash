@@ -626,6 +626,25 @@ export default function AdminIndexPage() {
         </Link>
 
         <Link
+          href="/admin/private-alpha"
+          style={{
+            ...cardBase,
+            display: "block",
+            padding: "1rem 1.15rem",
+            marginBottom: "1.25rem",
+            textDecoration: "none",
+            color: "inherit",
+            border: "1px solid #fde68a",
+            background: "linear-gradient(180deg, #ffffff 0%, #fffbeb 100%)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>Private Alpha</p>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.85rem", color: "#64748b", lineHeight: 1.45 }}>
+            TLP-007 daily certification, metrics, reconciliation, and incident oversight (PayPal Sandbox).
+          </p>
+        </Link>
+
+        <Link
           href="/admin/production-operations"
           style={{
             ...cardBase,

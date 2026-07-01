@@ -1,0 +1,138 @@
+{
+  "phase": "TLP-007",
+  "generated_at": "2026-07-01T00:01:00.082Z",
+  "program_status": "active",
+  "classification": "EXTEND PRIVATE ALPHA",
+  "final_assessment": "EXTEND PRIVATE ALPHA",
+  "paypal_mode": "sandbox",
+  "cohort_target": "10-25",
+  "evaluation_days": 1,
+  "static_tests": {
+    "passed": 12,
+    "failed": 0,
+    "total": 12,
+    "checks": [
+      {
+        "id": "DOC-PRIVATE_ALPHA_OPERATIONS_MANUAL",
+        "name": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_OPERATIONS_MANUAL.md",
+        "pass": true,
+        "evidence": "docs/private_alpha/PRIVATE_ALPHA_OPERATIONS_MANUAL.md",
+        "severity": "high"
+      },
+      {
+        "id": "DOC-PRIVATE_ALPHA_DAILY_CHECKLIST",
+        "name": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_DAILY_CHECKLIST.md",
+        "pass": true,
+        "evidence": "docs/private_alpha/PRIVATE_ALPHA_DAILY_CHECKLIST.md",
+        "severity": "high"
+      },
+      {
+        "id": "DOC-PRIVATE_ALPHA_EXIT_CRITERIA",
+        "name": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_EXIT_CRITERIA.md",
+        "pass": true,
+        "evidence": "docs/private_alpha/PRIVATE_ALPHA_EXIT_CRITERIA.md",
+        "severity": "high"
+      },
+      {
+        "id": "DOC-PRIVATE_ALPHA_INCIDENT_PLAYBOOK",
+        "name": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_INCIDENT_PLAYBOOK.md",
+        "pass": true,
+        "evidence": "docs/private_alpha/PRIVATE_ALPHA_INCIDENT_PLAYBOOK.md",
+        "severity": "high"
+      },
+      {
+        "id": "LIB-OPS",
+        "name": "privateAlphaOps module",
+        "pass": true,
+        "evidence": "lib/privateAlphaOps.js",
+        "severity": "high"
+      },
+      {
+        "id": "DASH",
+        "name": "Private alpha dashboard",
+        "pass": true,
+        "evidence": "dashboard/private_alpha_dashboard.jsx",
+        "severity": "high"
+      },
+      {
+        "id": "ADMIN",
+        "name": "Admin private alpha page",
+        "pass": true,
+        "evidence": "pages/admin/private-alpha.jsx",
+        "severity": "high"
+      },
+      {
+        "id": "PP-SANDBOX-DEFAULT",
+        "name": "PayPal sandbox documented as default",
+        "pass": true,
+        "evidence": "env template",
+        "severity": "critical"
+      },
+      {
+        "id": "PP-GUARD",
+        "name": "PayPal production guard present",
+        "pass": true,
+        "evidence": "paypalProductionGuard.js",
+        "severity": "critical"
+      },
+      {
+        "id": "PP-KYC-CAPTURE",
+        "name": "KYC before capture",
+        "pass": true,
+        "evidence": "capture-order.js",
+        "severity": "critical"
+      },
+      {
+        "id": "TLP006-READY",
+        "name": "TLP-006 classified READY FOR PRIVATE ALPHA",
+        "pass": true,
+        "evidence": "production_operations_results.json",
+        "severity": "high"
+      },
+      {
+        "id": "FTC-CERT",
+        "name": "Financial core recertification valid",
+        "pass": true,
+        "evidence": "ftc001_recertification.json",
+        "severity": "high"
+      }
+    ]
+  },
+  "pass_criteria": {
+    "operations_manual": true,
+    "daily_checklist": true,
+    "exit_criteria_doc": true,
+    "incident_playbook": true,
+    "dashboard": true,
+    "admin_page": true,
+    "paypal_sandbox_only": true,
+    "tlp006_prerequisite": true,
+    "live_cohort_active": false
+  },
+  "remaining_blockers": [
+    "Sustained evaluation period not complete (minimum 14 operating days)",
+    "Live staging E2E manual sign-off pending (TLP-006)",
+    "Executive launch review not completed",
+    "PayPal Live disabled by policy until authorized"
+  ],
+  "exit_evaluation": {
+    "classification": "EXTEND PRIVATE ALPHA",
+    "criteria": {
+      "sustained_period": false,
+      "no_critical_defects": true,
+      "no_high_financial_defects": true,
+      "reconciliation_throughout": true,
+      "compliance_validated": false,
+      "treasury_validated": true,
+      "ops_validated": false,
+      "user_feedback_positive": null,
+      "executive_review": false
+    },
+    "criteria_met": 4,
+    "criteria_total": 9,
+    "evaluation_days": 1,
+    "open_critical_incidents": 0,
+    "generated_at": "2026-07-01T00:01:00.089Z",
+    "recommendation": "Continue Private Alpha; complete daily checklist and accumulate evaluation history."
+  }
+}

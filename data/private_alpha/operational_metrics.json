@@ -1,0 +1,51 @@
+{
+  "program": "TLP-007",
+  "generated_at": "2026-07-01T00:01:00.082Z",
+  "note": "Template at program launch. Run node scripts/tlp007-private-alpha-daily.mjs to refresh from live environment.",
+  "cohort": {
+    "target_size": "10-25",
+    "registered_users": null,
+    "kyc_approved": null,
+    "kyc_pending": null
+  },
+  "daily": {
+    "active_users_estimate": null,
+    "transaction_count": null,
+    "transaction_volume_usd": null,
+    "funded_usd": null,
+    "sent_usd": null,
+    "withdrawn_usd": null
+  },
+  "rates": {
+    "registration_success_rate": null,
+    "funding_success_rate": null,
+    "transfer_success_rate": null,
+    "withdrawal_success_rate": null,
+    "failed_transaction_rate_24h": null,
+    "duplicate_funding_attempts_24h": null,
+    "average_kyc_approval_hours": null,
+    "average_withdrawal_approval_hours": null,
+    "average_incident_resolution_hours": null,
+    "average_support_response_hours": null
+  },
+  "compliance": {
+    "aml_investigations_active": null,
+    "account_restrictions": null,
+    "fraud_investigations": null,
+    "recovery_operations": null
+  },
+  "treasury": {
+    "paypal_mode": "sandbox",
+    "pending_withdrawals": null,
+    "processing_withdrawals": null
+  },
+  "support": {
+    "open_fraud_logs": null,
+    "support_tickets": null
+  },
+  "period_7d": {
+    "transaction_count": null,
+    "funding_completions": null
+  },
+  "launch_static_pass": true
+}

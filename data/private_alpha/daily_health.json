@@ -1,0 +1,90 @@
+{
+  "program": "TLP-007",
+  "generated_at": "2026-07-01T00:01:00.082Z",
+  "source": "static_script",
+  "paypal_mode": "sandbox",
+  "daily_certification_pass": true,
+  "checks_passed": 12,
+  "checks_total": 12,
+  "automated_pass": 12,
+  "automated_total": 12,
+  "operator_sign_off": null,
+  "checks": [
+    {
+      "id": "DOC-PRIVATE_ALPHA_OPERATIONS_MANUAL",
+      "label": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_OPERATIONS_MANUAL.md",
+      "pass": true,
+      "detail": "docs/private_alpha/PRIVATE_ALPHA_OPERATIONS_MANUAL.md"
+    },
+    {
+      "id": "DOC-PRIVATE_ALPHA_DAILY_CHECKLIST",
+      "label": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_DAILY_CHECKLIST.md",
+      "pass": true,
+      "detail": "docs/private_alpha/PRIVATE_ALPHA_DAILY_CHECKLIST.md"
+    },
+    {
+      "id": "DOC-PRIVATE_ALPHA_EXIT_CRITERIA",
+      "label": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_EXIT_CRITERIA.md",
+      "pass": true,
+      "detail": "docs/private_alpha/PRIVATE_ALPHA_EXIT_CRITERIA.md"
+    },
+    {
+      "id": "DOC-PRIVATE_ALPHA_INCIDENT_PLAYBOOK",
+      "label": "Private alpha doc: docs/private_alpha/PRIVATE_ALPHA_INCIDENT_PLAYBOOK.md",
+      "pass": true,
+      "detail": "docs/private_alpha/PRIVATE_ALPHA_INCIDENT_PLAYBOOK.md"
+    },
+    {
+      "id": "LIB-OPS",
+      "label": "privateAlphaOps module",
+      "pass": true,
+      "detail": "lib/privateAlphaOps.js"
+    },
+    {
+      "id": "DASH",
+      "label": "Private alpha dashboard",
+      "pass": true,
+      "detail": "dashboard/private_alpha_dashboard.jsx"
+    },
+    {
+      "id": "ADMIN",
+      "label": "Admin private alpha page",
+      "pass": true,
+      "detail": "pages/admin/private-alpha.jsx"
+    },
+    {
+      "id": "PP-SANDBOX-DEFAULT",
+      "label": "PayPal sandbox documented as default",
+      "pass": true,
+      "detail": "env template"
+    },
+    {
+      "id": "PP-GUARD",
+      "label": "PayPal production guard present",
+      "pass": true,
+      "detail": "paypalProductionGuard.js"
+    },
+    {
+      "id": "PP-KYC-CAPTURE",
+      "label": "KYC before capture",
+      "pass": true,
+      "detail": "capture-order.js"
+    },
+    {
+      "id": "TLP006-READY",
+      "label": "TLP-006 classified READY FOR PRIVATE ALPHA",
+      "pass": true,
+      "detail": "production_operations_results.json"
+    },
+    {
+      "id": "FTC-CERT",
+      "label": "Financial core recertification valid",
+      "pass": true,
+      "detail": "ftc001_recertification.json"
+    }
+  ],
+  "summary": {
+    "static_launch_checks_pass": true,
+    "note": "Live DB probes run via /admin/private-alpha only"
+  }
+}

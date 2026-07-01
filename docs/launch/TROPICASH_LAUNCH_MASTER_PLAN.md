@@ -226,3 +226,27 @@ Overall Readiness         ███████████░░░░░░░
 ---
 
 *TLP-001 complete. Proceed to TLP-002 upon stakeholder approval.*
+
+---
+
+## 9. Phase TLP-007 — Private Alpha Execution (Current)
+
+**Status:** Active — program launched 2026-06-30  
+**Classification:** EXTEND PRIVATE ALPHA (evaluation in progress)  
+**Payments:** PayPal Sandbox only until staging checklist and executive authorization
+
+| Artifact | Location |
+|----------|----------|
+| Operations manual | `docs/private_alpha/PRIVATE_ALPHA_OPERATIONS_MANUAL.md` |
+| Daily checklist | `docs/private_alpha/PRIVATE_ALPHA_DAILY_CHECKLIST.md` |
+| Exit criteria | `docs/private_alpha/PRIVATE_ALPHA_EXIT_CRITERIA.md` |
+| Incident playbook | `docs/private_alpha/PRIVATE_ALPHA_INCIDENT_PLAYBOOK.md` |
+| Executive dashboard | `/admin/private-alpha` |
+| Daily script | `node scripts/tlp007-private-alpha-daily.mjs` |
+
+**Prerequisite:** TLP-006 classified READY FOR PRIVATE ALPHA.
+
+**Exit classification (exactly one):** EXTEND PRIVATE ALPHA · READY FOR PUBLIC BETA · NOT READY
+
+**Feature freeze:** Defects, stability, operations, documentation, monitoring, and reliability only.
+
