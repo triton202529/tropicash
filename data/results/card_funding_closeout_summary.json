@@ -1,0 +1,61 @@
+{
+  "phase": "C-002-closeout",
+  "finalClassification": "CARD_FUNDING_SANDBOX_VALIDATED",
+  "CARD_PAYOUT_STATUS": "REQUIRES_ACQUIRER_SPONSOR",
+  "environment": "sandbox",
+  "projectRef": "opbhcndlibbcsmoaeymq",
+  "timestamp": "2026-07-14T02:02:18.054Z",
+  "successfulCapture": {
+    "amount": 5.25,
+    "currency": "USD",
+    "startingBalance": 12.28,
+    "endingBalance": 17.53,
+    "expectedDelta": 5.25,
+    "actualDelta": 5.25,
+    "fundingTxCount": 1,
+    "fundingTxType": "fund",
+    "balanceAuthority": "fund_wallet_rpc",
+    "providerReplay": "PASS_REJECTED",
+    "tropicashReplay": "PASS",
+    "notification": "PASS",
+    "captureBoundToIdempotency": true
+  },
+  "accountingLimitation": {
+    "systemOfRecord": "wallets.wallet_balance + public.transactions (canonical funding row)",
+    "journalEntriesAutoPosted": false,
+    "journalEntryCount": 0,
+    "balancedMeaning": "C-002 balanced means provider capture, canonical transaction, idempotency record, notification, and wallet delta reconcile — not that a double-entry general ledger posting occurred",
+    "knownLimitation": "journal_entries / journal_lines are manual/reporting ledger only; funding does not auto-post"
+  },
+  "negativeApi": {
+    "ok": true,
+    "results": {
+      "unauthenticated_create_order": "PASS",
+      "unauthenticated_capture_order": "PASS",
+      "create_order_non_positive_amount": "PASS",
+      "capture_missing_order_id": "PASS",
+      "capture_malformed_order_id": "PASS",
+      "amount_below_1_guard": "PASS_CODE_PATH",
+      "amount_above_1000_guard": "PASS_CODE_PATH",
+      "amount_mismatch_guard": "PASS_CODE_PATH",
+      "currency_mismatch_guard": "PASS_CODE_PATH",
+      "create_order_min_max_boundary": "PASS_DOCUMENTED"
+    },
+    "evidence": "data/results/card_funding_negative_api_validation.json"
+  },
+  "appliedMigrationsInOrder": [
+    "card_funding_fund_wallet_double_credit_fix_c001",
+    "card_funding_fund_wallet_type_compat_option_a_c002",
+    "card_funding_conditional_balance_authority_c002",
+    "card_funding_credit_wallet_authority_hardening_c002",
+    "card_funding_notification_type_wallet_funded_c002"
+  ],
+  "dbLiveChecks": {
+    "fundWalletServiceRoleOnly": true,
+    "creditWalletClientAndServiceRoleDenied": true,
+    "conditionalTriggerActive": true,
+    "notificationAllowsWalletFunded": true
+  },
+  "remainingBlockers": [],
+  "ok": true
+}

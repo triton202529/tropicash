@@ -245,15 +245,25 @@ export default async function handler(req, res) {
       orderID,
       message: err?.message,
     });
+    const declineCode = err?.code || null;
+    const userSafeError =
+      declineCode === "PROCESSOR_DECLINED" || declineCode === "PAYER_ACTION_REQUIRED"
+        ? err.message
+        : "Could not capture PayPal order";
     void logOperationalError({
       supabaseClient: supabaseAdmin,
       category: "paypal.capture",
       message: err?.message || "PayPal capture threw",
       userId,
       route: "/api/paypal/capture-order",
-      metadata: { orderID: orderID ? String(orderID).slice(0, 80) : null, phase: "capture_throw" },
+      metadata: {
+        orderID: orderID ? String(orderID).slice(0, 80) : null,
+        phase: "capture_throw",
+        code: declineCode,
+        paypalIssue: err?.paypalIssue || null,
+      },
     });
-    console.error("[paypal/capture-order] PayPal capture failed:", err);
+    console.error("[paypal/capture-order] PayPal capture failed:", err?.code || err?.message || err);
     console.error("[FUNDING_STATUS_UPDATE] status=failed phase=capture", { orderID });
     void recordEventOnce({
       supabaseClient: supabaseAdmin,
@@ -263,7 +273,7 @@ export default async function handler(req, res) {
       severity: "warning",
       title: "Funding attempt failed",
       message: "We couldn't complete your wallet funding. Please try again or contact support if it persists.",
-      metadata: { orderID, phase: "capture_throw" },
+      metadata: { orderID, phase: "capture_throw", code: declineCode },
       dedupeKey: `funding.failed:${userId}:${orderID}`,
       windowMs: 5 * 60 * 1000,
     });
@@ -275,10 +285,11 @@ export default async function handler(req, res) {
       title: "User funding failed",
       message: `Funding attempt failed for user during PayPal capture (order ${orderID}).`,
       actorUserId: userId,
-      metadata: { orderID, phase: "capture_throw", userId },
+      metadata: { orderID, phase: "capture_throw", userId, code: declineCode },
     });
     return res.status(502).json({
-      error: "Could not capture PayPal order",
+      error: userSafeError,
+      code: declineCode || "PAYPAL_CAPTURE_FAILED",
     });
   }
 
@@ -329,8 +340,55 @@ export default async function handler(req, res) {
     });
   }
 
-  const amountStr =
-    result.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
+  const captureUnit = result.purchase_units?.[0]?.payments?.captures?.[0];
+  const captureStatus = captureUnit?.status != null ? String(captureUnit.status) : null;
+  if (captureStatus && captureStatus !== "COMPLETED") {
+    await logPaypalCaptureIncomplete(supabaseAdmin, {
+      userId,
+      orderID,
+      paypalStatus: captureStatus,
+    });
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "paypal.capture",
+      message: `PayPal capture unit status not COMPLETED: ${captureStatus}`,
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: {
+        orderID: orderID ? String(orderID).slice(0, 80) : null,
+        captureStatus,
+      },
+    });
+    return res.status(502).json({
+      error: "PayPal payment was not completed",
+      paypalStatus: captureStatus,
+      code: "CAPTURE_INCOMPLETE",
+    });
+  }
+
+  const currencyCode =
+    captureUnit?.amount?.currency_code != null
+      ? String(captureUnit.amount.currency_code).toUpperCase()
+      : null;
+  if (currencyCode && currencyCode !== "USD") {
+    void logOperationalError({
+      supabaseClient: supabaseAdmin,
+      category: "paypal.capture",
+      message: `Unexpected capture currency: ${currencyCode}`,
+      userId,
+      route: "/api/paypal/capture-order",
+      metadata: {
+        orderID: orderID ? String(orderID).slice(0, 80) : null,
+        currencyCode,
+      },
+    });
+    return res.status(502).json({
+      error: "PayPal payment currency is not supported for wallet funding",
+      code: "CURRENCY_MISMATCH",
+    });
+  }
+
+  const amountStr = captureUnit?.amount?.value;
   const amountNum = amountStr != null ? Number(String(amountStr)) : NaN;
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
     await logFundingInvalidCaptureAmount(supabaseAdmin, { userId, orderID });
@@ -344,6 +402,29 @@ export default async function handler(req, res) {
     });
     console.error("[paypal/capture-order] Missing or invalid capture amount");
     return res.status(502).json({ error: "Could not read captured amount from PayPal" });
+  }
+
+  if (Number.isFinite(expectedAmount) && expectedAmount > 0) {
+    const expectedCents = Math.round(expectedAmount * 100);
+    const capturedCents = Math.round(amountNum * 100);
+    if (expectedCents !== capturedCents) {
+      void logOperationalError({
+        supabaseClient: supabaseAdmin,
+        category: "paypal.capture",
+        message: "Client expected amount does not match PayPal capture amount",
+        userId,
+        route: "/api/paypal/capture-order",
+        metadata: {
+          orderID: orderID ? String(orderID).slice(0, 80) : null,
+          expectedCents,
+          capturedCents,
+        },
+      });
+      return res.status(409).json({
+        error: "Payment amount did not match the funding request. No wallet credit was applied.",
+        code: "AMOUNT_MISMATCH",
+      });
+    }
   }
 
   if (amountNum > 1000) {

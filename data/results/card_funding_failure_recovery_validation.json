@@ -1,0 +1,21 @@
+{
+  "phase": "C-002-G",
+  "provider": "paypal",
+  "environment": "sandbox",
+  "timestamp": "2026-07-14T01:11:07.110Z",
+  "mode": "CODE_PATH_PROOF_NO_LIVE_CORRUPTION",
+  "boundary": "Did not intentionally break public.fund_wallet or create unreconciled balances. Validated capture-order failure handling by code inspection + probe documentation.",
+  "expectedBehavior": {
+    "onFundWalletRpcFailure": [
+      "funding_idempotency_keys.status = failed",
+      "HTTP 500 returned (no false success)",
+      "funding.failed events / operational error logged",
+      "retry allowed via failed status without duplicate completed credit"
+    ]
+  },
+  "evidenceFiles": [
+    "pages/api/paypal/capture-order.js"
+  ],
+  "result": "PASS_DOCUMENTED_SAFE_BOUNDARY",
+  "ok": true
+}

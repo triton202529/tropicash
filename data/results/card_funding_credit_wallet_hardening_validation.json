@@ -1,0 +1,49 @@
+{
+  "phase": "C-002-F",
+  "project_ref": "opbhcndlibbcsmoaeymq",
+  "environment": "sandbox",
+  "timestamp": "2026-07-14T00:45:00.000Z",
+  "migration_name": "card_funding_credit_wallet_authority_hardening_c002",
+  "migration_file": "supabase/sql/card_funding_credit_wallet_authority_hardening_c002.sql",
+  "migration_applied": true,
+  "classification_pre_hardening": "CRITICAL_UNSAFE_BALANCE_AUTHORITY",
+  "classification_post_hardening": "CREDIT_WALLET_CLIENT_EXECUTE_REVOKED",
+  "function_signature": "public.credit_wallet(user_id_input uuid, amount_input numeric)",
+  "search_path_set": true,
+  "deprecated_comment_set": true,
+  "privileges_post_hardening": {
+    "PUBLIC": false,
+    "anon": false,
+    "authenticated": false,
+    "service_role": false,
+    "postgres_owner": true
+  },
+  "service_role_retained": false,
+  "service_role_retention_reason": "No verified internal dependency; revoked intentionally",
+  "fund_wallet_regression": {
+    "ok": true,
+    "rpcExactOnce": "PASS",
+    "doubled": false,
+    "txType": "fund",
+    "balance_authority": "fund_wallet_rpc",
+    "evidence": "data/results/card_funding_double_credit_fix_validation.json"
+  },
+  "conditional_trigger_intact": true,
+  "lint": {
+    "command": "npm run lint",
+    "ok": true
+  },
+  "build": {
+    "command": "npm run build",
+    "ok": true,
+    "exit_code": 0
+  },
+  "paypal_sandbox_probe": "NOT_RUN",
+  "ok": true,
+  "failure_reason": null,
+  "phaseG": {
+    "stillInaccessibleToClients": true,
+    "preflightConfirmed": true,
+    "closeoutComplete": true
+  }
+}

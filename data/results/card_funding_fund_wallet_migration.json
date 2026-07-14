@@ -1,0 +1,70 @@
+{
+  "project_ref": "opbhcndlibbcsmoaeymq",
+  "environment": "sandbox",
+  "function_signature": "public.fund_wallet(p_user_id uuid, p_amount numeric)",
+  "migration_name": "card_funding_credit_wallet_authority_hardening_c002",
+  "migration_file": "supabase/sql/card_funding_credit_wallet_authority_hardening_c002.sql",
+  "prior_migrations": [
+    "card_funding_fund_wallet_double_credit_fix_c001",
+    "card_funding_fund_wallet_type_compat_option_a_c002",
+    "card_funding_conditional_balance_authority_c002"
+  ],
+  "migration_applied": true,
+  "migration_apply_method": "supabase_mcp_apply_migration",
+  "pre_definition_recorded": true,
+  "pre_definition_path": "data/results/card_funding_fund_wallet_pre_migration.json",
+  "post_definition_verified": true,
+  "inserted_transaction_type": "fund",
+  "historical_transaction_type": "fund",
+  "metadata_balance_authority": "fund_wallet_rpc",
+  "trigger_behavior": "conditional_skip_when_metadata_balance_authority_equals_fund_wallet_rpc",
+  "trigger_trg_update_wallet_balance_still_present": true,
+  "trigger_auto_credit_disabled_globally": false,
+  "credit_wallet_hardening": {
+    "signature": "public.credit_wallet(user_id_input uuid, amount_input numeric)",
+    "classification_pre": "CRITICAL_UNSAFE_BALANCE_AUTHORITY",
+    "anon_execute": false,
+    "authenticated_execute": false,
+    "public_execute": false,
+    "service_role_execute": false,
+    "deprecated": true
+  },
+  "compatibility_status": "CARD_FUNDING_SANDBOX_VALIDATED",
+  "required_follow_up": [
+    "Operator may commit C-002 evidence/migrations when ready.",
+    "Optional later: drop deprecated credit_wallet after soak.",
+    "Optional later: auto-post journal entries for funding (separate ledger phase)."
+  ],
+  "affected_objects": [
+    "public.credit_wallet(uuid, numeric)"
+  ],
+  "unrelated_objects_modified": false,
+  "design_option": "F_CREDIT_WALLET_AUTHORITY_HARDENING",
+  "audit_docs": [
+    "docs/payments/CARD_FUNDING_TRANSACTION_TYPE_COMPATIBILITY_AUDIT.md",
+    "docs/payments/CARD_FUNDING_BALANCE_AUTHORITY_AUDIT.md",
+    "docs/payments/CARD_FUNDING_CREDIT_WALLET_AUTHORITY_AUDIT.md"
+  ],
+  "validation": {
+    "rpc": "data/results/card_funding_double_credit_fix_validation.json",
+    "balance_authority": "data/results/card_funding_balance_authority_validation.json",
+    "credit_wallet_hardening": "data/results/card_funding_credit_wallet_hardening_validation.json",
+    "rpc_ok": true,
+    "trigger_condition_ok": true,
+    "credit_wallet_client_execute_revoked": true,
+    "lint_ok": true,
+    "build_ok": true,
+    "negativeApiCloseout": true,
+    "notificationOk": true,
+    "sandboxValidated": true
+  },
+  "timestamp": "2026-07-14T01:11:07.115Z",
+  "failure_reason": null,
+  "phase_g": {
+    "sandboxCertification": "CARD_FUNDING_SANDBOX_VALIDATED",
+    "notificationTypeCheckFixed": true,
+    "evidence": "data/results/card_funding_paypal_sandbox_certification.json",
+    "closeoutComplete": true,
+    "finalClassification": "CARD_FUNDING_SANDBOX_VALIDATED"
+  }
+}

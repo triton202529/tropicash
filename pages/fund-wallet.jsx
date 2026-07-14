@@ -410,17 +410,24 @@ export default function FundWalletPage() {
             return;
           }
 
+          const fundingAmount = parseFloat(latestAmountRef.current);
           const res = await fetch("/api/paypal/capture-order", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${accessToken}`,
             },
-            body: JSON.stringify({ orderID: data.orderID }),
+            body: JSON.stringify({
+              orderID: data.orderID,
+              ...(Number.isFinite(fundingAmount) && fundingAmount > 0
+                ? { amount: fundingAmount }
+                : {}),
+            }),
           });
           const payload = await res.json().catch(() => ({}));
           if (!res.ok) {
             const apiErr = String(payload.error || "").trim();
+            const apiCode = String(payload.code || "").trim();
             void logOperationalError({
               category: "paypal.capture",
               message: apiErr || `capture-order HTTP ${res.status}`,
@@ -430,10 +437,17 @@ export default function FundWalletPage() {
                 httpStatus: res.status,
                 orderID: data?.orderID ? String(data.orderID).slice(0, 80) : null,
                 rawError: apiErr || null,
+                code: apiCode || null,
               },
             });
             if (res.status === 429 && apiErr) {
               setErrorMsg(apiErr);
+            } else if (
+              apiCode === "PROCESSOR_DECLINED" ||
+              apiCode === "PAYER_ACTION_REQUIRED" ||
+              apiCode === "AMOUNT_MISMATCH"
+            ) {
+              setErrorMsg(apiErr || "Payment could not be completed. No wallet credit was applied.");
             } else {
               setErrorMsg(
                 "PayPal couldn't complete the payment. No money was charged. Please try again.",
@@ -1046,7 +1060,7 @@ export default function FundWalletPage() {
                     margin: 0,
                   }}
                 >
-                  Pay with PayPal
+                  Debit or Credit Card / PayPal
                 </p>
                 <span style={paypalUiMode === "live" ? liveModeBadge : sandboxModeBadge}>
                   {paypalUiMode === "live" ? "Live Mode" : "Sandbox Mode"}
@@ -1060,7 +1074,24 @@ export default function FundWalletPage() {
                   lineHeight: 1.45,
                 }}
               >
-                Your wallet is funded only after PayPal confirms payment (capture COMPLETED).
+                Pay with an eligible Visa or Mastercard through PayPal&rsquo;s secure checkout, or use your PayPal
+                balance. Your wallet is funded only after PayPal confirms payment (capture COMPLETED).
+              </p>
+              <p
+                style={{
+                  margin: "0 0 0.85rem",
+                  padding: "0.65rem 0.75rem",
+                  borderRadius: "10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "0.78rem",
+                  color: "#475569",
+                  lineHeight: 1.5,
+                }}
+              >
+                Card processing is handled securely by PayPal. Tropicash does not store your full card number or CVV.
+                Funding remains subject to KYC and account limits
+                {paypalUiMode === "live" ? "." : ". Sandbox mode is active during testing — use PayPal sandbox test cards or accounts only."}
               </p>
               <p
                 style={{

@@ -1,0 +1,27 @@
+{
+  "phase": "C-002-G",
+  "provider": "paypal",
+  "environment": "sandbox",
+  "timestamp": "2026-07-14T01:11:07.108Z",
+  "filesInspected": [
+    "pages/api/paypal/capture-order.js",
+    "pages/api/webhooks/paypal.js",
+    "lib/payouts/payPalWebhookProcessor.js"
+  ],
+  "webhookProcessesFundingCredits": false,
+  "webhookScope": "payout/withdrawal_requests only",
+  "signatureVerificationRequired": true,
+  "signatureVerificationBypassedInProdCode": false,
+  "orderingTests": {
+    "A_capture_then_webhook": {
+      "result": "N/A_NO_FUNDING_CREDIT_PATH",
+      "note": "Webhook cannot credit wallet; no second credit possible from funding capture events"
+    },
+    "B_webhook_then_capture": {
+      "result": "N/A_NO_FUNDING_CREDIT_PATH",
+      "note": "Webhook matches withdrawal_requests by payout batch/item IDs only"
+    }
+  },
+  "collisionRisk": "NONE_FOR_FUNDING",
+  "ok": true
+}

@@ -1,0 +1,68 @@
+{
+  "phase": "C-002-E",
+  "project_ref": "opbhcndlibbcsmoaeymq",
+  "environment": "sandbox",
+  "timestamp": "2026-07-14T00:35:00.000Z",
+  "audit_doc": "docs/payments/CARD_FUNDING_BALANCE_AUTHORITY_AUDIT.md",
+  "migration_name": "card_funding_conditional_balance_authority_c002",
+  "migration_file": "supabase/sql/card_funding_conditional_balance_authority_c002.sql",
+  "migration_applied": true,
+  "trigger_name": "trg_update_wallet_balance",
+  "trigger_preserved": true,
+  "trigger_function": "public.update_wallet_balance()",
+  "design": "conditional_skip_on_metadata_balance_authority",
+  "metadata_column": {
+    "type": "jsonb",
+    "nullable": true,
+    "null_safe_predicate": "coalesce(NEW.metadata->>'balance_authority','') = 'fund_wallet_rpc'"
+  },
+  "tests": {
+    "marked_fund_skips_trigger_credit": {
+      "result": "PASS",
+      "method": "insert type=fund with metadata.balance_authority=fund_wallet_rpc; assert wallet_balance unchanged; delete row",
+      "permanent_rows_left": false
+    },
+    "unmarked_legacy_fund_credits_once": {
+      "result": "PASS",
+      "method": "insert type=fund metadata NULL with recipient_id; assert delta=+0.03; delete row and restore wallet_balance",
+      "permanent_rows_left": false
+    },
+    "canonical_rpc_exact_once": {
+      "result": "PASS",
+      "evidence": "data/results/card_funding_double_credit_fix_validation.json",
+      "txType": "fund",
+      "balance_authority": "fund_wallet_rpc",
+      "doubled": false
+    }
+  },
+  "unchanged_surfaces_confirmed_by_code_and_scope": [
+    "send-money (transfer_funds)",
+    "withdrawals",
+    "refunds (refund_withdrawal_request / withdrawal_refund)",
+    "reversals / admin adjustments (no fund-trigger dependency found)",
+    "ledger processing",
+    "notifications (capture-order wallet_funded)",
+    "fraud reads (dual type list)",
+    "reconciliation / funding limits"
+  ],
+  "notes": [
+    "Global no-op replaced because unmarked legacy fund writers (scripts/ops SQL) expect trigger credit.",
+    "Production capture-order funding remains sole app writer via public.fund_wallet.",
+    "Phase F: public.credit_wallet EXECUTE revoked from PUBLIC/anon/authenticated/service_role; marked DEPRECATED; search_path pinned."
+  ],
+  "credit_wallet_phase_f": {
+    "hardening_applied": true,
+    "anon_execute": false,
+    "authenticated_execute": false,
+    "service_role_execute": false,
+    "evidence": "data/results/card_funding_credit_wallet_hardening_validation.json"
+  },
+  "ok": true,
+  "paypal_sandbox_probe": "NOT_RUN",
+  "failure_reason": null,
+  "phaseG": {
+    "sandboxValidated": true,
+    "conditionalTriggerStillActive": true,
+    "closeoutComplete": true
+  }
+}

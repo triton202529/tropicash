@@ -1,0 +1,31 @@
+{
+  "phase": "C-002-G-preflight",
+  "paypalMode": "sandbox",
+  "paypalApiHost": "api-m.sandbox.paypal.com",
+  "isSandboxHost": true,
+  "isLiveHost": false,
+  "supabaseRef": "opbhcndlibbcsmoaeymq",
+  "hasPayPalClientId": true,
+  "hasPayPalSecret": true,
+  "hasServiceRole": true,
+  "refuseLive": false,
+  "checks": {
+    "fundWalletExactOnce": {
+      "result": "PASS",
+      "delta": 0.19,
+      "expected": 0.19,
+      "doubled": false,
+      "txType": "fund",
+      "balanceAuthority": "fund_wallet_rpc"
+    },
+    "creditWalletInaccessible": {
+      "result": "PASS",
+      "rejected": true
+    },
+    "fundWalletUnauthRejected": {
+      "result": "PASS",
+      "rejected": true
+    }
+  },
+  "ok": true
+}

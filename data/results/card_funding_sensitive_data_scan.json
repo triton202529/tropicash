@@ -1,0 +1,32 @@
+{
+  "phase": "C-002-closeout",
+  "timestamp": "2026-07-14T02:10:00.000Z",
+  "sensitive_data_scan": {
+    "result": "PASS",
+    "scopes": [
+      "data/results/card_funding*.json",
+      "docs/payments/",
+      "scripts/c002*.mjs",
+      "scripts/card-funding-sandbox-probe.mjs"
+    ],
+    "findings": [
+      {
+        "severity": "info",
+        "location": "scripts/card-funding-sandbox-probe.mjs",
+        "note": "Sandbox PAN/CVV/expiry loaded from env (PAYPAL_SANDBOX_TEST_CARD_*); probe fails closed when unset. Values never logged or written to evidence."
+      }
+    ],
+    "evidence_artifacts_contain_full_uuid": false,
+    "evidence_artifacts_contain_full_paypal_ids": false,
+    "evidence_artifacts_contain_tokens_or_secrets": false,
+    "evidence_artifacts_contain_pan_cvv_expiry": false
+  },
+  "identifier_sanitization": {
+    "result": "PASS",
+    "actions": [
+      "Removed any _internalTxId from sandbox wallet credit evidence",
+      "Historical pre-hardening/pre-migration probes labeled explicitly",
+      "All capture/order/user/tx IDs in results use masked form"
+    ]
+  }
+}

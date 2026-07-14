@@ -1,0 +1,104 @@
+{
+  "provider": "paypal",
+  "environment": "sandbox",
+  "apiBaseHost": "api-m.sandbox.paypal.com",
+  "testTimestamp": "2026-07-14T01:08:45.917Z",
+  "envPresence": {
+    "PAYPAL_CLIENT_ID": true,
+    "PAYPAL_CLIENT_SECRET": true,
+    "NEXT_PUBLIC_PAYPAL_CLIENT_ID": true,
+    "PAYPAL_MODE": true,
+    "NEXT_PUBLIC_PAYPAL_MODE": false,
+    "SUPABASE_SERVICE_ROLE_KEY": true,
+    "NEXT_PUBLIC_SUPABASE_URL": true,
+    "CARD_FUNDING_TEST_USER_ID": false,
+    "TROPICASH_TEST_USER_ID": false
+  },
+  "tests": {
+    "oauth": {
+      "result": "PASS",
+      "note": "Sandbox OAuth token obtained (not stored)"
+    },
+    "successCardCapture": {
+      "result": "PASS",
+      "phase": "create_completed",
+      "orderIdMasked": "7XE4…1433",
+      "captureIdMasked": "9697…4419",
+      "amount": "5.25",
+      "currency": "USD",
+      "orderStatus": "COMPLETED",
+      "captureStatus": "COMPLETED",
+      "paymentSource": "card",
+      "failureReason": null,
+      "httpStatus": 201
+    },
+    "walletCreditAfterCapture": {
+      "result": "PASS",
+      "attempted": true,
+      "walletCredited": true,
+      "transactionIdPresent": true,
+      "notificationCreated": true,
+      "userIdMasked": "5cd8…82d7",
+      "beforeBalance": 12.28,
+      "afterBalance": 17.53,
+      "delta": 5.25,
+      "idempotencyStatus": "completed",
+      "duplicateWouldBlock": true,
+      "fundingTxType": "fund",
+      "balanceAuthority": "fund_wallet_rpc",
+      "fundingTxCount": 1,
+      "journalEntryCount": 0,
+      "doubled": false,
+      "orderIdMasked": "7XE4…1433",
+      "captureIdMasked": "9697…4419",
+      "canonicalTypeOk": true,
+      "balanceAuthorityOk": true,
+      "notDoubled": true,
+      "oneFundingTx": true,
+      "notificationProofAfterCheckFix": true,
+      "notificationInitiallyFailedDueTo": "notifications_type_check missing wallet_funded (fixed by card_funding_notification_type_wallet_funded_c002)"
+    },
+    "duplicateIdempotency": {
+      "result": "PASS",
+      "uniqueViolation": true,
+      "priorStatusCompleted": true
+    },
+    "declinedCard": {
+      "result": "PASS",
+      "note": "Provider rejected sandbox decline instrument (processor_declined_4030)",
+      "orderIdMasked": null,
+      "failureReason": "UNPROCESSABLE_ENTITY | VALIDATION_ERROR | Invalid card number",
+      "httpStatus": 422,
+      "instrument": "processor_declined_4030",
+      "unexpectedlySucceeded": false
+    },
+    "amountMismatchGuard": {
+      "result": "PASS",
+      "note": "capture-order rejects when client expected amount cents !== PayPal capture cents (Phase 3 repair)",
+      "expectedCents": 525,
+      "mismatchedCaptureCents": 999
+    },
+    "unauthenticatedGuard": {
+      "result": "PASS",
+      "note": "Exercised via local API closeout negative suite"
+    },
+    "fundingLimitGuard": {
+      "result": "PASS_CODE_PATH",
+      "note": "capture-order $1–$1000 guards confirmed in code; not re-exercised with a new successful capture during closeout"
+    },
+    "rpcFailureHandling": {
+      "result": "DOCUMENTED",
+      "note": "capture-order marks funding_idempotency_keys failed and returns 500 without claiming success when fund_wallet fails"
+    },
+    "providerDuplicateCapture": {
+      "result": "PASS_REJECTED",
+      "httpStatus": 422,
+      "name": "UNPROCESSABLE_ENTITY",
+      "issue": "ORDER_ALREADY_CAPTURED",
+      "orderStatus": null
+    }
+  },
+  "classificationHints": [
+    "CARD_FUNDING_SANDBOX_VALIDATED"
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "phase": "C-002",
+  "projectRef": "opbhcndlibbcsmoaeymq",
+  "environment": "sandbox",
+  "testTimestamp": "2026-07-14T00:42:14.631Z",
+  "migrationAssumedApplied": true,
+  "tests": {
+    "rpcExactOnce": {
+      "result": "PASS",
+      "amount": 1.37,
+      "delta": 1.37,
+      "expected": 1.37,
+      "exactOnce": true,
+      "doubled": false,
+      "rpcError": null,
+      "rpcReturnedJson": true,
+      "creditedAmountInRpc": 1.37,
+      "fundingTxCount": 1,
+      "txIdMasked": "0d2a…12eb",
+      "txType": "fund",
+      "expectedTxType": "fund",
+      "txTypeCompatible": true,
+      "balanceAuthority": "fund_wallet_rpc",
+      "balanceAuthorityOk": true
+    },
+    "idempotencyReplay": {
+      "result": "PASS",
+      "first": "claimed",
+      "concurrent": "already_processing",
+      "afterCompleted": "duplicate_completed",
+      "orderIdMasked": "C002…7626"
+    },
+    "distinctSecondFund": {
+      "result": "PASS",
+      "amount": 0.41,
+      "delta": 0.41,
+      "expected": 0.41,
+      "fundingTxCount": 1,
+      "rpcError": null
+    },
+    "invalidAmount": {
+      "result": "PASS",
+      "rejected": true,
+      "message": "invalid_amount"
+    },
+    "unauthenticatedAccess": {
+      "result": "PASS",
+      "rejected": true,
+      "balanceUnchanged": true,
+      "message": "permission denied for function fund_wallet"
+    },
+    "fundingLimitEnforcement": {
+      "result": "PASS",
+      "amountCapPresent": true,
+      "financialActionGatePresent": true,
+      "rateLimitPresent": true,
+      "note": "API-layer funding limits/gates remain in capture-order; RPC itself only rejects non-positive amounts."
+    },
+    "unrelatedWalletUnchanged": {
+      "result": "PASS",
+      "start": 11.4,
+      "end": 11.4,
+      "otherUserIdMasked": "1cc6…8da3"
+    },
+    "webhookCollisionCode": {
+      "result": "PASS",
+      "webhookCallsFundWallet": false,
+      "captureOrderCallsFundWallet": true,
+      "note": "PayPal webhook processor matches withdrawal_requests only; funding credits solely via capture-order → fund_wallet"
+    }
+  },
+  "report": {
+    "starting_balance": 10.5,
+    "requested_amount": 1.37,
+    "ending_balance_after_primary": 11.87,
+    "expected_delta": 1.37,
+    "actual_delta": 1.37,
+    "transaction_count": 1,
+    "duplicate_replay_result": "PASS",
+    "authentication_result": "PASS",
+    "limit_result": "PASS",
+    "ending_balance": 12.28
+  },
+  "userIdMasked": "5cd8…82d7",
+  "otherUserIdMasked": "1cc6…8da3",
+  "startingWalletBalance": 10.5,
+  "otherWalletStartingBalance": 11.4,
+  "endingWalletBalance": 12.28,
+  "rpcTestDelta": 1.78,
+  "ok": true,
+  "classificationHint": "CARD_FUNDING_SANDBOX_VALIDATED",
+  "phaseF": {
+    "credit_wallet_hardening": "PASS",
+    "anon_execute": false,
+    "authenticated_execute": false,
+    "service_role_execute": false,
+    "conditional_trigger_intact": true
+  },
+  "phaseG": {
+    "sandboxCardCapture": "PASS",
+    "amount": 5.25,
+    "delta": 5.25,
+    "doubled": false,
+    "classification": "CARD_FUNDING_SANDBOX_VALIDATED",
+    "closeoutNegativeApi": true
+  }
+}

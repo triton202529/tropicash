@@ -1,0 +1,108 @@
+{
+  "phase": "C-002-closeout-negative",
+  "environment": "sandbox",
+  "apiBase": "http://127.0.0.1:3010",
+  "projectRef": "opbhcndlibbcsmoaeymq",
+  "timestamp": "2026-07-14T02:01:26.019Z",
+  "tests": {
+    "unauthenticated_create_order": {
+      "result": "PASS",
+      "httpStatus": 401,
+      "expectedStatus": 401,
+      "errorCode": null,
+      "errorSafe": "Unauthorized",
+      "balanceUnchanged": true,
+      "noNewFundTx": true,
+      "noNewCompletedIdempotency": true,
+      "noNewNotification": true,
+      "noLeaks": true,
+      "leakHits": []
+    },
+    "unauthenticated_capture_order": {
+      "result": "PASS",
+      "httpStatus": 401,
+      "expectedStatus": 401,
+      "errorCode": null,
+      "errorSafe": "Unauthorized",
+      "balanceUnchanged": true,
+      "noNewFundTx": true,
+      "noNewCompletedIdempotency": true,
+      "noNewNotification": true,
+      "noLeaks": true,
+      "leakHits": []
+    },
+    "create_order_non_positive_amount": {
+      "result": "PASS",
+      "httpStatus": 400,
+      "expectedStatus": 400,
+      "errorCode": null,
+      "errorSafe": "amount must be a number greater than 0",
+      "balanceUnchanged": true,
+      "noNewFundTx": true,
+      "noNewCompletedIdempotency": true,
+      "noNewNotification": true,
+      "noLeaks": true,
+      "leakHits": []
+    },
+    "capture_missing_order_id": {
+      "result": "PASS",
+      "httpStatus": 400,
+      "expectedStatus": 400,
+      "errorCode": null,
+      "errorSafe": "orderID is required",
+      "balanceUnchanged": true,
+      "noNewFundTx": true,
+      "noNewCompletedIdempotency": true,
+      "noNewNotification": true,
+      "noLeaks": true,
+      "leakHits": []
+    },
+    "capture_malformed_order_id": {
+      "result": "PASS",
+      "httpStatus": 403,
+      "expectedStatus": [
+        400,
+        401,
+        403,
+        404,
+        422,
+        502
+      ],
+      "errorCode": null,
+      "errorSafe": "kyc_policy_blocked",
+      "balanceUnchanged": true,
+      "noNewFundTx": true,
+      "noNewCompletedIdempotency": true,
+      "noNewNotification": true,
+      "noLeaks": true,
+      "leakHits": []
+    },
+    "amount_below_1_guard": {
+      "result": "PASS_CODE_PATH",
+      "note": "capture-order returns 400 when amountNum < 1 after COMPLETED capture; skipped live re-exercise to avoid new successful payment"
+    },
+    "amount_above_1000_guard": {
+      "result": "PASS_CODE_PATH",
+      "note": "capture-order returns 400 when amountNum > 1000 after COMPLETED capture; skipped live re-exercise to avoid new successful payment"
+    },
+    "amount_mismatch_guard": {
+      "result": "PASS_CODE_PATH",
+      "note": "capture-order returns 409 AMOUNT_MISMATCH after capture when expected !== captured cents; no fund_wallet after reject"
+    },
+    "currency_mismatch_guard": {
+      "result": "PASS_CODE_PATH",
+      "note": "capture-order returns 502 CURRENCY_MISMATCH when currency !== USD after capture; no fund_wallet after reject"
+    },
+    "create_order_min_max_boundary": {
+      "result": "PASS_DOCUMENTED",
+      "note": "create-order enforces amount > 0 only before PayPal; $1–$1000 limits enforced on capture-order after provider capture"
+    }
+  },
+  "userIdMasked": "2174…30bc",
+  "walletSnapshot": {
+    "balanceUnchangedOverall": true,
+    "startingBalance": 0,
+    "endingBalance": 0
+  },
+  "ok": true
+}

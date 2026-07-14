@@ -1,0 +1,81 @@
+{
+  "phase": "C-002-G",
+  "title": "Tropicash card funding sandbox certification audit",
+  "provider": "paypal",
+  "environment": "sandbox",
+  "projectRef": "opbhcndlibbcsmoaeymq",
+  "liveCardCharging": false,
+  "testTimestamp": "2026-07-14T01:08:45.917Z",
+  "phasesCompleted": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G"
+  ],
+  "successPath": {
+    "orderCreated": true,
+    "cardAuthorized": true,
+    "captureCompleted": true,
+    "amount": 5.25,
+    "currency": "USD",
+    "walletDeltaExactOnce": true,
+    "doubled": false,
+    "txType": "fund",
+    "balanceAuthority": "fund_wallet_rpc",
+    "notification": true
+  },
+  "negativeTests": {
+    "declinedCard": "PASS",
+    "providerReplay": "PASS_REJECTED",
+    "idempotencyReplay": "PASS",
+    "amountMismatch": "PASS_CODE_PATH",
+    "currencyMismatch": "PASS_CODE_PATH",
+    "unauthenticated": "PASS",
+    "fundingLimit": "PASS_CODE_PATH",
+    "walletRpcFailureRecovery": "PASS_DOCUMENTED_SAFE_BOUNDARY",
+    "closeoutApiSuite": "PASS"
+  },
+  "webhook": {
+    "phase": "C-002-G",
+    "provider": "paypal",
+    "environment": "sandbox",
+    "timestamp": "2026-07-14T01:11:07.108Z",
+    "filesInspected": [
+      "pages/api/paypal/capture-order.js",
+      "pages/api/webhooks/paypal.js",
+      "lib/payouts/payPalWebhookProcessor.js"
+    ],
+    "webhookProcessesFundingCredits": false,
+    "webhookScope": "payout/withdrawal_requests only",
+    "signatureVerificationRequired": true,
+    "signatureVerificationBypassedInProdCode": false,
+    "orderingTests": {
+      "A_capture_then_webhook": {
+        "result": "N/A_NO_FUNDING_CREDIT_PATH",
+        "note": "Webhook cannot credit wallet; no second credit possible from funding capture events"
+      },
+      "B_webhook_then_capture": {
+        "result": "N/A_NO_FUNDING_CREDIT_PATH",
+        "note": "Webhook matches withdrawal_requests by payout batch/item IDs only"
+      }
+    },
+    "collisionRisk": "NONE_FOR_FUNDING",
+    "ok": true
+  },
+  "ledger": {
+    "journalAutoPosted": false,
+    "journalEntryCount": 0,
+    "authoritativeSoR": "public.transactions + public.wallets.wallet_balance",
+    "balancedMeaning": "C-002 balanced means provider capture, canonical transaction, idempotency record, notification, and wallet delta reconcile — not that a double-entry general ledger posting occurred",
+    "knownLimitation": "journal_entries / journal_lines are manual/reporting ledger only; funding does not auto-post"
+  },
+  "finalClassification": "CARD_FUNDING_SANDBOX_VALIDATED",
+  "CARD_PAYOUT_STATUS": "REQUIRES_ACQUIRER_SPONSOR",
+  "closeout": {
+    "summary": "data/results/card_funding_closeout_summary.json",
+    "negativeApi": "data/results/card_funding_negative_api_validation.json"
+  }
+}

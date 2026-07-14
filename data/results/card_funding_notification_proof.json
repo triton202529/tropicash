@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "notificationCreated": true,
+  "rowPresent": true,
+  "type": "wallet_funded",
+  "userIdMasked": "1cc6…8da3",
+  "txIdMasked": "9ddb…af6b",
+  "error": null,
+  "timestamp": "2026-07-14T01:10:30.895Z"
+}

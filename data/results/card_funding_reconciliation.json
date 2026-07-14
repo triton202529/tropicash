@@ -1,0 +1,42 @@
+{
+  "provider": "paypal",
+  "environment": "sandbox",
+  "testTimestamp": "2026-07-14T01:08:45.917Z",
+  "orderIdMasked": "7XE4…1433",
+  "captureIdMasked": "9697…4419",
+  "amount": 5.25,
+  "currency": "USD",
+  "paymentSource": "card",
+  "walletCreditResult": "credited_once",
+  "balanceDelta": 5.25,
+  "expectedDelta": 5.25,
+  "startingBalance": 12.28,
+  "endingBalance": 17.53,
+  "fundingTxType": "fund",
+  "balanceAuthority": "fund_wallet_rpc",
+  "fundingTxCount": 1,
+  "journalEntryCount": 0,
+  "journalPostingMode": "manual_only_not_auto_from_funding",
+  "balanced": true,
+  "duplicatePreventionResult": "PASS",
+  "transactionIdPresent": true,
+  "notificationCreated": true,
+  "userIdMasked": "5cd8…82d7",
+  "note": "Wallet SoR balanced via transactions + wallets.wallet_balance; journal_entries not auto-posted by funding (established design limitation).",
+  "notificationProof": {
+    "result": "PASS",
+    "type": "wallet_funded",
+    "note": "Post-capture create_notification initially failed due to CHECK; fixed and proven without new PayPal charge"
+  },
+  "providerCaptureBoundToIdempotency": true,
+  "auditEvents": {
+    "note": "capture-order emits funding.completed / operational logs / fraud signals on live path; probe path credited via mirrored RPC"
+  },
+  "accountingClassification": {
+    "systemOfRecord": "wallets.wallet_balance + public.transactions (canonical funding row)",
+    "journalEntriesAutoPosted": false,
+    "journalEntryCount": 0,
+    "balancedMeaning": "C-002 balanced means provider capture, canonical transaction, idempotency record, notification, and wallet delta reconcile — not that a double-entry general ledger posting occurred",
+    "knownLimitation": "journal_entries / journal_lines are manual/reporting ledger only; funding does not auto-post"
+  }
+}

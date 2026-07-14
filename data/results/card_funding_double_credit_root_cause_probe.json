@@ -1,0 +1,55 @@
+{
+  "projectRef": "opbhcndlibbcsmoaeymq",
+  "paypalMode": "sandbox",
+  "liveCardCharging": false,
+  "tests": {
+    "directWalletUpdate": {
+      "error": null,
+      "deltaWallet": 0.01,
+      "expected": 0.01,
+      "oneToOne": true
+    },
+    "insertFundTransactionOnly": {
+      "insertError": null,
+      "txCreated": true,
+      "txType": "fund",
+      "deltaWallet": 0,
+      "triggerCreditsWallet": false,
+      "recentFundTxCount": 1
+    },
+    "insertFundWalletTypeOnly": {
+      "insertError": null,
+      "txCreated": true,
+      "txType": "fund_wallet",
+      "deltaWallet": 0,
+      "triggerCreditsWallet": false
+    },
+    "fundWalletRpcOnce": {
+      "rpcError": null,
+      "rpcDataPresent": false,
+      "rpcDataKeys": "object",
+      "amount": 0.17,
+      "before": 5.46,
+      "after": 5.8,
+      "delta": 0.34,
+      "expected": 0.17,
+      "doubled": true,
+      "exactOnce": false,
+      "fundTxCount": 0,
+      "fundTxAmounts": [],
+      "fundTxTypes": [],
+      "balanceColumnDelta": 0,
+      "tritonDelta": 0
+    }
+  },
+  "userIdMasked": "1cc6…8da3",
+  "rootCauseFamily": "B_OR_INLINE_FUND_WALLET_DOUBLE_UPDATE",
+  "hypothesisNotes": {
+    "A": "fund_wallet updates wallet then insert triggers another credit",
+    "B": "fund_wallet itself updates balance twice (or helper doubles)",
+    "C": "capture-order calls fund_wallet twice — app-level, not proven by this RPC probe",
+    "D": "webhook + capture both credit — app-level",
+    "E": "multiple triggers — would show on transaction-only insert"
+  },
+  "historical_label": "PRE_FIX_ROOT_CAUSE_PROBE"
+}

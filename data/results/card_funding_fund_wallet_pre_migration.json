@@ -1,0 +1,33 @@
+{
+  "phase": "C-002",
+  "captured_at": "2026-07-13T23:45:00.000Z",
+  "project_ref": "opbhcndlibbcsmoaeymq",
+  "environment": "sandbox",
+  "function_signature": "public.fund_wallet(p_user_id uuid, p_amount numeric)",
+  "owner": "postgres",
+  "security_definer": true,
+  "search_path": null,
+  "return_type": "void",
+  "execute_grants": {
+    "anon": true,
+    "authenticated": true,
+    "service_role": true,
+    "postgres": true
+  },
+  "related_objects": {
+    "transactions_trigger": {
+      "name": "trg_update_wallet_balance",
+      "timing": "AFTER INSERT",
+      "function": "public.update_wallet_balance()",
+      "behavior": "If NEW.type = 'fund' AND NEW.status = 'completed', credits wallets.wallet_balance by NEW.amount where user_id = NEW.recipient_id"
+    }
+  },
+  "double_credit_mechanism": {
+    "summary": "Live fund_wallet inserts transactions(type='fund', recipient_id=p_user_id, status='completed') which fires trg_update_wallet_balance (+p_amount), then also UPDATE wallets SET wallet_balance = wallet_balance + p_amount (+p_amount). Net +2 * p_amount.",
+    "prior_probe_note": "Earlier insert-only probes showed delta 0 when recipient_id was unset; trigger requires recipient_id, so those probes understated hypothesis A."
+  },
+  "definition": "CREATE OR REPLACE FUNCTION public.fund_wallet(p_user_id uuid, p_amount numeric)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nbegin\r\n  -- Ensure wallet exists\r\n  insert into public.wallets (user_id, wallet_balance)\r\n  values (p_user_id, 0)\r\n  on conflict (user_id) do nothing;\r\n\r\n  -- Insert transaction\r\n  insert into public.transactions (\r\n    sender_id,\r\n    recipient_id,\r\n    amount,\r\n    type,\r\n    status\r\n  )\r\n  values (\r\n    null,\r\n    p_user_id,\r\n    p_amount,\r\n    'fund',\r\n    'completed'\r\n  );\r\n\r\n  -- Update wallet balance\r\n  update public.wallets\r\n  set wallet_balance = wallet_balance + p_amount\r\n  where user_id = p_user_id;\r\n\r\nend;\r\n$function$\n",
+  "sanitized": true,
+  "credentials_included": false,
+  "historical_label": "PRE_MIGRATION_DEFINITION"
+}

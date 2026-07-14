@@ -1,8 +1,8 @@
-import { createSupabaseServiceClient, requireAdminFromBearer } from "../../../lib/supabaseAdminApi";
-import { performComplianceAccountAction } from "../../../lib/complianceAccountActions";
-import { resolveComplianceScreening } from "../../../lib/complianceScreening";
-import { updateAmlCaseStatus, createAmlCase, addAmlCaseNote } from "../../../lib/complianceAmlCases";
-import { createComplianceIncident, updateComplianceIncident, addComplianceIncidentNote } from "../../../lib/complianceIncidents";
+import { createSupabaseServiceClient, requireAdminFromBearer } from "../../../../lib/supabaseAdminApi";
+import { performComplianceAccountAction } from "../../../../lib/complianceAccountActions";
+import { resolveComplianceScreening } from "../../../../lib/complianceScreening";
+import { updateAmlCaseStatus, createAmlCase, addAmlCaseNote } from "../../../../lib/complianceAmlCases";
+import { createComplianceIncident, updateComplianceIncident, addComplianceIncidentNote } from "../../../../lib/complianceIncidents";
 
 function parseBody(req) {
   let body = req.body;
