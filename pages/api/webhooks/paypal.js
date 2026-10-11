@@ -190,15 +190,26 @@ export default async function handler(req, res) {
     })
     .select("id");
 
+  let logId = null;
   if (insErr) {
     if (insErr.code === "23505") {
-      return res.status(200).json({ ok: true, duplicate: true });
+      const { data: existing, error: existingErr } = await supabaseAdmin
+        .from("payout_webhook_events")
+        .select("id, processed")
+        .eq("provider", "paypal")
+        .eq("event_id", eventId)
+        .maybeSingle();
+      if (existingErr || !existing?.id || existing.processed) {
+        return res.status(200).json({ ok: true, duplicate: true });
+      }
+      logId = existing.id;
+    } else {
+      console.error("[webhooks/paypal] insert log:", insErr);
+      return res.status(200).json({ ok: false, note: "log_insert_failed" });
     }
-    console.error("[webhooks/paypal] insert log:", insErr);
-    return res.status(200).json({ ok: false, note: "log_insert_failed" });
+  } else {
+    logId = Array.isArray(insertedRows) && insertedRows[0]?.id ? insertedRows[0].id : null;
   }
-
-  const logId = Array.isArray(insertedRows) && insertedRows[0]?.id ? insertedRows[0].id : null;
   let processingError = null;
   let matchedWithdrawalId = null;
 
