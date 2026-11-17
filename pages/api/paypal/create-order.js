@@ -45,6 +45,13 @@ export default async function handler(req, res) {
   if (!Number.isFinite(amount) || amount <= 0) {
     return res.status(400).json({ error: "amount must be a number greater than 0" });
   }
+  const normalizedAmount = Math.round(amount * 100) / 100;
+  if (normalizedAmount < 1) {
+    return res.status(400).json({ error: "Minimum funding amount is $1." });
+  }
+  if (normalizedAmount > 1000) {
+    return res.status(400).json({ error: "Funding limit exceeded. Maximum funding amount is $1,000." });
+  }
 
   const authHeader = req.headers.authorization;
   const jwt =
@@ -103,14 +110,14 @@ export default async function handler(req, res) {
 
   const kycGate = await enforceServerKycForAction({
     userId,
-    amount,
+    amount: normalizedAmount,
     actionType: "funding",
     supabaseClient: admin,
   });
   if (!kycGate.allowed) {
     void logServerKycBlocked({
       userId,
-      amount,
+      amount: normalizedAmount,
       actionType: "funding",
       enforcement: kycGate.enforcement,
       supabaseClient: admin,
@@ -178,7 +185,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    const order = await createPayPalOrder(amount);
+    const order = await createPayPalOrder(normalizedAmount);
+    const { error: bindError } = await admin.from("paypal_funding_orders").insert({
+      provider: "paypal",
+      provider_order_id: order.id,
+      user_id: userId,
+      amount: normalizedAmount,
+      currency: "USD",
+      status: "created",
+    });
+    if (bindError) {
+      void logOperationalError({
+        supabaseClient: admin,
+        category: "paypal.create_order",
+        message: "PayPal order was created but the Tropicash ownership record was not saved",
+        userId,
+        route: "/api/paypal/create-order",
+        metadata: {
+          orderID: order.id ? String(order.id).slice(0, 80) : null,
+          code: bindError.code || null,
+        },
+      });
+      return res.status(502).json({ error: "Could not create PayPal order" });
+    }
     return res.status(200).json({ orderID: order.id });
   } catch (err) {
     console.error("[paypal/create-order]", err);
@@ -189,7 +218,7 @@ export default async function handler(req, res) {
       message: rawMsg,
       userId,
       route: "/api/paypal/create-order",
-      metadata: { amount, rawError: rawMsg.slice(0, 500) },
+      metadata: { amount: normalizedAmount, rawError: rawMsg.slice(0, 500) },
     });
     return res.status(502).json({ error: "Could not create PayPal order" });
   }

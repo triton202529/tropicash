@@ -442,12 +442,15 @@ export default function FundWalletPage() {
             });
             if (res.status === 429 && apiErr) {
               setErrorMsg(apiErr);
-            } else if (
+            } else             if (
               apiCode === "PROCESSOR_DECLINED" ||
               apiCode === "PAYER_ACTION_REQUIRED" ||
-              apiCode === "AMOUNT_MISMATCH"
+              apiCode === "AMOUNT_MISMATCH" ||
+              apiCode === "CURRENCY_MISMATCH"
             ) {
               setErrorMsg(apiErr || "Payment could not be completed. No wallet credit was applied.");
+            } else if (apiCode === "ORDER_OWNER_MISMATCH" || apiCode === "ORDER_NOT_BOUND") {
+              setErrorMsg(apiErr || "This PayPal payment is not linked to your Tropicash account.");
             } else {
               setErrorMsg(
                 "PayPal couldn't complete the payment. No money was charged. Please try again.",
