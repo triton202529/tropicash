@@ -1,0 +1,8 @@
+{
+  "evidenceType": "actual_authenticated_route",
+  "result": "PASS",
+  "httpStatus": 200,
+  "duplicate": true,
+  "walletUnchanged": true,
+  "responseLossReplay": "PASS_SAME_AS_CAPTURE_REPLAY"
+}

@@ -1,0 +1,22 @@
+{
+  "alreadyCapturedRecovery": {
+    "evidenceType": "actual_paypal_sandbox_plus_tropicash_recovery",
+    "providerCompleted": true,
+    "tropicashHttpStatus": 200,
+    "tropicashSuccess": true,
+    "walletDelta": 5.25,
+    "result": "PASS"
+  },
+  "capturedButUncredited": {
+    "evidenceType": "actual_paypal_capture_plus_controlled_tropicash_state",
+    "providerCompleted": true,
+    "tropicashHttpStatus": 200,
+    "tropicashSuccess": true,
+    "walletDelta": 5.25,
+    "result": "PASS"
+  },
+  "controlledIntegrityModule": {
+    "source": "lib/paypalFundingIntegrity.mjs",
+    "note": "Phase 3 unit path still covers mocked already-captured and replay."
+  }
+}

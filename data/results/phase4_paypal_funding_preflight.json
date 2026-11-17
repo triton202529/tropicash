@@ -1,0 +1,74 @@
+{
+  "phase": "phase4_preflight",
+  "timestamp": "2026-11-17T02:12:23.081Z",
+  "git": {
+    "branch": "main",
+    "head": "e8f7e6ab9b3c214fbe567a5bddf7e6f5951d92a8"
+  },
+  "paypal": {
+    "mode": "sandbox",
+    "apiBaseHost": "api-m.sandbox.paypal.com",
+    "isSandboxHost": true,
+    "isLiveHost": false,
+    "refuseLive": false,
+    "hasClientId": true,
+    "hasClientSecret": true,
+    "hasPublicClientId": true,
+    "hasSandboxCardNumber": true,
+    "hasSandboxCardExpiry": true,
+    "hasSandboxCardCvv": true
+  },
+  "supabase": {
+    "host": "opbhcndlibbcsmoaeymq.supabase.co",
+    "projectRef": "opbhcndlibbcsmoaeymq",
+    "expectedProjectRef": "opbhcndlibbcsmoaeymq",
+    "projectMatches": true,
+    "hasAnonKey": true,
+    "hasServiceRole": true
+  },
+  "testIdentity": {
+    "hasTestUserId": false,
+    "hasTestEmail": false,
+    "hasTestPassword": false,
+    "hasSecondUserId": false
+  },
+  "kyc": {
+    "requireApprovedFlag": "unset_defaults_required"
+  },
+  "baselines": {
+    "testUserMasked": "1cc6…8da3",
+    "walletBalance": 11.59,
+    "transactionsCount": 107,
+    "paypalFundingOrdersCount": 0,
+    "fundingIdempotencyKeysCount": 9,
+    "notificationsCount": 86,
+    "kycStatus": "missing"
+  },
+  "phase1": {
+    "expectedAuthExecuteFalse": [
+      "fund_wallet",
+      "transfer_funds",
+      "create_withdrawal_request",
+      "refund_withdrawal_request",
+      "credit_paypal_funding_order"
+    ],
+    "note": "Live privilege checks recorded in phase4 MCP verification"
+  },
+  "phase2": {
+    "transferIdempotencyPresent": true,
+    "withdrawalIdempotencyPresent": true,
+    "payoutWebhookEventsPresent": true,
+    "auditTimelinePresent": true,
+    "adminAuditLogsPresent": true
+  },
+  "safety": {
+    "ok": true,
+    "blockers": []
+  },
+  "liveEndpointGuard": {
+    "ok": true,
+    "mode": "sandbox",
+    "apiBaseHost": "api-m.sandbox.paypal.com"
+  },
+  "refreshedAt": "2026-11-17T02:14:17.920Z"
+}

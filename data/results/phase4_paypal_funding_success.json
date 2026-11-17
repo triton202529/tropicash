@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "evidenceType": "actual_paypal_sandbox",
+  "amount": 5.25,
+  "currency": "USD",
+  "orderIdMasked": "0PD5…2456",
+  "captureIdMasked": "1DP8…794U",
+  "providerOrderStatus": "COMPLETED",
+  "providerCaptureStatus": "COMPLETED",
+  "providerPhase": "capture",
+  "tropicashHttpStatus": 200,
+  "tropicashDuplicate": false,
+  "before": {
+    "walletBalance": 0,
+    "fundingTxCount": 0,
+    "userFundingOrdersCount": 0,
+    "userFundingKeysCount": 0,
+    "userFundingNotificationsCount": 0
+  },
+  "after": {
+    "walletBalance": 5.25,
+    "fundingTxCount": 1,
+    "userFundingOrdersCount": 1,
+    "userFundingKeysCount": 1,
+    "userFundingNotificationsCount": 1
+  },
+  "delta": 5.25,
+  "fundingOrderStatus": "completed",
+  "idempotencyStatus": "completed",
+  "fundingTxType": "fund",
+  "balanceAuthority": "fund_wallet_rpc",
+  "notificationCountForOrder": 1,
+  "amountIntegrity": {
+    "badAmountRejected": true,
+    "badCurrencyRejected": true
+  },
+  "ownerIsolation": "PASS"
+}
