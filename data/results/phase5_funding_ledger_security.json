@@ -1,0 +1,37 @@
+{
+  "phase": "phase5_funding_ledger_security",
+  "timestamp": "2026-11-17T04:08:00.000Z",
+  "anonExecuteDenied": true,
+  "authenticatedKeyExecuteDenied": true,
+  "serviceRolePostSucceeded": true,
+  "publicExecuteExpectedFalse": true,
+  "privileges": {
+    "post_funding_journal": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    },
+    "credit_paypal_funding_order": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    },
+    "fund_wallet": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    }
+  },
+  "clientCannotSelect": {
+    "debitAccount": true,
+    "creditAccount": true,
+    "postingAmount": true,
+    "postingStatus": true,
+    "canonicalStateDeterminesValues": true,
+    "neverUpdatesWalletBalance": true
+  },
+  "result": "PASS"
+}

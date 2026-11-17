@@ -1,0 +1,72 @@
+{
+  "phase": "phase5_funding_ledger_validation",
+  "timestamp": "2026-11-17T04:02:49.953Z",
+  "git": {
+    "branch": "main",
+    "head": "3be657554485db27ca584985e8828be3dec403f3"
+  },
+  "note": "Revalidation of existing Phase 5 journal for Phase 4 certified funding event 0PD5…2456 (no second journal created)",
+  "source": {
+    "orderIdMasked": "0PD5…2456",
+    "captureIdMasked": "1DP8…794U",
+    "transactionIdMasked": "158b…ed3a",
+    "amount": 5.25,
+    "currency": "USD"
+  },
+  "posting": {
+    "ok": true,
+    "journalEntryIdMasked": "e7d6…8fbc",
+    "alreadyPostedOnFirstCall": true,
+    "preexistingJournal": true,
+    "lineCount": 2,
+    "debit": 5.25,
+    "credit": 5.25,
+    "balanced": true,
+    "lines": [
+      {
+        "accountCode": "paypal_processor_clearing",
+        "debit": 5.25,
+        "credit": 0
+      },
+      {
+        "accountCode": "user_wallet_liability",
+        "debit": 0,
+        "credit": 5.25
+      }
+    ]
+  },
+  "wallet": {
+    "before": 15.75,
+    "after": 15.75,
+    "unchanged": true
+  },
+  "transactions": {
+    "beforeCount": 3,
+    "afterCount": 3,
+    "unchanged": true,
+    "type": "fund",
+    "balanceAuthority": "fund_wallet_rpc"
+  },
+  "fundingOrder": {
+    "status": "completed",
+    "ledgerPostingStatus": "posted"
+  },
+  "idempotency": {
+    "status": "completed"
+  },
+  "replay": {
+    "alreadyPosted": true,
+    "sameJournal": true,
+    "lineCount": 2
+  },
+  "refusal": {
+    "missingTransactionRefused": true,
+    "wrongSourceRefused": true
+  },
+  "recovery": {
+    "failedThenRetryReturnedExisting": true,
+    "fundingRemainedCompleted": true,
+    "ledgerRepostedStatus": "posted",
+    "walletUnchanged": true
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "phase": "phase5_funding_ledger_reconciliation",
+  "timestamp": "2026-11-17T04:02:50.048Z",
+  "chain": {
+    "providerCaptureMasked": "1DP8…794U",
+    "fundingOrderStatus": "completed",
+    "idempotencyStatus": "completed",
+    "transactionType": "fund",
+    "transactionAmount": 5.25,
+    "walletBalance": 15.75,
+    "journalEntryStatus": "posted",
+    "journalDebit": 5.25,
+    "journalCredit": 5.25
+  },
+  "proofs": {
+    "providerAmountEqualsTxAmount": true,
+    "journalDebitEqualsFundingAmount": true,
+    "journalCreditEqualsFundingAmount": true,
+    "journalDebitEqualsCredit": true,
+    "walletUnchangedByPosting": true
+  },
+  "historical": {
+    "totalFundLikeTransactions": 41,
+    "completedPaypalFunded": 3,
+    "unpostedFundLike": 40,
+    "backfillRecommendation": "Do not bulk backfill. Optionally authorize a later controlled backfill only for completed PayPal-owned funding rows with Phase 3 ownership + capture evidence. Leave pre-ownership / non-PayPal fund rows unposted until reviewed."
+  },
+  "result": "PASS"
+}

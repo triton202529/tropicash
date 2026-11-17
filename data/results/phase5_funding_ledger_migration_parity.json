@@ -1,0 +1,87 @@
+{
+  "phase": "phase5_funding_ledger_migration_parity",
+  "timestamp": "2026-11-17T04:05:00.000Z",
+  "live_migrations_in_order": [
+    "phase5_funding_ledger_posting",
+    "phase5_funding_ledger_credit_integration",
+    "phase5_funding_ledger_posting_draft_fix"
+  ],
+  "live_migration_versions_in_order": [
+    "20261117034922",
+    "20261117034952",
+    "20261117035032"
+  ],
+  "repository_migration_file": "supabase/sql/phase5_funding_ledger_posting.sql",
+  "repository_form": "consolidated_final_architecture",
+  "comparison_method": "Inspected live pg_get_functiondef for post_funding_journal and credit_paypal_funding_order; pg_indexes for journal_entries_wallet_funding_source_uidx; ledger_accounts rows; has_function_privilege grants; pg_trigger definitions. Compared semantics to consolidated repository SQL (not migration-name equality alone).",
+  "post_funding_journal_matches": true,
+  "post_funding_journal_checks": {
+    "service_role_gate": true,
+    "requires_fund_tx_completed": true,
+    "requires_fund_wallet_rpc_authority": true,
+    "requires_completed_paypal_order_and_idempotency": true,
+    "resolves_accounts_server_side": true,
+    "draft_then_two_lines_then_posted": true,
+    "unique_violation_returns_existing": true,
+    "wallet_balance_not_updated": true,
+    "amount_from_canonical_transaction_only": true
+  },
+  "credit_integration_matches": true,
+  "credit_integration_checks": {
+    "posts_journal_after_successful_credit": true,
+    "posts_journal_on_already_completed_paths": true,
+    "journal_failure_sets_ledger_posting_status_failed": true,
+    "journal_failure_does_not_unwind_wallet_credit": true,
+    "journal_failure_keeps_funding_completed": true
+  },
+  "uniqueness_constraint_matches": true,
+  "uniqueness_constraint": {
+    "index": "journal_entries_wallet_funding_source_uidx",
+    "definition": "UNIQUE (source_type, source_id) WHERE source_type = 'wallet_funding' AND source_id IS NOT NULL"
+  },
+  "ledger_accounts_match": true,
+  "ledger_accounts": [
+    {
+      "code": "paypal_processor_clearing",
+      "name": "PayPal processor clearing",
+      "account_type": "asset",
+      "status": "active"
+    },
+    {
+      "code": "user_wallet_liability",
+      "name": "User wallet liability",
+      "account_type": "liability",
+      "status": "active"
+    }
+  ],
+  "privilege_state_matches": true,
+  "privileges": {
+    "post_funding_journal": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    },
+    "credit_paypal_funding_order": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    },
+    "fund_wallet": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    }
+  },
+  "immutability_triggers_match": true,
+  "immutability_triggers": [
+    "trg_journal_entries_posted_immutable BEFORE UPDATE OR DELETE",
+    "trg_journal_lines_posted_immutable BEFORE INSERT OR UPDATE OR DELETE"
+  ],
+  "history_vs_repository_note": "Live history has three Phase 5 migration names reflecting iterative apply order. Repository ships one consolidated SQL file that produces the same final architecture. This is history packaging difference, not schema drift.",
+  "schema_drift_detected": false,
+  "required_follow_up": "none",
+  "result": "PASS"
+}

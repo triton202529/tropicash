@@ -1,0 +1,10 @@
+{
+  "phase": "phase5_funding_ledger_concurrency",
+  "timestamp": "2026-11-17T04:02:49.955Z",
+  "workers": 8,
+  "allOk": true,
+  "distinctJournalIds": 1,
+  "lineCount": 2,
+  "walletUnchanged": true,
+  "result": "PASS"
+}
