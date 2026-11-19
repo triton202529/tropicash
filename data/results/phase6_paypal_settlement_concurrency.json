@@ -1,0 +1,11 @@
+{
+  "phase": "phase6_paypal_settlement_concurrency",
+  "timestamp": "2026-11-19T00:25:00.000Z",
+  "settlementPostingExercised": false,
+  "reason": "No authoritative settlement evidence and no settlement journal authority deployed; concurrent settlement posting not applicable.",
+  "guards": {
+    "noFabricatedSettlementUnderConcurrency": true,
+    "phase5FundingJournalRemainsExactOnce": true
+  },
+  "result": "NOT_APPLICABLE_EVIDENCE_UNAVAILABLE"
+}

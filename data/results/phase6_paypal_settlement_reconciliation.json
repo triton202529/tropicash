@@ -1,0 +1,41 @@
+{
+  "phase": "phase6_paypal_settlement_reconciliation",
+  "timestamp": "2026-11-19T00:25:00.000Z",
+  "certifiedEvent": {
+    "orderIdMasked": "0PD5…2456",
+    "captureIdMasked": "1DP8…794U",
+    "capturedAmount": 5.25,
+    "clearingDebit": 5.25,
+    "amountSettled": 0,
+    "feeAmountPosted": 0,
+    "feeAmountObservedOnCaptureOnly": 0.63,
+    "netAmountObservedOnCaptureOnly": 4.62,
+    "remainingClearing": 5.25,
+    "settlementJournal": null,
+    "settlementDate": null,
+    "status": "unsettled",
+    "unmatchedDifferences": []
+  },
+  "globalClearing": {
+    "openingBalance": 0,
+    "newFundingCaptures": 5.25,
+    "settlements": 0,
+    "feesAdjustmentsPosted": 0,
+    "closingClearingBalance": 5.25,
+    "treasuryCashNetDebit": 0
+  },
+  "statusBreakdown": {
+    "settled": 0,
+    "partially_settled": 0,
+    "unsettled": 1,
+    "unmatched": 0,
+    "disputed_or_adjusted": 0
+  },
+  "proofs": {
+    "didNotTreatCaptureAsSettlement": true,
+    "didNotInventBankCash": true,
+    "didNotInventSettlementJournal": true,
+    "phase5FundingJournalIntact": true
+  },
+  "result": "PASS_WITH_UNSETTLED_CLEARING"
+}

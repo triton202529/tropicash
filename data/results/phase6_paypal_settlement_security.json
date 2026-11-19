@@ -1,0 +1,42 @@
+{
+  "phase": "phase6_paypal_settlement_security",
+  "timestamp": "2026-11-19T00:25:00.000Z",
+  "settlementAuthorityDeployed": false,
+  "settlementTableDeployed": false,
+  "existingMoneyRpcPrivileges": {
+    "post_funding_journal": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    },
+    "credit_paypal_funding_order": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    },
+    "fund_wallet": {
+      "public": false,
+      "anon": false,
+      "authenticated": false,
+      "service_role": true
+    }
+  },
+  "clientCannot": {
+    "createSettlementRecords": true,
+    "markSettlementComplete": true,
+    "chooseSettlementAmounts": true,
+    "chooseFeeAmounts": true,
+    "selectAccounts": true,
+    "postSettlementJournals": true,
+    "editProviderIdentities": true
+  },
+  "note": "No settlement posting RPC was deployed because authoritative settlement evidence is unavailable (reporting 403 NOT_AUTHORIZED). Existing funding money RPCs remain service-role only.",
+  "permissionBlocker": {
+    "requiredSource": "PayPal reporting / Transaction Search",
+    "reportingHttpStatus": 403,
+    "nextProviderAction": "Obtain/enable the required PayPal reporting permissions and re-test the reporting APIs."
+  },
+  "result": "PASS"
+}

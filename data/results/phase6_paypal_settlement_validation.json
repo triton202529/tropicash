@@ -1,0 +1,68 @@
+{
+  "phase": "phase6_paypal_settlement_validation",
+  "timestamp": "2026-11-19T00:25:00.000Z",
+  "git": {
+    "branch": "main",
+    "head": "3375abab4f1d420d3b92bad7c91982aada887710"
+  },
+  "certifiedEvent": {
+    "orderIdMasked": "0PD5…2456",
+    "captureIdMasked": "1DP8…794U",
+    "amount": 5.25,
+    "currency": "USD"
+  },
+  "captureEvidence": {
+    "status": "COMPLETED",
+    "sellerReceivable": {
+      "gross": 5.25,
+      "fee": 0.63,
+      "net": 4.62,
+      "currency": "USD"
+    },
+    "treatedAsSettlement": false
+  },
+  "settlementEvidence": {
+    "reportingTransactionsAuthorized": false,
+    "reportingBalancesAuthorized": false,
+    "reportingHttpStatus": 403,
+    "reportingErrorName": "NOT_AUTHORIZED",
+    "authoritativeSettlementEvidenceAvailable": false,
+    "settlementJournalPosted": false,
+    "fabricatedSettlement": false,
+    "migrationApplied": false,
+    "permissionBlocker": {
+      "requiredSource": "PayPal reporting / Transaction Search",
+      "currentAppHasReportingAuthorization": false,
+      "nextProviderAction": "Obtain/enable the required PayPal reporting permissions and re-test the reporting APIs.",
+      "reportingMayRequireEnablementBeyondOrdersApi": true
+    }
+  },
+  "balances": {
+    "clearingNetDebit": 5.25,
+    "treasuryCashNetDebit": 0,
+    "settlementAmountPosted": 0,
+    "feeExpensePosted": 0,
+    "observedCaptureFee": 0.63,
+    "observedCaptureNet": 4.62
+  },
+  "accountingActions": {
+    "postedSettlementJournal": false,
+    "postedFeeJournal": false,
+    "movedClearingToTreasuryCash": false,
+    "mutatedWalletBalance": false,
+    "createdNewPayPalCapture": false,
+    "backfilledHistoricalFunding": false
+  },
+  "failureWindows": {
+    "providerEvidenceUnavailable": {
+      "observed": true,
+      "behavior": "fail_closed_no_fabrication",
+      "clearingRemainsOutstanding": true
+    },
+    "settlementRecordWithoutJournal": "not_applicable_no_settlement_table",
+    "duplicateSettlementIdentity": "not_applicable_no_settlement_table",
+    "amountExceedsClearing": "not_exercised_no_posting_authority"
+  },
+  "result": "SETTLEMENT_EVIDENCE_UNAVAILABLE",
+  "classification": "TROPICASH_PHASE6_SETTLEMENT_EVIDENCE_UNAVAILABLE"
+}

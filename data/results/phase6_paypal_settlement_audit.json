@@ -1,0 +1,139 @@
+{
+  "phase": "phase6_paypal_settlement_audit",
+  "timestamp": "2026-11-19T00:23:17.093Z",
+  "git": {
+    "branch": "main",
+    "head": "3375abab4f1d420d3b92bad7c91982aada887710"
+  },
+  "paypal": {
+    "mode": "sandbox",
+    "apiBaseHost": "api-m.sandbox.paypal.com",
+    "isSandboxHost": true,
+    "refuseLive": true
+  },
+  "certifiedEvent": {
+    "orderIdMasked": "0PD5…2456",
+    "captureIdMasked": "1DP8…794U",
+    "transactionIdMasked": "158b…ed3a",
+    "amount": 5.25,
+    "currency": "USD",
+    "fundingOrderStatus": "completed",
+    "ledgerPostingStatus": "posted"
+  },
+  "integrationCapabilities": {
+    "createOrder": true,
+    "getOrder": true,
+    "captureOrder": true,
+    "getCapture": "probed_ad_hoc",
+    "reportingTransactions": "probed_ad_hoc",
+    "reportingBalances": "probed_ad_hoc",
+    "settlementReportIngestion": false,
+    "settlementTable": false,
+    "settlementJournalRpc": false
+  },
+  "probes": {
+    "getOrder": {
+      "ok": true,
+      "httpStatus": 200,
+      "status": "COMPLETED",
+      "captureStatus": "COMPLETED",
+      "captureIdMasked": "1DP8…794U",
+      "amountValue": "5.25",
+      "currency": "USD",
+      "hasSellerReceivableBreakdown": true,
+      "sellerReceivable": {
+        "gross": "5.25",
+        "fee": "0.63",
+        "net": "4.62",
+        "currency": "USD"
+      },
+      "interpretsAsSettlementToBankOrTreasury": false,
+      "note": "Order/capture COMPLETED is Phase 4/5 capture evidence only; not bank settlement."
+    },
+    "getCapture": {
+      "ok": true,
+      "httpStatus": 200,
+      "captureStatus": "COMPLETED",
+      "amountValue": "5.25",
+      "currency": "USD",
+      "hasSellerReceivableBreakdown": true,
+      "sellerReceivable": {
+        "gross": "5.25",
+        "fee": "0.63",
+        "net": "4.62",
+        "currency": "USD"
+      },
+      "disbursementMode": null,
+      "interpretsAsSettlementToBankOrTreasury": false,
+      "note": "seller_receivable_breakdown is capture fee/net receivable metadata, not proof of bank/treasury settlement."
+    },
+    "reportingTransactionsByCapture": {
+      "ok": false,
+      "httpStatus": 403,
+      "errorName": "NOT_AUTHORIZED",
+      "errorMessage": "Authorization failed due to insufficient permissions.",
+      "transactionCount": 0,
+      "sampleEventCodes": [],
+      "authoritativeSettlementEvidence": false
+    },
+    "reportingTransactionsByOrder": {
+      "ok": false,
+      "httpStatus": 403,
+      "errorName": "NOT_AUTHORIZED",
+      "errorMessage": "Authorization failed due to insufficient permissions.",
+      "transactionCount": 0,
+      "authoritativeSettlementEvidence": false
+    },
+    "reportingBalances": {
+      "ok": false,
+      "httpStatus": 403,
+      "errorName": "NOT_AUTHORIZED",
+      "errorMessage": "Authorization failed due to insufficient permissions.",
+      "hasBalances": false,
+      "note": "Account balance snapshot alone does not prove capture-level settlement linkage."
+    }
+  },
+  "evidenceClassification": {
+    "captureCompletedEvidenceAvailable": true,
+    "captureFeeBreakdownAvailable": true,
+    "captureFeeIsSettlementEvidence": false,
+    "reportingOrSettlementEvidenceAvailable": false,
+    "authoritativeSettlementEvidenceAvailable": false,
+    "migrationApplied": false,
+    "settlementJournalExists": false,
+    "fabricatedSettlementEvidence": false,
+    "permissionBlocker": {
+      "requiredSource": "PayPal reporting / Transaction Search",
+      "reportingHttpStatus": 403,
+      "reportingErrorName": "NOT_AUTHORIZED",
+      "currentAppHasReportingAuthorization": false,
+      "reportingMayRequireEnablementBeyondOrdersApi": true,
+      "nextProviderAction": "Obtain/enable the required PayPal reporting permissions and re-test the reporting APIs."
+    },
+    "reasonIfUnavailable": "No authoritative PayPal reporting/settlement transaction evidence linked to the certified capture. Capture COMPLETED and optional seller_receivable_breakdown prove capture/fee metadata only, not clearing→treasury_cash settlement."
+  },
+  "ledgerSnapshot": {
+    "paypal_processor_clearing_net_debit": 5.25,
+    "treasury_cash_net_debit": 0,
+    "certifiedAmountStillInClearing": 5.25
+  },
+  "chartOfAccounts": {
+    "clearing": "paypal_processor_clearing",
+    "proposedSettlementCash": "treasury_cash",
+    "feeExpenseExists": false,
+    "feeRevenueExists": true,
+    "feeRevenueCode": "fees_revenue",
+    "note": "No payment_processing_fees expense account exists yet. Do not invent fees without provider evidence."
+  },
+  "historicalClearingAudit": {
+    "totalFundLike": 41,
+    "withCompletedPaypalOrder": 3,
+    "withCaptureId": 3,
+    "withCompletedIdempotency": 4,
+    "withPhase5FundingJournal": 1,
+    "phase3OwnershipComplete": 3,
+    "withoutPaypalOrder": 38,
+    "backfillPerformed": false,
+    "recommendation": "Do not bulk backfill. Future settlement posting only for rows with independently proven reporting/settlement evidence plus Phase 3 ownership."
+  }
+}
