@@ -1,0 +1,85 @@
+{
+  "phase": "phase7_paypal_reporting_token_audit",
+  "timestamp": "2026-11-23T23:36:30.319Z",
+  "git": {
+    "branch": "main",
+    "head": "42e94c150bd6389c260f66eb95601f7e4510d3e2"
+  },
+  "environment": {
+    "mode": "sandbox",
+    "apiBaseHost": "api-m.sandbox.paypal.com",
+    "oauthTokenEndpoint": "api-m.sandbox.paypal.com/v1/oauth2/token",
+    "isSandboxHost": true,
+    "refuseLive": true
+  },
+  "application": {
+    "clientIdMasked": "AYc5…cfmF",
+    "clientSecretPresent": true,
+    "clientSecretLogged": false,
+    "publicClientIdPresent": true,
+    "publicClientIdMatchesServer": true
+  },
+  "token": {
+    "tokenType": "Bearer",
+    "expiresIn": 31870,
+    "appIdClaimMasked": null,
+    "issuer": null,
+    "payerIdMasked": null,
+    "hasAccessToken": true,
+    "accessTokenLogged": false
+  },
+  "scopes": {
+    "actualScopes": [
+      "Braintree:Vault",
+      "https://api.paypal.com/v1/payments/.*",
+      "https://api.paypal.com/v1/vault/credit-card",
+      "https://api.paypal.com/v1/vault/credit-card/.*",
+      "https://uri.paypal.com/payments/payouts",
+      "https://uri.paypal.com/services/applications/webhooks",
+      "https://uri.paypal.com/services/credit/client-offer-presentment/read",
+      "https://uri.paypal.com/services/disputes/read-buyer",
+      "https://uri.paypal.com/services/disputes/read-seller",
+      "https://uri.paypal.com/services/disputes/update-seller",
+      "https://uri.paypal.com/services/invoicing",
+      "https://uri.paypal.com/services/payments/client-payments-eligibility",
+      "https://uri.paypal.com/services/payments/futurepayments",
+      "https://uri.paypal.com/services/payments/orders/client_sdk_orders_api",
+      "https://uri.paypal.com/services/payments/payment/authcapture",
+      "https://uri.paypal.com/services/payments/realtimepayment",
+      "https://uri.paypal.com/services/payments/refund",
+      "https://uri.paypal.com/services/subscriptions",
+      "https://uri.paypal.com/services/vault/payment-tokens/read",
+      "https://uri.paypal.com/services/vault/payment-tokens/readwrite",
+      "openid"
+    ],
+    "requiredScopes": {
+      "transactions": "https://uri.paypal.com/services/reporting/search/read",
+      "balances": "https://uri.paypal.com/services/reporting/balances/read"
+    },
+    "requiredScopeStatus": {
+      "https://uri.paypal.com/services/reporting/search/read": "ABSENT",
+      "https://uri.paypal.com/services/reporting/balances/read": "ABSENT"
+    },
+    "reportingScopesPresent": false,
+    "reportingScopesAbsent": true,
+    "ordersRelatedScopesPresent": [
+      "Braintree:Vault",
+      "https://api.paypal.com/v1/payments/.*",
+      "https://api.paypal.com/v1/vault/credit-card",
+      "https://api.paypal.com/v1/vault/credit-card/.*",
+      "https://uri.paypal.com/payments/payouts",
+      "https://uri.paypal.com/services/payments/client-payments-eligibility",
+      "https://uri.paypal.com/services/payments/futurepayments",
+      "https://uri.paypal.com/services/payments/orders/client_sdk_orders_api",
+      "https://uri.paypal.com/services/payments/payment/authcapture",
+      "https://uri.paypal.com/services/payments/realtimepayment",
+      "https://uri.paypal.com/services/payments/refund",
+      "https://uri.paypal.com/services/vault/payment-tokens/read",
+      "https://uri.paypal.com/services/vault/payment-tokens/readwrite",
+      "openid"
+    ]
+  },
+  "classificationHint": "TOKEN_SCOPE_MISSING",
+  "classification": "TROPICASH_PHASE7_PAYPAL_SUPPORT_REQUIRED",
+  "CARD_PAYOUT_STATUS": "REQUIRES_ACQUIRER_SPONSOR"
+}

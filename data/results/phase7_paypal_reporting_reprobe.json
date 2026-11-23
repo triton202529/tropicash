@@ -1,0 +1,86 @@
+{
+  "phase": "phase7_paypal_reporting_reprobe_after_transaction_search_enable",
+  "timestamp": "2026-11-23T23:36:35.314Z",
+  "gitHead": "42e94c150bd6389c260f66eb95601f7e4510d3e2",
+  "environment": {
+    "mode": "sandbox",
+    "apiBaseHost": "api-m.sandbox.paypal.com",
+    "isSandboxHost": true
+  },
+  "tokenRefresh": {
+    "firstTokenHadSearchScope": false,
+    "firstTokenHadBalancesScope": false,
+    "terminatedCachedToken": true,
+    "terminateHttpStatus": 200,
+    "tokenCachingAppearsInvolved": false,
+    "cachedTokenTerminated": true,
+    "freshTokenStillLacksReportingScopes": true,
+    "freshTokenHasSearchScope": false,
+    "freshTokenHasBalancesScope": false
+  },
+  "reportingScopes": {
+    "searchRead": "ABSENT",
+    "balancesRead": "ABSENT",
+    "actualReportingScopes": [],
+    "actualGrantedScopeNames": [
+      "Braintree:Vault",
+      "https://api.paypal.com/v1/payments/.*",
+      "https://api.paypal.com/v1/vault/credit-card",
+      "https://api.paypal.com/v1/vault/credit-card/.*",
+      "https://uri.paypal.com/payments/payouts",
+      "https://uri.paypal.com/services/applications/webhooks",
+      "https://uri.paypal.com/services/credit/client-offer-presentment/read",
+      "https://uri.paypal.com/services/disputes/read-buyer",
+      "https://uri.paypal.com/services/disputes/read-seller",
+      "https://uri.paypal.com/services/disputes/update-seller",
+      "https://uri.paypal.com/services/invoicing",
+      "https://uri.paypal.com/services/payments/client-payments-eligibility",
+      "https://uri.paypal.com/services/payments/futurepayments",
+      "https://uri.paypal.com/services/payments/orders/client_sdk_orders_api",
+      "https://uri.paypal.com/services/payments/payment/authcapture",
+      "https://uri.paypal.com/services/payments/realtimepayment",
+      "https://uri.paypal.com/services/payments/refund",
+      "https://uri.paypal.com/services/subscriptions",
+      "https://uri.paypal.com/services/vault/payment-tokens/read",
+      "https://uri.paypal.com/services/vault/payment-tokens/readwrite",
+      "openid"
+    ]
+  },
+  "probes": {
+    "reportingTransactions": {
+      "httpStatus": 403,
+      "ok": false,
+      "paypalErrorName": "NOT_AUTHORIZED",
+      "paypalErrorMessage": "Authorization failed due to insufficient permissions.",
+      "debugIdMasked": "f901…3060",
+      "transactionDetailCount": 0
+    },
+    "reportingTransactionsTargeted": null,
+    "reportingBalances": {
+      "httpStatus": 403,
+      "ok": false,
+      "paypalErrorName": "NOT_AUTHORIZED",
+      "paypalErrorMessage": "Authorization failed due to insufficient permissions.",
+      "debugIdMasked": "f901…cee6",
+      "balanceResult": null
+    }
+  },
+  "certifiedEvent": {
+    "orderIdMasked": "0PD5…2456",
+    "captureIdMasked": "1DP8…794U",
+    "expectedAmount": 5.25,
+    "visibleInReporting": false,
+    "matchedTransaction": null
+  },
+  "furtherPayPalAccountEntitlementRequired": true,
+  "tokenCachingRuledOut": true,
+  "transactionSearchEnabledOnApp": true,
+  "classification": "TROPICASH_PHASE7_PAYPAL_SUPPORT_REQUIRED",
+  "CARD_PAYOUT_STATUS": "REQUIRES_ACQUIRER_SPONSOR",
+  "accountingUnchanged": {
+    "paypal_processor_clearing_net_debit": 5.25,
+    "treasury_cash_net_debit": 0,
+    "feePosted": 0,
+    "settlementJournalCount": 0
+  }
+}

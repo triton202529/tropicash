@@ -1,0 +1,93 @@
+{
+  "phase": "phase7_paypal_reporting_qualification",
+  "timestamp": "2026-11-23T23:40:00.000Z",
+  "git": {
+    "branch": "main",
+    "head": "42e94c150bd6389c260f66eb95601f7e4510d3e2"
+  },
+  "operatorActionsCompleted": {
+    "transactionSearchEnabledAndSaved": true,
+    "correctSandboxRestApp": true,
+    "cachedTokenTerminated": true,
+    "freshTokenInspected": true
+  },
+  "reprobeAfterEnablement": {
+    "evidence": "data/results/phase7_paypal_reporting_reprobe.json",
+    "script": "scripts/phase7-paypal-reporting-reprobe.mjs",
+    "cachedTokenTerminated": true,
+    "terminateHttpStatus": 200,
+    "tokenCachingRuledOut": true,
+    "freshTokenStillLacksReportingScopes": true
+  },
+  "blockerTaxonomy": {
+    "TOKEN_SCOPE_MISSING": true,
+    "APP_PRODUCT_NOT_ENABLED": false,
+    "TOKEN_CACHING": false,
+    "ACCOUNT_NOT_ENTITLED": true,
+    "SANDBOX_REPORTING_UNAVAILABLE": false,
+    "MERCHANT_ROLE_RESTRICTED": "UNKNOWN",
+    "UNKNOWN_REQUIRES_PAYPAL_SUPPORT": true
+  },
+  "actualOAuthReportingScopes": [],
+  "requiredReportingScopes": [
+    "https://uri.paypal.com/services/reporting/search/read",
+    "https://uri.paypal.com/services/reporting/balances/read"
+  ],
+  "missingScopeResult": {
+    "https://uri.paypal.com/services/reporting/search/read": "ABSENT",
+    "https://uri.paypal.com/services/reporting/balances/read": "ABSENT"
+  },
+  "transactionSearchResult": {
+    "httpStatus": 403,
+    "paypalErrorName": "NOT_AUTHORIZED",
+    "usableEvidence": false
+  },
+  "balanceApiResult": {
+    "httpStatus": 403,
+    "paypalErrorName": "NOT_AUTHORIZED",
+    "usableEvidence": false
+  },
+  "certifiedFundingEventVisible": false,
+  "grossAmount": null,
+  "feeAmount": null,
+  "netAmount": null,
+  "paypalBalanceResult": null,
+  "merchantReportingCapabilityResult": "PROVIDER_ENTITLEMENT_UNRESOLVED",
+  "accountRoleResult": "UNKNOWN_NO_AUTO_ROLE_CHANGE",
+  "sandboxLimitationResult": "NOT_SELECTED_AS_PRIMARY_CAUSE",
+  "manualOfficialReportAvailability": "POTENTIAL_BUT_NOT_VALIDATED",
+  "mustNotFabricateSettlementEvidence": true,
+  "approvedSettlementEvidenceSources": [
+    "PayPal reporting API / Transaction Search",
+    "PayPal official Balance/Reconciliation report",
+    "PayPal official account statement or Activity Download",
+    "Provider-supported SFTP settlement report"
+  ],
+  "rejectedAsSettlementProof": [
+    "Orders capture response alone",
+    "capture seller_receivable_breakdown alone",
+    "browser UI balance without durable evidence",
+    "manually typed amounts",
+    "internal Tropicash assumptions",
+    "fabricated settlement journals"
+  ],
+  "exactProviderEnablementSteps": [
+    "COMPLETED: Enable Transaction search on Sandbox REST app AYc5…cfmF and Save",
+    "COMPLETED: Terminate cached OAuth token",
+    "COMPLETED: Request fresh client-credentials token and inspect scopes",
+    "COMPLETED: Re-test /v1/reporting/transactions and /v1/reporting/balances → 403",
+    "NEXT: Escalate via PAYPAL_REPORTING_ACCESS_SUPPORT_REQUEST.md for Sandbox reporting entitlement",
+    "LATER: Obtain Live eligibility requirements separately before Live use"
+  ],
+  "paypalSupportOrAccountManagerRequired": true,
+  "furtherPayPalAccountEntitlementRequired": true,
+  "accountingMutation": {
+    "clearingNetDebit": 5.25,
+    "treasuryCashNetDebit": 0,
+    "feePosted": 0,
+    "settlementJournalCount": 0,
+    "settlementPosted": false
+  },
+  "classification": "TROPICASH_PHASE7_PAYPAL_SUPPORT_REQUIRED",
+  "CARD_PAYOUT_STATUS": "REQUIRES_ACQUIRER_SPONSOR"
+}

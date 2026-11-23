@@ -1,0 +1,49 @@
+{
+  "phase": "phase7_paypal_reporting_access_probe",
+  "timestamp": "2026-11-23T23:36:30.320Z",
+  "git": {
+    "branch": "main",
+    "head": "42e94c150bd6389c260f66eb95601f7e4510d3e2"
+  },
+  "environment": {
+    "mode": "sandbox",
+    "apiBaseHost": "api-m.sandbox.paypal.com",
+    "oauthTokenEndpoint": "api-m.sandbox.paypal.com/v1/oauth2/token",
+    "isSandboxHost": true,
+    "refuseLive": true
+  },
+  "tokenScopesPresent": [],
+  "tokenScopesMissing": [
+    "https://uri.paypal.com/services/reporting/search/read",
+    "https://uri.paypal.com/services/reporting/balances/read"
+  ],
+  "probes": {
+    "reportingTransactions": {
+      "endpoint": "/v1/reporting/transactions",
+      "httpStatus": 403,
+      "ok": false,
+      "paypalErrorName": "NOT_AUTHORIZED",
+      "paypalErrorMessage": "Authorization failed due to insufficient permissions.",
+      "debugIdMasked": "f925…d65a",
+      "usableSettlementEvidenceReturned": false
+    },
+    "reportingBalances": {
+      "endpoint": "/v1/reporting/balances",
+      "httpStatus": 403,
+      "ok": false,
+      "paypalErrorName": "NOT_AUTHORIZED",
+      "paypalErrorMessage": "Authorization failed due to insufficient permissions.",
+      "debugIdMasked": "f637…26ec",
+      "usableSettlementEvidenceReturned": false
+    }
+  },
+  "stopForReviewIf200": false,
+  "classification": "TROPICASH_PHASE7_PAYPAL_SUPPORT_REQUIRED",
+  "CARD_PAYOUT_STATUS": "REQUIRES_ACQUIRER_SPONSOR",
+  "ledgerSnapshot": {
+    "paypal_processor_clearing_net_debit": 5.25,
+    "treasury_cash_net_debit": 0,
+    "settlementJournalCount": 0,
+    "feePosted": 0
+  }
+}
